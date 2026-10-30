@@ -1,0 +1,43 @@
+/upc AddGroup <User> <Group>	GrantGroupsRequirement
+/upc AddGroupPermission <Group> <Permission> <Server>	GrantGroupsRequirement,SuperadminRequirement
+/upc AddGroupPermission <Group> <Permission> <Server> <World>	GrantGroupsRequirement,SuperadminRequirement
+/upc AddPlayerPermission <User> <Permission> <Server>	GrantGroupsRequirement,SuperadminRequirement
+/upc AddPlayerPermission <User> <Permission> <Server> <World>	GrantGroupsRequirement,SuperadminRequirement
+/upc AddSuperAdmin <User>	GrantGroupsRequirement,SuperadminRequirement
+/upc copyGroup <Group> <Name of Copy>	GrantGroupsRequirement,SuperadminRequirement
+/upc createGroup <groupName> <Server>	GrantGroupsRequirement,SuperadminRequirement
+/upc DeleteGroup <Group>	GrantGroupsRequirement,SuperadminRequirement
+/upc deleteUser <User>	GrantGroupsRequirement,SuperadminRequirement
+/upc listGroupPermissions <Group>	GrantGroupsRequirement
+/upc listPlayerPermissions <User>	GrantGroupsRequirement
+/upc PurgeSuperAdmins	GrantGroupsRequirement,SuperadminRequirement
+/upc PurgeGroup <Group>	GrantGroupsRequirement,SuperadminRequirement
+/upc PurgeGroupPermission <Permission>	GrantGroupsRequirement,SuperadminRequirement
+/upc PurgeAllPlayerPermission <User>	GrantGroupsRequirement,SuperadminRequirement
+/upc PurgePlayerPermission <Permission>	GrantGroupsRequirement,SuperadminRequirement
+/upc PurgePlayerGroups <User>	GrantGroupsRequirement,SuperadminRequirement
+/upc RegisterUser <UUID> <PlayerName> <AssignDefaultGroup>	GrantGroupsRequirement,SuperadminRequirement
+/upc RemoveGroup <User> <Group>	GrantGroupsRequirement,SuperadminRequirement
+/upc RemoveGroupPermission <Group> <Permission>	GrantGroupsRequirement,SuperadminRequirement
+/upc RemovePlayerPermission <User> <Permission>	GrantGroupsRequirement,SuperadminRequirement
+/upc RemoveSuperAdmin <User>	GrantGroupsRequirement,SuperadminRequirement
+/upc RestrictGroupToWorld <Group> <World>	GrantGroupsRequirement,SuperadminRequirement
+/upc SetGroups <User>	GrantGroupsRequirement,SuperadminRequirement
+/upc SetGroupPriority <Group> Priority	GrantGroupsRequirement,SuperadminRequirement
+/upc SetGroupPrefix <Group> none	GrantGroupsRequirement,SuperadminRequirement
+/upc SetGroupPrefix <Group> <Prefix>	GrantGroupsRequirement,SuperadminRequirement
+/upc SetGroupSuffix <Group> none	GrantGroupsRequirement,SuperadminRequirement
+/upc SetGroupSuffix <Group> <Suffix>	GrantGroupsRequirement,SuperadminRequirement
+/upc SetPlayerPrefix clearAll	GrantGroupsRequirement,SuperadminRequirement
+/upc SetPlayerPrefix <User> none	GrantGroupsRequirement,SuperadminRequirement
+/upc SetPlayerPrefix <User> <Prefix>	GrantGroupsRequirement,SuperadminRequirement
+/upc SetPlayerSuffix clearAll	GrantGroupsRequirement,SuperadminRequirement
+/upc SetPlayerSuffix <User> none	GrantGroupsRequirement,SuperadminRequirement
+/upc SetPlayerSuffix <User> <Suffix>	GrantGroupsRequirement,SuperadminRequirement
+/upc TransferAccount <Groups / Permissions / All> <Overwrite / Append> <User> <User>	GrantGroupsRequirement,SuperadminRequirement
+/upc Transfer <File / MySQL> <File / MySQL>	GrantGroupsRequirement,SuperadminRequirement,MySQLEnabledRequirement
+/upc AddGroupPermission <Group> <Permission>	GrantGroupsRequirement,SuperadminRequirement
+/upc AddGroupPermission <Group> <Permission> <World>	GrantGroupsRequirement,SuperadminRequirement
+/upc AddPlayerPermission <User> <Permission>	GrantGroupsRequirement,SuperadminRequirement
+/upc AddPlayerPermission <User> <Permission> <World>	GrantGroupsRequirement,SuperadminRequirement
+/upc createGroup <groupName>	GrantGroupsRequirement,SuperadminRequirement

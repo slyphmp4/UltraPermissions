@@ -1,0 +1,15 @@
+.gradle/
+build/
+dist/
+.idea/
+*.iml
+out/
+*.log
+.env
+.env.*
+!.env.example
+**/mysql.properties
+**/security.properties
+!config-examples/security.properties
+__pycache__/
+*.pyc

@@ -1,0 +1,64 @@
+plugins { id 'java'; id 'idea' }
+
+group = 'me.TechsCode'
+version = '5.6.8-security.1'
+
+repositories { maven { url = uri('libs/repository') } }
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+    withSourcesJar()
+}
+dependencies {
+    compileOnly 'me.techscode.ultrapermissions:runtime-libraries:5.6.8:compile-api'
+    runtimeOnly 'me.techscode.ultrapermissions:runtime-libraries:5.6.8'
+    compileOnly fileTree(dir: 'libs/compile-only', include: '*.jar')
+}
+sourceSets {
+    verification { java.srcDir 'src/verification/java' }
+    securityTest {
+        java.srcDir 'src/securityTest/java'
+        compileClasspath += sourceSets.main.output + configurations.compileClasspath
+        runtimeClasspath += sourceSets.main.output + configurations.compileClasspath + configurations.runtimeClasspath
+    }
+}
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+    options.compilerArgs += ['-proc:none']
+}
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+tasks.named('jar', Jar) {
+    archiveBaseName = 'UltraPermissions'
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    from({ configurations.runtimeClasspath.collect { zipTree(it) } }) { exclude 'META-INF/MANIFEST.MF' }
+}
+tasks.named('processResources', ProcessResources) { exclude 'META-INF/MANIFEST.MF' }
+idea { module { excludeDirs += files('build', 'dist', '.gradle') } }
+tasks.named('wrapper', Wrapper) {
+    gradleVersion = '8.14.5'
+    distributionType = Wrapper.DistributionType.BIN
+    distributionSha256Sum = '6f74b601422d6d6fc4e1f9a1ab6522f642c2fdcbc15ae33ebd30ba3d7198e854'
+}
+tasks.register('verifyComponents', JavaExec) {
+    group = 'verification'
+    description = 'Verify dependencies, packaged components, metadata, Java target and API contracts.'
+    dependsOn tasks.named('jar'), tasks.named('verificationClasses')
+    classpath = sourceSets.verification.runtimeClasspath
+    mainClass = 'me.techscode.build.ComponentChecks'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    args projectDir.absolutePath, tasks.named('jar').get().archiveFile.get().asFile.absolutePath, project.version.toString()
+}
+tasks.register('verifySecurityFixes', JavaExec) {
+    group = 'verification'
+    description = 'Offline negative security tests using Bukkit/JDBC fixtures.'
+    dependsOn tasks.named('securityTestClasses')
+    classpath = sourceSets.securityTest.runtimeClasspath
+    mainClass = 'me.techscode.security.SecurityChecks'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    jvmArgs '-Djava.security.manager=allow'
+    args layout.buildDirectory.dir('reports/security').get().asFile.absolutePath
+}
+tasks.named('check') { dependsOn tasks.named('verifyComponents'), tasks.named('verifySecurityFixes') }

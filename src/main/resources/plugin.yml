@@ -1,0 +1,11 @@
+name: UltraPermissions
+version: 5.6.8-security.1
+author: Tech
+website: UltraPermissions.com
+build: 0
+main: me.TechsCode.UltraPermissions.base.loader.SpigotLoader
+api-version: 1.13
+softdepend: [Vault, PlaceholderAPI, MVdWPlaceholderAPI]
+loadbefore: []
+load: STARTUP
+libraries: []

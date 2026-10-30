@@ -1,0 +1,469 @@
+package me.techscode.security;
+
+import java.io.*;
+import java.lang.reflect.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.security.Permission;
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.atomic.*;
+import java.util.function.BiFunction;
+import java.util.logging.Logger;
+import me.TechsCode.UltraPermissions.UltraPermissions;
+import me.TechsCode.UltraPermissions.base.TechPlugin;
+import me.TechsCode.UltraPermissions.base.dialog.Dialog;
+import me.TechsCode.UltraPermissions.base.gui.*;
+import me.TechsCode.UltraPermissions.base.messaging.*;
+import me.TechsCode.UltraPermissions.base.mysql.*;
+import me.TechsCode.UltraPermissions.base.mysql.credentialsTransfer.*;
+import me.TechsCode.UltraPermissions.base.scheduler.*;
+import me.TechsCode.UltraPermissions.base.security.*;
+import me.TechsCode.UltraPermissions.base.storage.*;
+import me.TechsCode.UltraPermissions.base.storage.implementations.MySQL;
+import me.TechsCode.UltraPermissions.base.update.*;
+import me.TechsCode.UltraPermissions.base.update.networkUpdate.*;
+import me.TechsCode.UltraPermissions.dependencies.gson.*;
+import me.TechsCode.UltraPermissions.storage.collection.UserList;
+import me.TechsCode.UltraPermissions.storage.objects.User;
+import me.TechsCode.UltraPermissions.migration.InsaneEditorDownload;
+import org.bukkit.*;
+import org.bukkit.entity.*;
+import org.bukkit.event.inventory.*;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.inventory.*;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.util.io.BukkitObjectOutputStream;
+import sun.misc.Unsafe;
+
+/** Runs known application methods against test doubles; no server, sockets or executable downloads. */
+public final class SecurityChecks {
+    private static final Unsafe UNSAFE;
+    private static int assertions;
+    private static final List<String> groups = new ArrayList<>();
+    private static final Object DEFAULT = new Object();
+    static {
+        try { Field field = Unsafe.class.getDeclaredField("theUnsafe"); field.setAccessible(true); UNSAFE = (Unsafe)field.get(null); }
+        catch (ReflectiveOperationException failure) { throw new ExceptionInInitializerError(failure); }
+    }
+
+    @SuppressWarnings("removal")
+    public static void main(String[] args) throws Exception {
+        System.setSecurityManager(new SecurityManager() {
+            @Override public void checkPermission(Permission permission) {}
+            @Override public void checkConnect(String host, int port) { throw new SecurityException("Test JVM forbids network access"); }
+            @Override public void checkListen(int port) { throw new SecurityException("Test JVM forbids listeners"); }
+            @Override public void checkExec(String command) { throw new SecurityException("Test JVM forbids OS execution"); }
+        });
+        Path report = Path.of(args[0]); Files.createDirectories(report);
+        setupBukkit();
+        messaging(report.resolve("config-fixture"));
+        sqlAndPool();
+        boundedSync();
+        tlsPolicy();
+        uiRevocation();
+        serializedItems();
+        removedCapabilities();
+        commandReference(report);
+        JsonObject result = new JsonObject();
+        result.addProperty("status", "passed"); result.addProperty("assertions", assertions);
+        result.addProperty("network_access", "blocked by test JVM"); result.addProperty("server_started", false);
+        result.add("groups", new Gson().toJsonTree(groups));
+        Files.writeString(report.resolve("verification.json"), new GsonBuilder().setPrettyPrinting().create().toJson(result));
+        System.out.println("Security checks passed: " + assertions + " assertions in " + groups.size() + " groups.");
+    }
+
+    private static void messaging(Path fixture) throws Exception {
+        AtomicLong clock = new AtomicLong(1000000);
+        byte[] key = new byte[32]; Arrays.fill(key, (byte)42);
+        SecureMessaging backend = new SecureMessaging(key, "realm", "survival", "proxy", clock::get);
+        SecureMessaging proxy = new SecureMessaging(key, "realm", "proxy", "proxy", clock::get);
+        JsonObject data = new JsonObject(); data.addProperty("model", "Users"); data.addProperty("dataKey", "safe-key");
+        Message cache = new Message("cache", data);
+        byte[] wire = backend.encode("SERVER_TO_PROXY", "survival", "proxy", cache.encode());
+        check(cache.encode().equals(proxy.decode(wire, "SERVER_TO_PROXY", "survival", "proxy")), "signed cache accepted");
+        check(proxy.decode(wire, "SERVER_TO_PROXY", "survival", "proxy") == null, "replay rejected");
+        byte[] modified = wire.clone(); modified[modified.length / 2] ^= 1;
+        check(proxy.decode(modified, "SERVER_TO_PROXY", "survival", "proxy") == null, "tamper rejected");
+        check(proxy.decode(wire, "PROXY_TO_SERVER", "survival", "proxy") == null, "reflection/direction rejected");
+        check(proxy.decode(wire, "SERVER_TO_PROXY", "other", "proxy") == null, "sender bound");
+        check(proxy.decode(wire, "SERVER_TO_PROXY", "survival", "other") == null, "recipient bound");
+        check(new SecureMessaging(new byte[32], "realm", "proxy", "proxy", clock::get)
+            .decode(wire, "SERVER_TO_PROXY", "survival", "proxy") == null, "wrong key rejected");
+        check(new SecureMessaging(key, "other-realm", "proxy", "proxy", clock::get)
+            .decode(wire, "SERVER_TO_PROXY", "survival", "proxy") == null, "realm bound");
+        check(proxy.decode("UltraPermissions//old-payload".getBytes(), "SERVER_TO_PROXY", "survival", "proxy") == null, "legacy rejected");
+        clock.addAndGet(60001);
+        check(proxy.decode(wire, "SERVER_TO_PROXY", "survival", "proxy") == null, "expired timestamp rejected");
+        throwsType(IOException.class, () -> backend.encode("SERVER_TO_PROXY", "survival", "proxy", "x".repeat(24001)), "oversized message rejected");
+        for (String forbidden : List.of("restart", "update", "mysql", "unknown")) {
+            check(!MessagePolicy.allowed(new Message(forbidden, new JsonObject()), "PROXY_TO_SERVER"), forbidden + " denied after authentication");
+        }
+        for (String injection : List.of("x' OR '1'='1", "../secret", "", "x".repeat(65), "a\n")) check(!MessagePolicy.storageKey(injection), "invalid cache key");
+        check(MessagePolicy.allowed(cache, "SERVER_TO_PROXY"), "ordinary cache allowed");
+        throwsType(RuntimeException.class, () -> Message.decode(Base64.getEncoder().encodeToString(("{\"key\":\"cache\",\"data\":" + "[".repeat(40) + "]".repeat(40) + "}").getBytes())), "deep JSON rejected");
+        SecureMessaging limited = new SecureMessaging(key, "realm", "proxy", "proxy", clock::get);
+        for (int i=0;i<40;i++) check(limited.decode(backend.encode("SERVER_TO_PROXY", "survival", "proxy", cache.encode()), "SERVER_TO_PROXY", "survival", "proxy") != null, "burst within limit");
+        check(limited.decode(backend.encode("SERVER_TO_PROXY", "survival", "proxy", cache.encode()), "SERVER_TO_PROXY", "survival", "proxy") == null, "sender rate limit");
+        clock.addAndGet(1001);
+        check(limited.decode(backend.encode("SERVER_TO_PROXY", "survival", "proxy", cache.encode()), "SERVER_TO_PROXY", "survival", "proxy") != null, "rate window recovers");
+        // Exercise the actual backend listener, rather than only the cryptographic helper.
+        SpigotMessagingService service = allocate(SpigotMessagingService.class);
+        set(service, "security", backend);
+        AtomicInteger calls = new AtomicInteger();
+        set(service, "listeners", List.of((SpigotMessagingListener)m -> calls.incrementAndGet()));
+        byte[] trusted = proxy.encode("PROXY_TO_SERVER", "proxy", "survival", cache.encode());
+        service.onPluginMessageReceived("BungeeCord", null, trusted);
+        check(calls.get() == 0, "old channel never reaches listeners");
+        service.onPluginMessageReceived(SecureMessaging.CHANNEL, null, trusted);
+        check(calls.get() == 1, "signed new channel reaches listener");
+        service.onPluginMessageReceived(SecureMessaging.CHANNEL, null, proxy.encode("PROXY_TO_SERVER", "proxy", "survival", new Message("restart", new JsonObject()).encode()));
+        check(calls.get() == 1, "privileged key blocked in real listener");
+        check(SecureMessaging.load(fixture.toFile(), false, ignored -> {}) == null, "new installation defaults disabled");
+        check(Files.readString(fixture.resolve("security.properties")).contains("messaging-enabled=false"), "local key generated without enabling transport");
+        groups.add("H-01 authenticated channel / replay / spoof / bounds / policy / backend listener");
+    }
+
+    private static void sqlAndPool() throws Exception {
+        TestPlugin plugin = allocate(TestPlugin.class);
+        TestManager manager = allocate(TestManager.class); plugin.manager = manager;
+        MySQL storage = allocate(MySQL.class); set(storage, "plugin", plugin); set(storage, "tableName", "UltraPermissions_Users");
+        JdbcFixture db = new JdbcFixture(); manager.db = db;
+        String injection = "x' OR '1'='1";
+        AtomicInteger success = new AtomicInteger(), failures = new AtomicInteger();
+        ReadCallback read = new ReadCallback() {
+            public void onSuccess(HashMap<String, JsonObject> rows) { success.incrementAndGet(); }
+            public void onFailure(Exception error) { failures.incrementAndGet(); }
+        };
+        WriteCallback write = new WriteCallback() {
+            public void onSuccess() { success.incrementAndGet(); }
+            public void onFailure(Exception error) { failures.incrementAndGet(); }
+        };
+        storage.read(injection, read);
+        check(db.sql.contains("WHERE `key`=?") && !db.sql.contains(injection), "SELECT parameterized");
+        check(injection.equals(db.parameters.get(1)), "SELECT value bound literally");
+        check(db.connectionsClosed == 1 && db.statementsClosed == 1 && db.resultsClosed == 1, "SELECT resources closed");
+        JsonObject state = new JsonObject(); state.addProperty("name", "O'Neil");
+        storage.create(injection, state, write);
+        check(db.sql.contains("VALUES (?,?)") && !db.sql.contains(injection), "INSERT parameterized");
+        check(injection.equals(db.parameters.get(1)), "INSERT key bound");
+        check(new String(Base64.getDecoder().decode(db.parameters.get(2)), StandardCharsets.UTF_8).equals(state.toString()), "JSON quote preserved");
+        storage.update(injection, state, write);
+        check(db.sql.contains("SET `value`=? WHERE `key`=?") && injection.equals(db.parameters.get(2)), "UPDATE parameterized");
+        storage.destroy(injection, write);
+        check(db.sql.contains("WHERE `key`=?") && injection.equals(db.parameters.get(1)), "DELETE parameterized");
+        storage.read("*", read); check(!db.sql.contains("WHERE") && db.parameters.isEmpty(), "full sync is separate fixed query");
+        check(db.queryTimeout == 5, "bounded statement timeout");
+        manager.fail = true;
+        int before = manager.calls; long start = System.nanoTime();
+        storage.read("safe-key", read); storage.destroy("safe-key", write);
+        check(manager.calls == before+2 && failures.get() == 2, "pool failure invokes callbacks once, without polling");
+        check((System.nanoTime()-start) < 1000000000L, "pool failure returns promptly");
+        check(success.get() == 5, "ordinary operations complete");
+        groups.add("H-03 SQL value binding; M-02 no pool spin/thread creation and resource closure");
+    }
+
+    private static void boundedSync() {
+        SyncBudget budget = new SyncBudget(); ArrayDeque<Runnable> queue = new ArrayDeque<>(); AtomicInteger runs = new AtomicInteger();
+        for (int i=0;i<64;i++) check(budget.submit(queue::add, "key-"+i, runs::incrementAndGet), "bounded slot accepted");
+        check(!budget.submit(queue::add, "overflow", runs::incrementAndGet), "65th concurrent job rejected");
+        check(queue.size() == 64, "scheduler queue bounded");
+        check(budget.submit(queue::add, "key-0", runs::incrementAndGet) && queue.size() == 64, "duplicate notification coalesced");
+        while (!queue.isEmpty()) queue.remove().run();
+        check(runs.get() == 65, "last coalesced refresh retained");
+        check(budget.submit(queue::add, "again", runs::incrementAndGet), "permit released after completion"); queue.remove().run();
+        budget.submit(queue::add, "failure", () -> { throw new IllegalStateException("fixture"); });
+        try { queue.remove().run(); } catch (IllegalStateException expected) {}
+        check(budget.submit(queue::add, "failure", runs::incrementAndGet), "failed job releases its slot"); queue.remove().run();
+        groups.add("M-02 bounded scheduling / coalescing / failure cleanup");
+    }
+
+    private static void tlsPolicy() throws Exception {
+        MySQLCredentials remote = new MySQLCredentials("db.example.test", "3306", "permissions", "fixture", "fixture");
+        throwsType(IllegalArgumentException.class, () -> JdbcPolicy.url(remote, false), "remote plaintext refused");
+        check(JdbcPolicy.url(remote, true).contains("sslMode=VERIFY_IDENTITY"), "identity verification required");
+        MySQLCredentials local = new MySQLCredentials("127.0.0.1", "3306", "permissions", "fixture", "fixture");
+        check(JdbcPolicy.url(local, false).contains("sslMode=DISABLED"), "explicit loopback-only legacy exception");
+        for (String host : List.of("localhost.evil.test", "127.0.0.1.evil.test", "0.0.0.0", "192.168.1.1")) {
+            throwsType(IllegalArgumentException.class, () -> JdbcPolicy.url(new MySQLCredentials(host,"3306","permissions","x","x"),false), "not loopback");
+        }
+        remote.setDatabase("permissions?sslMode=DISABLED");
+        throwsType(IllegalArgumentException.class, () -> JdbcPolicy.url(remote,true), "URL property injection refused"); remote.setDatabase("permissions");
+        Driver driver = proxy(Driver.class, (method, args) -> {
+            if (method.getName().equals("acceptsURL")) return true;
+            if (method.getName().equals("getPropertyInfo")) return new DriverPropertyInfo[0];
+            if (method.getName().equals("connect")) throw new AssertionError("Driver must not connect in preflight");
+            return DEFAULT;
+        });
+        DriverManager.registerDriver(driver);
+        try { throwsType(SQLException.class, () -> JdbcPolicy.requireIdentityVerification(JdbcPolicy.url(remote,true)), "old/ignoring driver refused before connect"); }
+        finally { DriverManager.deregisterDriver(driver); }
+        Driver modern = proxy(Driver.class, (method, args) -> {
+            if (method.getName().equals("acceptsURL")) return true;
+            if (method.getName().equals("getPropertyInfo")) {
+                DriverPropertyInfo ssl = new DriverPropertyInfo("sslMode", "VERIFY_IDENTITY");
+                ssl.choices = new String[]{"DISABLED", "VERIFY_IDENTITY"};
+                return new DriverPropertyInfo[]{ssl};
+            }
+            if (method.getName().equals("connect")) throw new AssertionError("No preflight connection");
+            return DEFAULT;
+        });
+        DriverManager.registerDriver(modern);
+        try { JdbcPolicy.requireIdentityVerification(JdbcPolicy.url(remote, true)); check(true,"identity-capable driver accepted without connecting"); }
+        finally { DriverManager.deregisterDriver(modern); }
+        check(new MySQLRegistry().hasSSL(), "new registry defaults TLS on");
+        groups.add("M-05 TLS fail-closed / identity mode / driver capability / URL injection");
+    }
+
+    private static void uiRevocation() throws Exception {
+        TestPlugin plugin = allocate(TestPlugin.class); plugin.users = new UserList(); plugin.scheduler = new TestScheduler();
+        UUID id = UUID.randomUUID(); User user = new User(id, "Fixture", true, new HashMap<>(), "", "", null); plugin.users.add(user);
+        Inventory top = proxy(Inventory.class, (m,a) -> m.getName().equals("getSize") ? 27 : DEFAULT);
+        Inventory bottom = proxy(Inventory.class, (m,a) -> DEFAULT);
+        AtomicReference<InventoryView> view = new AtomicReference<>(); AtomicInteger closeCalls = new AtomicInteger();
+        Player player = proxy(Player.class, (m,a) -> switch (m.getName()) {
+            case "getUniqueId" -> id; case "isOnline" -> true; case "getOpenInventory" -> view.get();
+            case "closeInventory" -> { closeCalls.incrementAndGet(); yield null; } default -> DEFAULT;
+        });
+        view.set(proxy(InventoryView.class, (m,a) -> switch (m.getName()) {
+            case "getPlayer" -> player; case "getTopInventory" -> top; case "getBottomInventory" -> bottom;
+            case "getInventory" -> (int)a[0] < 27 ? top : bottom; case "convertSlot" -> a[0]; default -> DEFAULT;
+        }));
+        check(ViewAccess.top(view.get()).equals(top), "InventoryView interface accessor");
+        check(ViewAccess.top(new LegacyView(top)).equals(top), "InventoryView class-style accessor");
+        TestGui gui = allocate(TestGui.class); set(gui,"p",player); set(gui,"plugin",plugin); set(gui,"inventory",top);
+        set(gui,"recurringTask",new IdleTask()); AtomicInteger edits = new AtomicInteger();
+        HashMap<Integer,List<Action>> actions = new HashMap<>(); actions.put(0,List.of(ignored -> edits.incrementAndGet())); set(gui,"actions",actions);
+        InventoryClickEvent click = new InventoryClickEvent(view.get(),InventoryType.SlotType.CONTAINER,0,ClickType.LEFT,InventoryAction.PICKUP_ALL);
+        gui.click(click); check(edits.get()==1 && click.isCancelled(),"authorized current GUI action works");
+        Inventory wrong = proxy(Inventory.class,(m,a)->DEFAULT);
+        InventoryView wrongView = proxy(InventoryView.class,(m,a)-> switch(m.getName()) { case "getPlayer" -> player; case "getTopInventory" -> wrong; default -> DEFAULT; });
+        gui.click(new InventoryClickEvent(wrongView,InventoryType.SlotType.CONTAINER,0,ClickType.LEFT,InventoryAction.PICKUP_ALL));
+        check(edits.get()==1,"different inventory cannot reuse action slots");
+        set(user,"superadmin",false); gui.click(click);
+        check(edits.get()==1 && closeCalls.get()==1,"revoked GUI cannot mutate and closes");
+        check(get(gui,"actions")==null,"revoked action map discarded");
+        set(user,"superadmin",true);
+        TestDialog dialog = allocate(TestDialog.class); set(dialog,"p",player); set(dialog,"plugin",plugin);
+        AsyncPlayerChatEvent chat = new AsyncPlayerChatEvent(true,player,"fixture.permission",Set.of()); dialog.onChat(chat);
+        check(chat.isCancelled() && dialog.inputs==0 && plugin.scheduler.jobs.size()==1,"chat mutation deferred to server thread");
+        dialog.onChat(new AsyncPlayerChatEvent(true,player,"second",Set.of()));
+        check(plugin.scheduler.jobs.size()==1,"dialog input queue bounded");
+        set(user,"superadmin",false); plugin.scheduler.jobs.remove().run();
+        check(dialog.inputs==0 && dialog.revoked,"revocation checked again when queued chat executes");
+        check(!UiAccess.allowed(plugin,player),"current role, not cached session role");
+        TestDialog allowedDialog = allocate(TestDialog.class); set(allowedDialog,"p",player); set(allowedDialog,"plugin",plugin);
+        set(user,"superadmin",true); allowedDialog.onChat(new AsyncPlayerChatEvent(true,player,"allowed",Set.of()));
+        plugin.scheduler.jobs.remove().run(); check(allowedDialog.inputs==1,"authorized dialog still processes input");
+        groups.add("M-03 current-role GUI / inventory binding / stale chat / main-thread / bounded input");
+    }
+
+    private static void serializedItems() throws Exception {
+        ItemStack item = new ItemStack(Material.STONE, 3);
+        String encoded = SafeItems.encode(item);
+        check(encoded.startsWith(SafeItems.PREFIX),"new item format is JSON, not Java serialization");
+        ItemStack restored = SafeItems.decode(encoded);
+        check(restored.getType()==Material.STONE && restored.getAmount()==3,"new item round-trip");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (BukkitObjectOutputStream out = new BukkitObjectOutputStream(bytes)) { out.writeObject(item); }
+        restored = SafeItems.decode(Base64.getEncoder().encodeToString(bytes.toByteArray()));
+        check(restored.getType()==Material.STONE && restored.getAmount()==3,"ordinary legacy Bukkit/Guava wrapper migrates");
+        bytes.reset(); try(ObjectOutputStream out=new ObjectOutputStream(bytes)){out.writeObject(new Gadget());}
+        String gadget=Base64.getEncoder().encodeToString(bytes.toByteArray());
+        throwsType(InvalidClassException.class,()->SafeItems.decode(gadget),"unapproved serialized class rejected before readObject");
+        check(Gadget.executed==0,"readObject gadget never executed");
+        bytes.reset(); try(ObjectOutputStream out=new ObjectOutputStream(bytes)){out.writeObject(new Object[8193]);}
+        String array=Base64.getEncoder().encodeToString(bytes.toByteArray());
+        throwsType(InvalidClassException.class,()->SafeItems.decode(array),"large allocation rejected by filter before array creation");
+        org.bukkit.configuration.serialization.ConfigurationSerialization.registerClass(HostileAlias.class,"HostileAlias");
+        bytes.reset(); try(BukkitObjectOutputStream out=new BukkitObjectOutputStream(bytes)){out.writeObject(new HostileAlias());}
+        String legacyAlias=Base64.getEncoder().encodeToString(bytes.toByteArray());
+        throwsType(IOException.class,()->SafeItems.decode(legacyAlias),"legacy wrapper cannot instantiate arbitrary Bukkit alias");
+        check(HostileAlias.executed==0,"Bukkit factory for hostile alias never invoked");
+        String alias=SafeItems.PREFIX+Base64.getEncoder().encodeToString("{\"==\":\"java.lang.Runtime\"}".getBytes());
+        throwsType(IOException.class,()->SafeItems.decode(alias),"arbitrary Bukkit alias rejected");
+        throwsType(IOException.class,()->SafeItems.decode("x".repeat(524289)),"encoded item limit");
+        groups.add("M-04 JSON round-trip / legacy migration / class and alias whitelist / allocation bounds");
+    }
+
+    private static void removedCapabilities() throws Exception {
+        TestPlugin plugin=allocate(TestPlugin.class); plugin.logs=new ArrayList<>();
+        allocate(SpigotUpdateAgent.class).onMessage(new Message("restart",new JsonObject()));
+        allocate(SpigotUpdateAgent.class).onMessage(new Message("update",new JsonObject()));
+        allocate(BungeeUpdateAgent.class).onMessage(null,new Message("update",new JsonObject()));
+        allocate(ProxyMySQLReceiver.class).onMessage(null,new Message("mysql",new JsonObject()));
+        SpigotMySQLSender sender=allocate(SpigotMySQLSender.class);
+        Method method=SpigotMySQLSender.class.getDeclaredMethod("sendMySQLCredentials",boolean.class); method.setAccessible(true); method.invoke(sender,true);
+        check(true,"privileged/credential handlers have no effect, even when invoked directly");
+        UpdateServer updater=new UpdateServer();
+        try { Thread task=updater.downloadJar(plugin,"fixture"); check(task.getState()==Thread.State.NEW && updater.hasJarDownloadFailed(),"updater starts no task or download"); }
+        finally { updater.destroy(); }
+        InsaneEditorDownload installer=allocate(InsaneEditorDownload.class); set(installer,"plugin",plugin);
+        AtomicInteger notices=new AtomicInteger(); set(installer,"player",proxy(Player.class,(m,a)-> { if(m.getName().equals("sendMessage")) { notices.incrementAndGet(); return null; } return DEFAULT; }));
+        method=InsaneEditorDownload.class.getDeclaredMethod("installJar",String.class); method.setAccessible(true); method.invoke(installer,"not-a-url");
+        check(notices.get()==1,"installer gives manual-install instruction without fetching/executing code");
+        groups.add("H-02 no credential transfer; H-01 no remote console; M-01 no executable network installation");
+    }
+
+    private static void setupBukkit() {
+        org.bukkit.UnsafeValues unsafe=proxy(org.bukkit.UnsafeValues.class,(m,a)-> switch(m.getName()) {
+            case "getMaterial" -> Material.valueOf((String)a[0]); case "getDataVersion" -> 0; default -> DEFAULT;
+        });
+        ItemFactory items=proxy(ItemFactory.class,(m,a)-> m.getName().equals("equals") ? Objects.equals(a[0],a[1]) : DEFAULT);
+        Server server=proxy(Server.class,(m,a)-> switch(m.getName()) {
+            case "getName" -> "SecurityFixture"; case "getVersion", "getBukkitVersion" -> "1.21.11-R0.1-SNAPSHOT";
+            case "getLogger" -> Logger.getLogger("SecurityFixture"); case "getUnsafe" -> unsafe; case "getItemFactory" -> items;
+            case "getOnlinePlayers", "getWorlds" -> List.of();
+            case "getRegistry" -> proxy(org.bukkit.Registry.class,(rm,ra)-> rm.getName().equals("iterator") ? Collections.emptyIterator() : DEFAULT);
+            default -> DEFAULT;
+        });
+        Bukkit.setServer(server);
+    }
+
+    private static void commandReference(Path report) throws Exception {
+        var plugin = allocate(TestPlugin.class);
+        plugin.currentServer = new me.TechsCode.UltraPermissions.base.networking.NServer("survival", "127.0.0.1", 25565, new ArrayList<>());
+        var command = allocate(me.TechsCode.UltraPermissions.commands.UPCCommand.class);
+        set(command, "plugin", plugin);
+        var root = me.TechsCode.UltraPermissions.base.command.CommandNode.create("upc");
+        command.define(null, root);
+        for (var branch : root.getChildren()) {
+            String name = branch.getArgument().getUsage().toLowerCase(Locale.ROOT);
+            if (!Set.of("addgroup", "listgrouppermissions", "listplayerpermissions").contains(name)) {
+                check(branch.getRequirements().stream().anyMatch(r -> r instanceof me.TechsCode.UltraPermissions.commands.requirements.SuperadminRequirement), "administrative branch requires current superadmin: " + name);
+            }
+        }
+        plugin.users = new UserList();
+        var unknownPlayer = proxy(Player.class, (m,a) -> m.getName().equals("getUniqueId") ? UUID.randomUUID() : DEFAULT);
+        check(!new me.TechsCode.UltraPermissions.commands.requirements.GrantGroupsRequirement(plugin).isMatching(unknownPlayer, unknownPlayer, List.of("upc")), "unknown player is denied without throwing");
+        var arguments = new me.TechsCode.UltraPermissions.base.command.Arguments();
+        arguments.addAll(List.of("upc", "RegisterUser", UUID.randomUUID().toString(), "ConsoleFixture", "true"));
+        AtomicInteger consoleReplies = new AtomicInteger();
+        org.bukkit.command.CommandSender console = proxy(org.bukkit.command.CommandSender.class, (m,a) -> { if(m.getName().equals("sendMessage")){consoleReplies.incrementAndGet();return null;}return DEFAULT; });
+        root.execute(console, null, arguments, ignored -> {});
+        check(consoleReplies.get() == 1 && plugin.users.size() == 1, "RegisterUser console command replies without a null Player");
+        List<String> usages = new ArrayList<>();
+        collectCommands(root, usages);
+        plugin.currentServer = null;
+        var standalone = me.TechsCode.UltraPermissions.base.command.CommandNode.create("upc");
+        command.define(null, standalone);
+        List<String> standaloneUsages = new ArrayList<>(); collectCommands(standalone, standaloneUsages);
+        for (String usage : standaloneUsages) if (!usages.contains(usage)) usages.add(usage);
+        check(usages.size() > 30, "all command branches described");
+        var string = new me.TechsCode.UltraPermissions.commands.arguments.StringArgument(plugin, "groupName");
+        check(string.getUsage().equals("<groupName>"), "command usage label retained");
+        var bool = new me.TechsCode.UltraPermissions.commands.arguments.BooleanArgument(plugin, me.TechsCode.UltraPermissions.base.command.EmptyReason.INVALID);
+        check(bool.get("true").get(), "boolean true parsed from argument");
+        check(!bool.get("false").get(), "boolean false parsed from argument");
+        Files.write(report.resolve("command-reference.tsv"), usages, StandardCharsets.UTF_8);
+        groups.add("Command tree / argument parsing / documentation inventory");
+    }
+
+    private static void collectCommands(me.TechsCode.UltraPermissions.base.command.CommandNode<?, ?> node, List<String> lines) throws Exception {
+        if (get(node, "action") != null) {
+            String requirements = node.getAllRequirements().stream().map(r -> r.getClass().getSimpleName()).distinct().collect(java.util.stream.Collectors.joining(","));
+            lines.add("/" + node.getUsagePath() + "\t" + requirements);
+        }
+        for (var child : node.getChildren()) collectCommands(child, lines);
+    }
+
+    private static final class Gadget implements Serializable {
+        static int executed;
+        private void readObject(ObjectInputStream in) throws Exception { executed++; in.defaultReadObject(); }
+    }
+    @org.bukkit.configuration.serialization.SerializableAs("HostileAlias")
+    public static final class HostileAlias implements org.bukkit.configuration.serialization.ConfigurationSerializable {
+        static int executed;
+        public Map<String,Object> serialize(){return Map.of("fixture",true);}
+        public static HostileAlias deserialize(Map<String,Object> map){executed++;return new HostileAlias();}
+    }
+    public static class TestPlugin extends UltraPermissions {
+        UserList users; TestScheduler scheduler; TestManager manager; List<String> logs;
+        me.TechsCode.UltraPermissions.base.networking.NServer currentServer;
+        public TestPlugin(){super(null);}
+        @Override public UserList getUsers(){return users;}
+        @Override public Scheduler getScheduler(){return scheduler;}
+        @Override public MySQLManager getMySQLManager(){return manager;}
+        @Override public String getName(){return "UltraPermissions";}
+        @Override public String getPrefix(){return "";}
+        @Override public Optional<me.TechsCode.UltraPermissions.base.networking.NServer> getThisServer(){return Optional.ofNullable(currentServer);}
+        @Override public User registerUser(UUID uuid,String name,boolean assignDefault){User user=new User(uuid,name,false,new HashMap<>(),"","",null);users.add(user);return user;}
+        @Override public void log(String message){if(logs!=null)logs.add(message);}
+    }
+    public static class TestManager extends MySQLManager {
+        JdbcFixture db; boolean fail; int calls;
+        public TestManager(){super(null);}
+        @Override public Connection getConnection() throws SQLException { calls++; if(fail)throw new SQLTransientConnectionException("fixture pool timeout"); return db.connection(); }
+        @Override public Boolean connectionAvailable(){throw new AssertionError("Pool polling is forbidden");}
+    }
+    public static class TestGui extends GUI {
+        public TestGui(){super(null,null);}
+        @Override protected void construct(Model model){}
+    }
+    public static class LegacyView {
+        private final Inventory inventory;
+        public LegacyView(Inventory inventory){this.inventory=inventory;}
+        public Inventory getTopInventory(){return inventory;}
+    }
+    public static class TestDialog extends Dialog {
+        int inputs; boolean revoked;
+        public TestDialog(){super(null,null);}
+        @Override public boolean onInput(String input){inputs++;return true;}
+        @Override public void onClose(Player player){throw new AssertionError("Revocation must not reopen a session");}
+        @Override public void close(boolean suppress){revoked=suppress;try{set(this,"closed",true);}catch(Exception e){throw new AssertionError(e);}}
+        @Override public String getMainTitle(){return "";}
+        @Override public String getSubTitle(){return "";}
+        @Override public String getActionBar(){return "";}
+    }
+    private static final class IdleTask extends RecurringTask {
+        public void start(){} public void stop(){}
+    }
+    private static final class TestScheduler implements Scheduler {
+        ArrayDeque<Runnable> jobs=new ArrayDeque<>();
+        public void run(Runnable task){jobs.add(task);} public void runAsync(Runnable task){jobs.add(task);}
+        public Task runTaskLater(Runnable task,long delay){jobs.add(task);return new Task(){public void cancel(){}};}
+        public Task runTaskLaterAsync(Runnable task,long delay){jobs.add(task);return new Task(){public void cancel(){}};}
+        public RecurringTask runTaskTimer(Runnable task,long delay,long period){return new IdleTask();}
+        public RecurringTask runTaskTimerAsync(Runnable task,long delay,long period){return new IdleTask();}
+    }
+    private static final class JdbcFixture {
+        String sql; Map<Integer,String> parameters=new HashMap<>(); int queryTimeout,connectionsClosed,statementsClosed,resultsClosed;
+        Connection connection(){ return proxy(Connection.class,(m,a)-> switch(m.getName()) {
+            case "prepareStatement" -> {sql=(String)a[0]; parameters.clear(); yield statement();}
+            case "close" -> {connectionsClosed++;yield null;} default -> DEFAULT;
+        }); }
+        PreparedStatement statement(){ return proxy(PreparedStatement.class,(m,a)-> switch(m.getName()) {
+            case "setString" -> {parameters.put((Integer)a[0],(String)a[1]);yield null;}
+            case "setQueryTimeout" -> {queryTimeout=(Integer)a[0];yield null;}
+            case "executeQuery" -> result(); case "executeUpdate" -> 1;
+            case "close" -> {statementsClosed++;yield null;} default -> DEFAULT;
+        }); }
+        ResultSet result(){AtomicBoolean next=new AtomicBoolean(true);return proxy(ResultSet.class,(m,a)-> switch(m.getName()) {
+            case "next" -> next.getAndSet(false); case "getString" -> "fixture-key";
+            case "getBytes" -> Base64.getEncoder().encode("{\"name\":\"fixture\"}".getBytes());
+            case "close" -> {resultsClosed++;yield null;} default -> DEFAULT;
+        });}
+    }
+
+    @SuppressWarnings("unchecked") private static <T>T proxy(Class<T> type,BiFunction<Method,Object[],Object> handler){
+        return (T)Proxy.newProxyInstance(type.getClassLoader(),new Class<?>[]{type},(self,method,args)->{
+            Object[] arguments=args==null?new Object[0]:args;
+            if(method.getName().equals("equals") && arguments.length==1 && method.getDeclaringClass()==Object.class)return self==arguments[0];
+            if(method.getName().equals("hashCode"))return System.identityHashCode(self);
+            if(method.getName().equals("toString"))return "Fixture:"+type.getSimpleName();
+            Object result=handler.apply(method,arguments);if(result!=DEFAULT)return result;
+            Class<?> returns=method.getReturnType(); if(returns==boolean.class)return false;if(returns==int.class)return 0;
+            if(returns==long.class)return 0L;if(returns==double.class)return 0D;if(returns==float.class)return 0F;
+            if(returns==short.class)return (short)0;if(returns==byte.class)return (byte)0;if(returns==char.class)return '\0';return null;
+        });
+    }
+    @SuppressWarnings("unchecked") private static <T>T allocate(Class<T> type)throws InstantiationException{return (T)UNSAFE.allocateInstance(type);}
+    private static Field field(Object object,String name)throws Exception{for(Class<?> type=object.getClass();type!=null;type=type.getSuperclass()){try{Field field=type.getDeclaredField(name);field.setAccessible(true);return field;}catch(NoSuchFieldException ignored){}}throw new NoSuchFieldException(name);}
+    private static void set(Object object,String name,Object value)throws Exception{field(object,name).set(object,value);}
+    private static Object get(Object object,String name)throws Exception{return field(object,name).get(object);}
+    private static void check(boolean condition,String message){assertions++;if(!condition)throw new AssertionError(message);}
+    private interface Throwing{void run()throws Exception;}
+    private static void throwsType(Class<? extends Throwable> expected,Throwing operation,String message)throws Exception{
+        try{operation.run();}catch(Throwable failure){check(expected.isInstance(failure),message+": "+failure);return;}throw new AssertionError(message+": no exception");
+    }
+}

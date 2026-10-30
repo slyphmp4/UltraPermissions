@@ -1,0 +1,120 @@
+[
+  {
+    "file": "libs/compile-only/spigot-api-1.21.11.jar",
+    "url": "https://hub.spigotmc.org/nexus/content/repositories/snapshots/org/spigotmc/spigot-api/1.21.11-R0.1-SNAPSHOT/spigot-api-1.21.11-R0.1-20251231.154832-9.jar",
+    "bytes": 1692840,
+    "sha256": "5d0f35511f69d82e3da6e5a24bc55846490f3f7708b49d835e88ba55ff167d15"
+  },
+  {
+    "file": "libs/compile-only/bungeecord-api-1.21-R0.4.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/md-5/bungeecord-api/1.21-R0.4/bungeecord-api-1.21-R0.4.jar",
+    "bytes": 116020,
+    "sha256": "12612c66e3a8cfbc0605680370c0f71028a99b50fe5f5befdc60331961f88589"
+  },
+  {
+    "file": "libs/compile-only/bungeecord-config-1.21-R0.4.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/md-5/bungeecord-config/1.21-R0.4/bungeecord-config-1.21-R0.4.jar",
+    "bytes": 13917,
+    "sha256": "e2a78112f7c30f6d59c8c56c44c88b6013a69642c684e7438ffffae65f4a5d13"
+  },
+  {
+    "file": "libs/compile-only/bungeecord-event-1.21-R0.4.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/md-5/bungeecord-event/1.21-R0.4/bungeecord-event-1.21-R0.4.jar",
+    "bytes": 7968,
+    "sha256": "fe034dc5ac550c71264cad9cddb5c38ddc8c8a70047d1fa3ee5bf99051236389"
+  },
+  {
+    "file": "libs/compile-only/bungeecord-chat-1.21-R0.4.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/md-5/bungeecord-chat/1.21-R0.4/bungeecord-chat-1.21-R0.4.jar",
+    "bytes": 151092,
+    "sha256": "3bade7edb09149aff360836012b5e8b469416bed8edd4f63bda2cdcce3d450ca"
+  },
+  {
+    "file": "libs/compile-only/luckperms-api-5.4.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/luckperms/api/5.4/api-5.4.jar",
+    "bytes": 142302,
+    "sha256": "086e3971ea63c0b5ad567881b2dfd955acbbffa24fe85ceac8abf54b114ce986"
+  },
+  {
+    "file": "libs/compile-only/MVdWPlaceholderAPI-3.1.1.jar",
+    "url": "https://repo.maven.apache.org/maven2/com/intellectualsites/mvdwplaceholderapi/MVdWPlaceholderAPI/3.1.1/MVdWPlaceholderAPI-3.1.1.jar",
+    "bytes": 218632,
+    "sha256": "6830ea5e92da93a0b2459a221ff7519588ff167a8f976038b2e248ba0ffa5aa6"
+  },
+  {
+    "file": "libs/compile-only/PermissionsEx-1.23.4.jar",
+    "url": "https://github.com/PEXPlugins/PermissionsEx/releases/download/STABLE-1.23.4/PermissionsEx-1.23.4.jar",
+    "bytes": 722895,
+    "sha256": "9928015aed302324baa597dbf62e08714adaddbde1f332dfdd76dd942c6edb6e"
+  },
+  {
+    "file": "libs/compile-only/NametagEdit-4.0.2.jar",
+    "url": "https://github.com/sgtcaze/NametagEdit/releases/download/v4.0.2-Bundle/NametagEdit.jar",
+    "bytes": 439176,
+    "sha256": "c79325f9181735b168edf637768d09f5a73d79c2a575b94bb971b83e4f77157a"
+  },
+  {
+    "file": "libs/compile-only/guava-33.4.8-jre.jar",
+    "url": "https://repo.maven.apache.org/maven2/com/google/guava/guava/33.4.8-jre/guava-33.4.8-jre.jar",
+    "bytes": 3023797,
+    "sha256": "f3d7f57f67fd622f4d468dfdd692b3a5e3909246c28017ac3263405f0fe617ed"
+  },
+  {
+    "file": "libs/compile-only/lombok-1.18.42.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar",
+    "bytes": 2031660,
+    "sha256": "3488a4e9994c26596baaceebee58cad36a50e3bdaec5be72b5834d3c3b560306"
+  },
+  {
+    "file": "libs/compile-only/jsr305-3.0.2.jar",
+    "url": "https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.jar",
+    "bytes": 19936,
+    "sha256": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7"
+  },
+  {
+    "file": "libs/compile-only/snakeyaml-1.18.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/1.18/snakeyaml-1.18.jar",
+    "bytes": 284338,
+    "sha256": "81bf4c29d0275dace75fadb5febf5384553422816256023efa83b2b15a9ced60"
+  },
+  {
+    "file": "libs/compile-only/authlib-1.5.25.jar",
+    "url": "https://libraries.minecraft.net/com/mojang/authlib/1.5.25/authlib-1.5.25.jar",
+    "bytes": 65621,
+    "sha256": "c8a095123be93c59d4ac29e4a0616495b3d479ac65913cb719a81ee583e9dfcd"
+  },
+  {
+    "file": "libs/compile-only/Vault-1.7.3.jar",
+    "origin": "Existing local server dependency: C:\\Users\\Admin\\Desktop\\main\\basic servers for tests\\proxy servers (1.20.1)\\serv\\plugins\\Vault.jar",
+    "bytes": 272259,
+    "sha256": "a6b5ed97f43a5cf5bbaf00a7c8cd23c5afc9bd003f849875af8b36e6cf77d01d"
+  },
+  {
+    "file": "libs/compile-only/PlaceholderAPI-2.12.3.jar",
+    "origin": "Existing local server dependency: C:\\Users\\Admin\\Desktop\\main\\basic servers for tests\\server mods\\plugins\\PlaceholderAPI-2.12.3 (1).jar",
+    "bytes": 1160690,
+    "sha256": "fde03259f5af6938f3c33eeb4d814000a1adabf1d2304ce14970be81f609a437"
+  },
+  {
+    "file": "libs/compile-only/annotations-26.0.2.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/26.0.2/annotations-26.0.2.jar",
+    "sha256": "2037be378980d3ba9333e97955f3b2cde392aa124d04ca73ce2eee6657199297",
+    "bytes": 31170
+  },
+  {
+    "file": "libs/compile-only/bungeecord-serializer-1.21-R0.4.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/md-5/bungeecord-serializer/1.21-R0.4/bungeecord-serializer-1.21-R0.4.jar",
+    "sha256": "0552eac3de15c1ed4d3495a8a6016b50f5502cf669b46f0ca4669f9940b85c71",
+    "bytes": 43937,
+    "purpose": "Missing provided Spigot 1.21.11 API dependency; not embedded in release JAR",
+    "sha512_verified": true
+  },
+  {
+    "file": "libs/compile-only/bungeecord-dialog-1.21-R0.4.jar",
+    "url": "https://repo.maven.apache.org/maven2/net/md-5/bungeecord-dialog/1.21-R0.4/bungeecord-dialog-1.21-R0.4.jar",
+    "sha256": "f478dd41a852136c93b94b339b310f165f824f85b478ebe3c8081bd21044b87e",
+    "bytes": 43912,
+    "purpose": "Missing provided Spigot 1.21.11 API dependency; not embedded in release JAR",
+    "sha512_verified": true
+  }
+]

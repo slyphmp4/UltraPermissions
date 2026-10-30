@@ -1,0 +1,6 @@
+hostname=db.example.net
+port=3306
+database=permissions
+username=ultrapermissions_node
+password=REPLACE_LOCALLY
+ssl=true
