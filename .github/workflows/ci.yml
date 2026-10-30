@@ -65,7 +65,7 @@ jobs:
           test "$GITHUB_REF_NAME" = "v$version"
           git archive --format=zip --prefix=UltraPermissions/ --output="build/release/UltraPermissions-$version-Gradle-project.zip" HEAD
           cd build/release
-          sha256sum libs/*.jar *.zip > SHA256SUMS.txt
+          sha256sum libs/*.jar *.zip | sed 's|  libs/|  |' > SHA256SUMS.txt
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
