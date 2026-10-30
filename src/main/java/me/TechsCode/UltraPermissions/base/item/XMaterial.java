@@ -2110,13 +2110,7 @@ public enum XMaterial implements XBase<XMaterial, Material> {
             System.err.println("Bukkit.getServer() is null. This should not happen when running a plugin normally.");
             VERSION = 21;
          } else {
-            String var0 = Bukkit.getVersion();
-            Matcher var1 = Pattern.compile("MC: \\d\\.(\\d+)").matcher(var0);
-            if (!var1.find()) {
-               throw new IllegalArgumentException("Failed to parse server version: " + var0);
-            }
-
-            VERSION = Integer.parseInt(var1.group(1));
+            VERSION = me.TechsCode.UltraPermissions.base.reflection.utility.MinecraftRelease.parse(Bukkit.getBukkitVersion()).feature();
          }
 
          Map var4;

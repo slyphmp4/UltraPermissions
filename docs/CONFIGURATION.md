@@ -1,6 +1,6 @@
 [English](CONFIGURATION.md) · [Українська](CONFIGURATION.uk.md) · [Русский](CONFIGURATION.ru.md)
 
-# Configure UltraPermissions 5.6.8-security.1
+# Configure UltraPermissions 5.6.9
 
 ## Single server
 
@@ -69,4 +69,4 @@ Install the editor/updates manually using a verified JAR. There is no automatic 
 
 Back up the plugin's runtime data/database before deployment. New icons use the UPI1 prefix and JSON format. Ordinary legacy Bukkit/Guava streams are read with limits on classes, aliases, depth, object references and arrays. An unknown format/component produces an explicit error rather than arbitrary class execution. Data is neither converted by an external tool nor erased in bulk. Test nonstandard legacy components on a data copy on a test server.
 
-CI does not start Minecraft/a proxy or verify a real TLS session. See [security changes](SECURITY-CHANGES.md) for the verification boundaries. Configure the bundled bStats telemetry in `plugins/bStats/config.yml`; local configuration files/keys must not be published to Git.
+CI runs an isolated Paper 26.2 / Java 25 test; connected-client gameplay, proxy networks and real TLS negotiation are outside that gate. See [compatibility](COMPATIBILITY.md) and [security changes](SECURITY-CHANGES.md). Configure the bundled bStats telemetry in `plugins/bStats/config.yml`; local configuration files/keys must not be published to Git.

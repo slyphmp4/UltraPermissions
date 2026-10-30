@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Run the pinned Paper compatibility probe in a disposable Docker container."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import time
+import urllib.request
+import uuid
+
+IMAGE = "eclipse-temurin@sha256:83f4a7fc27df94dcc7b8de04d14cbbba8da14406f921e966969c3b09000aa507"
+PAPER_SHA = "ef3dbc68b013deafdbbee3bebf1ba351671ebcda94a8f136809b7532d5ba2fe1"
+PAPER_URL = f"https://fill-data.papermc.io/v1/objects/{PAPER_SHA}/paper-26.2-135.jar"
+
+
+def command(*args, timeout=180, capture=False):
+    return subprocess.run(args, check=True, timeout=timeout, text=True,
+                          stdout=subprocess.PIPE if capture else None).stdout
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--plugin", type=Path, required=True)
+    parser.add_argument("--probe", type=Path, required=True)
+    parser.add_argument("--work-dir", type=Path, required=True)
+    parser.add_argument("--report-dir", type=Path, required=True)
+    parser.add_argument("--accept-eula", action="store_true", help="Accept https://aka.ms/MinecraftEULA for this test server")
+    args = parser.parse_args()
+    if not args.accept_eula:
+        parser.error("This runtime test requires explicit --accept-eula.")
+    plugin, probe = args.plugin.resolve(strict=True), args.probe.resolve(strict=True)
+    work, reports = args.work_dir.resolve(), args.report_dir.resolve()
+    work.mkdir(parents=True, exist_ok=False)
+    reports.mkdir(parents=True, exist_ok=True)
+    print("Downloading pinned Paper 26.2 build 135...", flush=True)
+    request = urllib.request.Request(PAPER_URL, headers={"User-Agent": "UltraPermissions-tests/5.6.9 (https://github.com/slyphmp4/UltraPermissions)"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        data = response.read()
+    if hashlib.sha256(data).hexdigest() != PAPER_SHA:
+        raise RuntimeError("Paper SHA-256 mismatch")
+    (work / "paper.jar").write_bytes(data)
+    command("docker", "pull", IMAGE)
+    base = ["--hostname", "localhost", "--memory", "2300m", "--cpus", "2",
+            "--pids-limit", "256", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+            "--mount", f"type=bind,src={work},dst=/data", "--workdir", "/data"]
+    # Only the verified Paper bootstrap can access the network. The plugin is installed afterwards.
+    print("Preparing server dependencies (no plugin installed)...", flush=True)
+    command("docker", "run", "--rm", *base, IMAGE, "java", "-Dpaperclip.patchonly=true", "-jar", "paper.jar")
+    (work / "plugins").mkdir(exist_ok=True)
+    shutil.copyfile(plugin, work / "plugins/UltraPermissions.jar")
+    shutil.copyfile(probe, work / "plugins/RuntimeProbe.jar")
+    (work / "eula.txt").write_bytes(b"eula=true\n")
+    (work / "server.properties").write_bytes(
+        b"online-mode=false\nserver-ip=127.0.0.1\nserver-port=25565\nenable-rcon=false\nenable-query=false\n"
+        b"view-distance=2\nsimulation-distance=2\ngenerate-structures=false\nmax-tick-time=60000\n"
+        b"level-type=minecraft:flat\ngenerator-settings={\"layers\":[{\"block\":\"minecraft:bedrock\",\"height\":1}],\"biome\":\"minecraft:plains\"}\n"
+        b"pause-when-empty-seconds=-1\n")
+    name = "ultrapermissions-probe-" + uuid.uuid4().hex[:12]
+    print("Starting plugin with network disabled; no host ports are published...", flush=True)
+    try:
+        command("docker", "run", "--detach", "--name", name, "--network", "none", *base,
+                IMAGE, "java", "-Xms512M", "-Xmx1536M", "-jar", "paper.jar", "--nogui")
+        deadline = time.monotonic() + 150
+        while time.monotonic() < deadline:
+            state = json.loads(command("docker", "inspect", "--format", "{{json .State}}", name, capture=True))
+            if not state["Running"]:
+                if state["ExitCode"] != 0 or state["OOMKilled"]:
+                    raise RuntimeError(f"Server exited unsuccessfully: {state}")
+                break
+            time.sleep(2)
+        else:
+            raise TimeoutError("Runtime probe exceeded 150 seconds")
+        result = json.loads((work / "plugins/RuntimeProbe/verification.json").read_text(encoding="utf8"))
+        if result["status"] != "passed" or result["assertions"] < 12 or result["server"] != "26.2.build.135-stable":
+            raise RuntimeError(f"Runtime probe failed: {result}")
+        result.update(paper_sha256=PAPER_SHA, plugin_sha256=hashlib.sha256(plugin.read_bytes()).hexdigest(),
+                      container_image=IMAGE, network="none", connected_player_test=False)
+        (reports / "verification.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf8")
+        print(json.dumps(result, indent=2), flush=True)
+    finally:
+        log = subprocess.run(["docker", "logs", name], capture_output=True, text=True)
+        (reports / "server.log").write_text(log.stdout + log.stderr, encoding="utf8")
+        subprocess.run(["docker", "rm", "--force", name], check=False, stdout=subprocess.DEVNULL)
+
+
+if __name__ == "__main__":
+    main()

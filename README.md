@@ -4,13 +4,14 @@
 
 <p align="center">
 <a href="https://github.com/slyphmp4/UltraPermissions/actions/workflows/ci.yml"><img src="https://github.com/slyphmp4/UltraPermissions/actions/workflows/ci.yml/badge.svg" alt="Build and verify"></a>
-<a href="https://github.com/slyphmp4/UltraPermissions/releases"><img src="https://img.shields.io/github/v/release/slyphmp4/UltraPermissions?include_prereleases" alt="Release"></a>
+<a href="https://github.com/slyphmp4/UltraPermissions/releases"><img src="https://img.shields.io/github/v/release/slyphmp4/UltraPermissions" alt="Release"></a>
+<img src="https://img.shields.io/badge/Minecraft-up%20to%2026.2-268c84" alt="Minecraft target through 26.2">
 <img src="https://img.shields.io/badge/build-JDK%2021-268c84" alt="JDK 21">
 </p>
 
 # UltraPermissions
 
-Manage Minecraft permissions, groups and ranks through commands and a graphical editor. **5.6.8-security.1** is a community security build with stronger authorization, protected synchronization and GitHub Actions checks.
+Manage Minecraft permissions, groups and ranks through commands and a graphical editor. **5.6.9** is a community security build with stronger authorization, protected synchronization and GitHub Actions checks.
 
 We prepared a standalone Gradle project, retained the core permission-management features, reworked unsafe network and SQL paths, and added negative security tests. This version addresses eight previously identified HIGH/MEDIUM findings and further strengthens authorization for administrative commands.
 
@@ -32,12 +33,12 @@ These are application-security fixes. The review did not establish the presence 
 
 ## Download and install
 
-1. Download **UltraPermissions-5.6.8-security.1.jar** from [Releases](https://github.com/slyphmp4/UltraPermissions/releases). Do not install `-sources.jar` on the server.
+1. Download **UltraPermissions-5.6.9.jar** from [Releases](https://github.com/slyphmp4/UltraPermissions/releases). Do not install `-sources.jar` on the server.
 2. Place the JAR in `plugins`, remove any other copy of UltraPermissions from that folder, then restart the server.
 3. To start administration, run **from the console** `upc AddSuperAdmin YourName` after that player has joined and has a registered user record, then open `/uperms`.
 4. For a network or MySQL, follow the [configuration guide](docs/CONFIGURATION.md). Every node must use this security version.
 
-The project targets Bukkit/Spigot/Paper and BungeeCord. Application classes target Java 17; a particular Minecraft server may require a newer Java version. Builds and CI use JDK 21. Declaring api-version 1.13 does not promise compatibility with every server version. Full in-game startup and a real TLS session are outside offline CI; the first release is marked as a pre-release.
+**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 passes isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. Version 5.6.9 is the stable community release.
 
 ## Commands and permissions
 
@@ -68,7 +69,7 @@ On its first run, the Wrapper downloads Gradle 8.14.5 and verifies its SHA-256. 
 
 GitHub Actions performs clean builds on **Ubuntu and Windows / JDK 21**. `verifyComponents` checks dependency hashes, JAR contents, exclusion of server APIs and test classes from the plugin, resources, version metadata, the Java target and **7085 API contracts**. `verifySecurityFixes` checks forged/replayed messages, SQL parameter binding, pool failure, GUI sessions, item codecs, TLS policy and administrative command branches. Network connections and OS process execution are blocked in the test JVM.
 
-Pushing a `v<version>` tag triggers both builds; a release is created only after both succeed. Assets include the plugin JAR, sources JAR, complete Gradle project and SHA-256 checksums. Component checks do not replace a test installation on the exact versions of your gaming stack.
+A separate gate starts the plugin on **Paper 26.2 / Java 25** in Docker and runs **12 runtime assertions**. The plugin has no external network access. See the [test scope and reproduction steps](docs/COMPATIBILITY.md). Pushing a `v<version>` tag creates a stable release only after both OS builds and the runtime gate pass. Assets include the plugin JAR, sources JAR, complete Gradle project and SHA-256 checksums.
 
 ## Credits and licenses
 

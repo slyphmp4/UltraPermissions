@@ -24,12 +24,11 @@ public class ReflectionUtil {
    }
 
    private static int getPatchVersion() {
-      return Integer.parseInt(Bukkit.getBukkitVersion().split("-")[0].split("\\.")[2]);
+      return MinecraftRelease.parse(Bukkit.getBukkitVersion()).patch();
    }
 
    private static int getMinorVersion() {
-      String[] var0 = CRAFTBUKKIT_PACKAGE.split("\\.");
-      return var0.length < 3 ? Integer.parseInt(var0[1]) : Integer.parseInt(Bukkit.getBukkitVersion().split("-")[0].split("\\.")[1]);
+      return MinecraftRelease.parse(Bukkit.getBukkitVersion()).feature();
    }
 
    public static <T extends AccessibleObject> T setAccessible(@NotNull T var0) {

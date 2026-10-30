@@ -2,7 +2,7 @@
 
 # Security
 
-Supported branch/version: `main` / `5.6.8-security.1`.
+Supported branch/version: `main` / `5.6.9`.
 
 To report a vulnerability, prefer this repository's private security advisory/reporting feature when available. Do not post production passwords, network keys or private player data in public issues. Include the affected version, relevant configuration/network topology, impact and a minimal reproduction using test data.
 

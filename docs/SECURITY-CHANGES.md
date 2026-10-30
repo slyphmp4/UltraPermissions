@@ -25,3 +25,5 @@ Administrative `/upc` branches now share a superadmin requirement; exceptions ar
 CI runs negative checks against Bukkit/JDBC test doubles and structurally verifies the final JAR. Specific servers, database certificates/drivers, firewall/forwarding, all CraftMeta variants and the in-game runtime require a separate test installation. A standard legacy icon passes the migration check; unsupported legacy components fail explicitly instead of executing.
 
 The LOW finding about synchronous external-IP lookup over HTTP and informational environment findings were not part of these eight fixes. Bundled libraries are listed separately; the absence of an advisory for a version does not prove that it has no unknown flaws. This is security maintenance, without a promise that “all exploits are removed” or a claim that viruses were found/removed.
+
+Since 5.6.9, a separate CI gate also starts Paper 26.2 on Java 25 and performs 12 runtime assertions. Its exact scope and remaining gaps are documented in [compatibility](COMPATIBILITY.md). The stable release requires both OS builds and this runtime gate to pass.

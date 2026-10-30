@@ -1,7 +1,7 @@
 plugins { id 'java'; id 'idea' }
 
 group = 'me.TechsCode'
-version = '5.6.8-security.1'
+version = '5.6.9'
 
 repositories { maven { url = uri('libs/repository') } }
 java {
@@ -19,6 +19,10 @@ sourceSets {
         java.srcDir 'src/securityTest/java'
         compileClasspath += sourceSets.main.output + configurations.compileClasspath
         runtimeClasspath += sourceSets.main.output + configurations.compileClasspath + configurations.runtimeClasspath
+    }
+    runtimeTest {
+        java.srcDir 'src/runtimeTest/java'
+        compileClasspath += sourceSets.main.output + configurations.compileClasspath
     }
 }
 tasks.withType(JavaCompile).configureEach {
@@ -61,4 +65,13 @@ tasks.register('verifySecurityFixes', JavaExec) {
     jvmArgs '-Djava.security.manager=allow'
     args layout.buildDirectory.dir('reports/security').get().asFile.absolutePath
 }
-tasks.named('check') { dependsOn tasks.named('verifyComponents'), tasks.named('verifySecurityFixes') }
+tasks.named('check') { dependsOn tasks.named('verifyComponents'), tasks.named('verifySecurityFixes'), 'runtimeProbeJar' }
+
+tasks.register('runtimeProbeJar', Jar) {
+    description = 'Build the disposable Minecraft compatibility-test companion, never the production plugin.'
+    group = 'verification'
+    dependsOn tasks.named('runtimeTestClasses')
+    archiveFileName = 'RuntimeProbe.jar'
+    destinationDirectory = layout.buildDirectory.dir('runtime-test')
+    from sourceSets.runtimeTest.output
+}

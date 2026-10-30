@@ -1,16 +1,17 @@
 [English](README.md) · [Українська](README.uk.md) · [Русский](README.ru.md)
 
-<p align="center"><img src="assets/prv.png" alt="UltraPermissions" width="920"></p>
+<p align="center"><img src="assets/prv1.png" alt="UltraPermissions" width="920"></p>
 
 <p align="center">
 <a href="https://github.com/slyphmp4/UltraPermissions/actions/workflows/ci.yml"><img src="https://github.com/slyphmp4/UltraPermissions/actions/workflows/ci.yml/badge.svg" alt="Збирання та перевірка"></a>
-<a href="https://github.com/slyphmp4/UltraPermissions/releases"><img src="https://img.shields.io/github/v/release/slyphmp4/UltraPermissions?include_prereleases" alt="Випуск"></a>
+<a href="https://github.com/slyphmp4/UltraPermissions/releases"><img src="https://img.shields.io/github/v/release/slyphmp4/UltraPermissions" alt="Випуск"></a>
+<img src="https://img.shields.io/badge/Minecraft-up%20to%2026.2-268c84" alt="Minecraft target through 26.2">
 <img src="https://img.shields.io/badge/build-JDK%2021-268c84" alt="JDK 21">
 </p>
 
 # UltraPermissions
 
-Керування правами, групами та рангами Minecraft за допомогою команд і графічного редактора. **5.6.8-security.1** — збірка спільноти з посиленою авторизацією, захищеною синхронізацією та перевірками GitHub Actions.
+Керування правами, групами та рангами Minecraft за допомогою команд і графічного редактора. **5.6.9** — збірка спільноти з посиленою авторизацією, захищеною синхронізацією та перевірками GitHub Actions.
 
 Ми підготували самостійний Gradle-проєкт, зберегли основні можливості керування правами, переробили небезпечні мережеві та SQL-шляхи й додали негативні тести безпеки. У цій версії усунуто вісім раніше виявлених проблем рівнів HIGH/MEDIUM і додатково посилено авторизацію адміністративних команд.
 
@@ -32,12 +33,12 @@
 
 ## Завантаження та встановлення
 
-1. Завантажте **UltraPermissions-5.6.8-security.1.jar** з розділу [Випуски](https://github.com/slyphmp4/UltraPermissions/releases). Файл `-sources.jar` на сервер не встановлюється.
+1. Завантажте **UltraPermissions-5.6.9.jar** з розділу [Випуски](https://github.com/slyphmp4/UltraPermissions/releases). Файл `-sources.jar` на сервер не встановлюється.
 2. Помістіть JAR у `plugins`, приберіть іншу копію UltraPermissions із цієї папки та перезапустіть сервер.
 3. Для початку адміністрування виконайте **з консолі** `upc AddSuperAdmin ВашНік`, коли гравець уже приєднався та має запис користувача, а потім відкрийте `/uperms`.
 4. Для мережі або MySQL дотримуйтеся [інструкції налаштування](docs/CONFIGURATION.uk.md). Усі вузли мають використовувати цю версію з виправленнями безпеки.
 
-Цільові платформи проєкту — Bukkit/Spigot/Paper і BungeeCord. Класи застосунку мають цільовий рівень Java 17; конкретний Minecraft-сервер може вимагати новішої Java. Збирання та CI використовують JDK 21. Оголошення api-version 1.13 не гарантує сумісності з кожною версією сервера. Повний запуск у грі та реальний TLS-сеанс не входять до офлайн-перевірок CI; перший випуск позначено як pre-release.
+**Minecraft Java Edition: сумісність до 26.2.** Paper 26.2 / Java 25 проходить ізольовані перевірки під час виконання. Попередні версії серверів і підтримку проксі описано в [матриці сумісності](docs/COMPATIBILITY.uk.md). Класи застосунку мають цільовий рівень Java 17; збирання використовує JDK 21. Версія 5.6.9 — стабільний випуск спільноти.
 
 ## Команди та права
 
@@ -68,7 +69,7 @@ bash ./gradlew clean build --offline
 
 GitHub Actions виконує чисте збирання на **Ubuntu і Windows / JDK 21**. `verifyComponents` перевіряє хеші залежностей, склад JAR, відсутність серверних API й тестових класів у плагіні, ресурси, версію, цільовий рівень Java та **7085 контрактів API**. `verifySecurityFixes` перевіряє підроблення й повторне надсилання повідомлень, зв'язування параметрів SQL, відмову пулу, сеанси GUI, кодеки предметів, політику TLS та адміністративні гілки команд. Мережеві з'єднання й запуск системних процесів у тестовій JVM заблоковано.
 
-Надсилання тегу `v<version>` запускає обидва збирання; випуск створюється лише після їх успішного завершення. До файлів випуску входять JAR плагіна, JAR вихідного коду, повний Gradle-проєкт і контрольні суми SHA-256. Перевірки компонентів не замінюють тестове встановлення на точних версіях вашого ігрового середовища.
+Окрема перевірка запускає плагін на **Paper 26.2 / Java 25** у Docker та виконує **12 перевірок під час виконання**. Плагін не має доступу до зовнішньої мережі. Див. [межі перевірки та кроки відтворення](docs/COMPATIBILITY.uk.md). Тег `v<version>` створює стабільний випуск лише після успішного збирання на обох ОС і перевірки на сервері. Файли випуску: JAR плагіна, JAR вихідного коду, повний Gradle-проєкт та контрольні суми SHA-256.
 
 ## Авторство та ліцензії
 

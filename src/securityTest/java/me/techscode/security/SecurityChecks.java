@@ -57,6 +57,7 @@ public final class SecurityChecks {
         });
         Path report = Path.of(args[0]); Files.createDirectories(report);
         setupBukkit();
+        minecraftVersions();
         messaging(report.resolve("config-fixture"));
         sqlAndPool();
         boundedSync();
@@ -71,6 +72,19 @@ public final class SecurityChecks {
         result.add("groups", new Gson().toJsonTree(groups));
         Files.writeString(report.resolve("verification.json"), new GsonBuilder().setPrettyPrinting().create().toJson(result));
         System.out.println("Security checks passed: " + assertions + " assertions in " + groups.size() + " groups.");
+    }
+
+    private static void minecraftVersions() {
+        for (Object[] fixture : new Object[][] {
+            {"1.8.8-R0.1-SNAPSHOT", 8, 8}, {"1.20-R0.1-SNAPSHOT", 20, 0},
+            {"1.21.11-R0.1-SNAPSHOT", 21, 11}, {"26.1.2.build.61-stable", 26, 2},
+            {"26.2.build.135-stable", 26, 0}, {"26.2", 26, 0}
+        }) {
+            var release = me.TechsCode.UltraPermissions.base.reflection.utility.MinecraftRelease.parse((String)fixture[0]);
+            check(release.feature() == (int)fixture[1], "Minecraft feature branch: " + fixture[0]);
+            check(release.patch() == (int)fixture[2], "Minecraft patch excludes Paper build: " + fixture[0]);
+        }
+        groups.add("Minecraft release formats / Paper 26.2 build suffix");
     }
 
     private static void messaging(Path fixture) throws Exception {

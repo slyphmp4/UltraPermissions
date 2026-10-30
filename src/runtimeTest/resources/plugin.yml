@@ -1,0 +1,5 @@
+name: RuntimeProbe
+version: 1.0
+main: me.techscode.compatibility.RuntimeProbe
+api-version: '1.13'
+depend: [UltraPermissions]
