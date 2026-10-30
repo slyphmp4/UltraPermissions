@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -45,6 +46,9 @@ def main():
     base = ["--hostname", "localhost", "--memory", "2300m", "--cpus", "2",
             "--pids-limit", "256", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--mount", f"type=bind,src={work},dst=/data", "--workdir", "/data"]
+    if os.name != "nt":
+        # Match the bind-mount owner; a root container with dropped capabilities cannot write runner-owned directories.
+        base += ["--user", f"{os.getuid()}:{os.getgid()}"]
     # Only the verified Paper bootstrap can access the network. The plugin is installed afterwards.
     print("Preparing server dependencies (no plugin installed)...", flush=True)
     command("docker", "run", "--rm", *base, IMAGE, "java", "-Dpaperclip.patchonly=true", "-jar", "paper.jar")
