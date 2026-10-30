@@ -1,68 +1,72 @@
-# Настройка UltraPermissions 5.6.8-security.1
+[English](CONFIGURATION.md) · [Українська](CONFIGURATION.uk.md) · [Русский](CONFIGURATION.ru.md)
 
-## Один сервер
+# Configure UltraPermissions 5.6.8-security.1
 
-Для standalone с локальным JSON-хранилищем дополнительных настроек не требуется: межсерверный канал выключен, обычные команды и GUI работают с прежней моделью superadmin.
+## Single server
 
-## Прокси и backend
+For a standalone server using local JSON storage, no additional setup is required: the inter-server channel is disabled, and regular commands and the GUI use the existing superadmin model.
 
-Обновите прокси и все backend до одной security-версии. Старый формат BungeeCord/UltraPermissions// не принимается; смешанная сеть со старыми JAR не синхронизируется.
+## Proxy and backends
 
-Первый запуск создаёт `plugins/UltraPermissions/security.properties` с новым случайным 32-байтовым ключом и `messaging-enabled=false`. Для кластера скопируйте **только одинаковый network-key и realm** с одного доверенного узла на остальные. Выставьте разные node-id, а messaging-enabled включите после настройки всех узлов. Не отправляйте ключ через игровой чат или plugin messaging. Доступ к файлу — только у владельца сервера; на Windows задайте соответствующий ACL.
+Update the proxy and every backend to the same security version. The old BungeeCord/UltraPermissions// format is rejected; a mixed network with old JARs will not synchronize.
 
-Прокси:
+The first startup creates `plugins/UltraPermissions/security.properties` with a new random 32-byte key and `messaging-enabled=false`. For a cluster, copy **only the same network-key and realm** from one trusted node to the others. Assign distinct node-id values, and enable messaging-enabled after configuring all nodes. Never send the key through game chat or plugin messaging. Restrict file access to the server owner; configure the appropriate ACL on Windows.
+
+Proxy:
 
 ```properties
 messaging-enabled=true
 realm=ultrapermissions
 node-id=proxy
 proxy-id=proxy
-network-key=<один-общий-base64-ключ-из-32-байт>
+network-key=<BASE64_KEY_32_BYTES>
 ```
 
-Backend, указанный в конфигурации BungeeCord как survival:
+Backend named survival in the BungeeCord configuration:
 
 ```properties
 messaging-enabled=true
 realm=ultrapermissions
 node-id=survival
 proxy-id=proxy
-network-key=<тот-же-ключ>
+network-key=<SAME_KEY>
 ```
 
-На прокси node-id должен совпадать с proxy-id; на backend node-id должен точно совпадать с внутренним ServerInfo name в BungeeCord. Идентификаторы/realm: 1–64 символа A–Z, a–z, 0–9, `_`, `.`, `-`. Общий ключ означает общую границу доверия всего кластера. Изменения конфигурации применяются после перезапуска.
+Replace `<BASE64_KEY_32_BYTES>` and `<SAME_KEY>` with the same private key, encoded as Base64.
 
-Новый канал `ultrapermissions:secure` использует HMAC-SHA256, направление/отправителя/получателя/realm, временное окно 30 секунд и nonce. Нужны синхронизированные часы узлов. Прокси поглощает канал, включая клиентские и ошибочные пакеты. На backend нет проверки доверия по самому факту наличия Player: сообщение должно пройти проверку подписи. Пакеты ограничены по размеру и частоте (100 проверок/секунду глобально, 40 принятых сообщений/секунду на отправителя); очередь backend ≤256. При перегрузке сообщения могут отбрасываться. Sync ограничен 64 одновременными работами и объединяет повторные уведомления.
+On the proxy, node-id must equal proxy-id. On a backend, node-id must exactly match its internal ServerInfo name in BungeeCord. Identifiers/realm must contain 1–64 characters from A–Z, a–z, 0–9, `_`, `.`, `-`. A shared key establishes a shared trust boundary for the whole cluster. Configuration changes take effect after a restart.
 
-Не помещайте ключ в распространяемый проект/JAR. При компрометации ключа замените его на всех узлах. Firewall, закрытый backend и защищённый forwarding остаются частью правильной настройки сети.
+The new `ultrapermissions:secure` channel uses HMAC-SHA256, direction/sender/recipient/realm, a 30-second time window and a nonce. Node clocks must be synchronized. The proxy consumes this channel, including client-originated and invalid packets. A backend does not trust a message merely because a Player is present: signature verification must succeed. Packet size and rate are bounded: 100 verification attempts per second globally and 40 accepted messages per second per sender; the backend queue is limited to 256. Messages may be dropped under overload. Synchronization is limited to 64 concurrent jobs and coalesces repeated notifications.
 
-## Локальные реквизиты MySQL
+Do not include the key in a distributed project or JAR. If it is compromised, replace it on every node. A firewall, a backend closed to direct access and protected forwarding remain part of a correct network setup.
 
-Пароль больше не передаётся с backend на прокси. Настройте каждый узел независимо: старый локальный Registry поддерживается, либо создайте `plugins/UltraPermissions/mysql.properties` на нужном узле:
+## Local MySQL credentials
+
+The password is no longer sent from a backend to the proxy. Configure every node independently: the existing local Registry remains supported, or create `plugins/UltraPermissions/mysql.properties` on the relevant node:
 
 ```properties
 hostname=db.example.net
 port=3306
 database=permissions
 username=ultrapermissions_node
-password=<локальный-пароль>
+password=<LOCAL_PASSWORD>
 ssl=true
 ```
 
-Здесь hostname должен соответствовать имени/IP в сертификате. Для адреса IPv6 используйте DNS-имя. Файл UTF-8 читает стандартный Java Properties parser: обратные слеши в значениях нужно экранировать. Это локальный секрет, не копируйте файл в публичный проект и не выдавайте доступ игрокам/посторонним backup readers.
+Replace `<LOCAL_PASSWORD>` with that node's local database password. The hostname must match the name/IP in the certificate. Use a DNS name for IPv6. The UTF-8 file is read by the standard Java Properties parser; escape backslashes in values. This is a local secret: do not copy the file into a public project or grant access to players or unrelated backup readers.
 
-Если mysql.properties присутствует, он задаёт стартовые credentials/TLS поверх Registry. Изменения в GUI не меняют этот файл; согласуйте его вручную перед следующим стартом. Неполный/некорректный файл останавливает MySQL startup, а не включает небезопасный fallback. Для возврата к локальному Registry уберите mysql.properties из каталога конфигурации самостоятельно.
+When mysql.properties exists, it overrides the Registry's startup credentials/TLS settings. GUI changes do not update this file; reconcile it manually before the next startup. An incomplete/invalid file stops MySQL startup instead of enabling an insecure fallback. To return to the local Registry, remove mysql.properties from the configuration directory yourself.
 
-Для удалённого хоста `ssl=false` отвергается до подключения. С VERIFY_IDENTITY проверяются CA и имя сервера; downgrade/получение непроверенного RSA key/local infile/multi-queries выключены. Драйвер, не объявляющий поддержку VERIFY_IDENTITY, отвергается до передачи credentials. Реальный JDBC-драйвер предоставляет сервер; он не включён в этот JAR. Для собственного CA настройте доверенное хранилище JVM средствами реального Connector/J, затем проверьте отказ при неверном сертификате/имени.
+For a remote host, `ssl=false` is rejected before connecting. VERIFY_IDENTITY checks the CA and server name; downgrade, unverified RSA-key retrieval, local infile and multi-queries are disabled. A driver that does not advertise VERIFY_IDENTITY support is rejected before credentials are sent. The server supplies the actual JDBC driver; it is not included in this JAR. For a private CA, configure the JVM trust store using the actual Connector/J settings, then verify that an invalid certificate/name is rejected.
 
-Только для точных `localhost` и `127.0.0.1` разрешено явно задать ssl=false. По умолчанию TLS включён. Ограничьте доступ к БД, используйте отдельные минимальные аккаунты узлов; коду нужны CREATE таблиц и CRUD внутри своей БД, глобальные FILE/GRANT/административные права не нужны. Старые таблицы и данные не удаляются.
+Explicit ssl=false is allowed only for the exact hosts `localhost` and `127.0.0.1`. TLS is enabled by default. Restrict database access and use separate least-privilege node accounts. The code needs table CREATE and CRUD within its own database, but no global FILE/GRANT/administrative privileges. Existing tables and data are not deleted.
 
-Официальная спецификация TLS: https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-security.html
+[Official TLS settings](https://dev.mysql.com/doc/connector-j/en/connector-j-connp-props-security.html).
 
-## Обновления, GUI и старые иконки
+## Updates, GUI and legacy icons
 
-Редактор/обновления устанавливаются проверенным JAR вручную. Автоматического loadPlugin из сетевого ответа и restart/update через proxy messages больше нет, даже с правильной подписью. Локальные административные действия GUI требуют действующего superadmin при каждом обработчике.
+Install the editor/updates manually using a verified JAR. There is no automatic loadPlugin from a network response or restart/update through proxy messages, even with a valid signature. Local administrative GUI actions require a current superadmin role in every handler.
 
-До развёртывания сохраните копию runtime-данных плагина/БД. Новые иконки получают префикс UPI1 и JSON-формат. Старые обычные Bukkit/Guava streams читаются с ограничением классов, алиасов, глубины, количества объектов и массивов; неизвестный формат/компонент вызывает явную ошибку, не исполнение произвольного класса. Данные не конвертируются внешним инструментом и не стираются массово. Нестандартные старые компоненты следует проверить на копии данных в тестовом сервере.
+Back up the plugin's runtime data/database before deployment. New icons use the UPI1 prefix and JSON format. Ordinary legacy Bukkit/Guava streams are read with limits on classes, aliases, depth, object references and arrays. An unknown format/component produces an explicit error rather than arbitrary class execution. Data is neither converted by an external tool nor erased in bulk. Test nonstandard legacy components on a data copy on a test server.
 
-Проверки CI не запускают Minecraft/proxy и не подтверждают реальную TLS-сессию. См. SECURITY-CHANGES.md для границ проверки. Встроенная bStats-телеметрия настраивается через plugins/bStats/config.yml; локальные конфиги/ключи не публикуются в Git.
+CI does not start Minecraft/a proxy or verify a real TLS session. See [security changes](SECURITY-CHANGES.md) for the verification boundaries. Configure the bundled bStats telemetry in `plugins/bStats/config.yml`; local configuration files/keys must not be published to Git.

@@ -1,3 +1,5 @@
+[English](README.md) · [Українська](README.uk.md) · [Русский](README.ru.md)
+
 <p align="center"><img src="assets/prv.png" alt="UltraPermissions" width="920"></p>
 
 <p align="center">
@@ -8,47 +10,47 @@
 
 # UltraPermissions
 
-Управление правами, группами и рангами Minecraft через команды и графический редактор. **5.6.8-security.1** — community security-сборка с усиленной авторизацией, защищённой синхронизацией и проверками GitHub Actions.
+Manage Minecraft permissions, groups and ranks through commands and a graphical editor. **5.6.8-security.1** is a community security build with stronger authorization, protected synchronization and GitHub Actions checks.
 
-Мы подготовили самостоятельный Gradle-проект, сохранили основные возможности управления правами, переработали опасные сетевые и SQL-пути и добавили отрицательные security-тесты. В этой версии закрыты восемь ранее обнаруженных HIGH/MEDIUM-проблем и дополнительно усилена авторизация административных команд.
+We prepared a standalone Gradle project, retained the core permission-management features, reworked unsafe network and SQL paths, and added negative security tests. This version addresses eight previously identified HIGH/MEDIUM findings and further strengthens authorization for administrative commands.
 
-Это исправления уязвимостей приложения. Подтверждённых вирусов или намеренного вредоносного импланта в проведённой проверке не установлено, поэтому мы не заявляем «удаление вирусов» или абсолютную безопасность.
+These are application-security fixes. The review did not establish the presence of viruses or an intentional malicious implant, so we make no claim of “virus removal” or absolute security.
 
-## Возможности
+## Features
 
-- Индивидуальные permissions и группы: разрешения, запреты `-permission.node`, wildcard nodes и наследование.
-- Несколько групп у игрока, приоритеты, временная выдача групп и прав, автоматическое истечение сроков.
-- Области действия по миру и серверу; отдельные permissions для BungeeCord.
-- GUI для пользователей, групп, разрешений и цепочек рангов; иконки и настройки отображения.
-- Префиксы, суффиксы, цвета, основной/дополнительный ранг и rank timers.
-- Promote/demote по настраиваемым Group Paths.
-- Делегированная выдача разрешённых групп с ограничением времени выдачи.
-- Локальное JSON-хранилище или MySQL; подписанная синхронизация между доверенными узлами.
-- Интеграции Vault, PlaceholderAPI, MVdWPlaceholderAPI и NametagEdit.
-- Перенос данных из LuckPerms/PermissionsEx, копирование групп, перенос аккаунтов и File/MySQL transfer.
-- Переводы, справочная база permission nodes и журнал проверки прав.
+- Per-user permissions and groups: grants, denials using `-permission.node`, wildcard nodes and inheritance.
+- Multiple groups per player, priorities, temporary group and permission assignments, and automatic expiration.
+- World and server scopes, including separate permissions for BungeeCord.
+- GUIs for users, groups, permissions and rank paths, with icons and display settings.
+- Prefixes, suffixes, colors, primary/secondary ranks and rank timers.
+- Promotion and demotion along configurable Group Paths.
+- Delegated assignment of approved groups with assignment-duration limits.
+- Local JSON storage or MySQL, with signed synchronization between trusted nodes.
+- Vault, PlaceholderAPI, MVdWPlaceholderAPI and NametagEdit integrations.
+- Migration from LuckPerms/PermissionsEx, group copying, account transfers and File/MySQL storage transfers.
+- Translations, a permission-node reference database and a permission-check logger.
 
-## Скачать и установить
+## Download and install
 
-1. Скачайте **UltraPermissions-5.6.8-security.1.jar** из [Releases](https://github.com/slyphmp4/UltraPermissions/releases). `-sources.jar` на сервер не устанавливается.
-2. Поместите JAR в `plugins`, убрав другую копию UltraPermissions из той же папки, затем перезапустите сервер.
-3. Для начала администрирования выполните **из консоли** `upc AddSuperAdmin ВашНик`, когда пользователь уже зарегистрирован после входа, затем откройте `/uperms`.
-4. Для сети или MySQL следуйте [инструкции настройки](docs/CONFIGURATION.md). Все узлы должны использовать эту security-версию.
+1. Download **UltraPermissions-5.6.8-security.1.jar** from [Releases](https://github.com/slyphmp4/UltraPermissions/releases). Do not install `-sources.jar` on the server.
+2. Place the JAR in `plugins`, remove any other copy of UltraPermissions from that folder, then restart the server.
+3. To start administration, run **from the console** `upc AddSuperAdmin YourName` after that player has joined and has a registered user record, then open `/uperms`.
+4. For a network or MySQL, follow the [configuration guide](docs/CONFIGURATION.md). Every node must use this security version.
 
-Платформы проекта — Bukkit/Spigot/Paper и BungeeCord. Собственные классы имеют target Java 17; Java-версия, необходимая конкретному Minecraft-серверу, может быть выше. Сборка и CI используют JDK 21. Объявление api-version 1.13 не является обещанием работоспособности на каждой версии сервера. Полный игровой запуск и реальная TLS-сессия не входят в офлайн CI; первый выпуск помечен pre-release.
+The project targets Bukkit/Spigot/Paper and BungeeCord. Application classes target Java 17; a particular Minecraft server may require a newer Java version. Builds and CI use JDK 21. Declaring api-version 1.13 does not promise compatibility with every server version. Full in-game startup and a real TLS session are outside offline CI; the first release is marked as a pre-release.
 
-## Команды и права
+## Commands and permissions
 
-Основные команды: `/uperms`, `/upc`, `/promote`, `/demote`.
+Main commands: `/uperms`, `/upc`, `/promote`, `/demote`.
 
-- [Полный список команд и примеры](docs/COMMANDS.md)
-- [Модель доступа и permission nodes](docs/PERMISSIONS.md)
-- [PlaceholderAPI и интеграции](docs/PLACEHOLDERS.md)
-- [Изменения безопасности и ограничения](docs/SECURITY-CHANGES.md)
+- [Complete command list and examples](docs/COMMANDS.md)
+- [Access model and permission nodes](docs/PERMISSIONS.md)
+- [PlaceholderAPI and integrations](docs/PLACEHOLDERS.md)
+- [Security changes and limitations](docs/SECURITY-CHANGES.md)
 
-## Собрать в IntelliJ IDEA
+## Build in IntelliJ IDEA
 
-Откройте папку как Gradle-проект, используйте **Gradle Wrapper** и **JDK 21** в Gradle JVM.
+Open the folder as a Gradle project and select **Gradle Wrapper** and **JDK 21** for the Gradle JVM.
 
 ```powershell
 .\gradlew.bat clean build --offline
@@ -60,14 +62,14 @@ Linux/macOS:
 bash ./gradlew clean build --offline
 ```
 
-Первый запуск Wrapper скачивает Gradle 8.14.5 с проверкой SHA-256. Зависимости плагина закреплены в `libs`, после загрузки Wrapper сборка не требует внешнего Maven-репозитория. Готовые JAR находятся в `build/libs`.
+On its first run, the Wrapper downloads Gradle 8.14.5 and verifies its SHA-256. Plugin dependencies are pinned in `libs`; after the Wrapper distribution has been downloaded, building requires no external Maven repository. The resulting JARs are in `build/libs`.
 
-## CI и проверка компонентов
+## CI and component verification
 
-GitHub Actions запускает чистую сборку на **Ubuntu и Windows / JDK 21**. `verifyComponents` проверяет SHA зависимостей, состав JAR, отсутствие серверных API и тестовых классов в плагине, ресурсы, версию, Java target и **7085 контрактов API**. `verifySecurityFixes` проверяет подделку/повтор сообщений, SQL binding, отказ пула, GUI-сессии, item codecs, TLS policy и административные ветки команд. Сеть и системные процессы в тестовой JVM заблокированы.
+GitHub Actions performs clean builds on **Ubuntu and Windows / JDK 21**. `verifyComponents` checks dependency hashes, JAR contents, exclusion of server APIs and test classes from the plugin, resources, version metadata, the Java target and **7085 API contracts**. `verifySecurityFixes` checks forged/replayed messages, SQL parameter binding, pool failure, GUI sessions, item codecs, TLS policy and administrative command branches. Network connections and OS process execution are blocked in the test JVM.
 
-Публикация тега `v<version>` запускает обе сборки; релиз создаётся только после их успеха. В assets попадают plugin JAR, sources JAR, полный Gradle-проект и SHA-256. Проверки компонентов не заменяют тестовую установку на точных версиях вашего игрового стека.
+Pushing a `v<version>` tag triggers both builds; a release is created only after both succeed. Assets include the plugin JAR, sources JAR, complete Gradle project and SHA-256 checksums. Component checks do not replace a test installation on the exact versions of your gaming stack.
 
-## Авторство и лицензии
+## Credits and licenses
 
-UltraPermissions — TechsCode; исходные обозначения автора сохранены. Подготовка и сопровождение этой community security-сборки — **slyphmp4**. Лицензия репозитория: [GPL-3.0](LICENSE); сторонние компоненты сохраняют собственные лицензии, см. [THIRD-PARTY.md](THIRD-PARTY.md) и `META-INF` в поставке.
+UltraPermissions is by TechsCode; the original author attribution is retained. This community security build is prepared and maintained by **slyphmp4**. Repository license: [GPL-3.0](LICENSE). Third-party components retain their own licenses; see [THIRD-PARTY.md](THIRD-PARTY.md) and the distribution's `META-INF`.

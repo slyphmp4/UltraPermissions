@@ -1,83 +1,85 @@
-# Команды
+[English](COMMANDS.md) · [Українська](COMMANDS.uk.md) · [Русский](COMMANDS.ru.md)
 
-Команды регистрируются программно. Написание подкоманд нечувствительно к регистру. В таблицах `<...>` — подставляемое значение, `[...]` — необязательная часть; скобки вводить не нужно. Автодополнение показывает существующие объекты.
+# Commands
 
-## Основные команды
+Commands are registered programmatically. Subcommand names are case-insensitive. In the tables, `<...>` is a value to supply and `[...]` is optional; do not type the brackets. Tab completion suggests existing objects.
 
-| Команда | Назначение | Доступ |
+## Main commands
+
+| Command | Purpose | Access |
 |---|---|---|
-| `/uperms` | Открыть GUI | Игрок с внутренним superadmin |
-| `/uperms <User>` | Открыть редактор пользователя | Игрок с superadmin |
-| `/uperms <Group>` | Открыть редактор группы | Игрок с superadmin |
-| `/upc` | Справка/дерево административных команд | Console, superadmin или делегированный grant-groups |
-| `/promote <User> <GroupPath>` | Продвинуть игрока по цепочке групп | `ultrapermissions.commands.promote` |
-| `/demote <User> <GroupPath>` | Понизить игрока по цепочке групп | `ultrapermissions.commands.demote` |
+| `/uperms` | Open the GUI | Player with the internal superadmin flag |
+| `/uperms <User>` | Open the user editor | Player with superadmin |
+| `/uperms <Group>` | Open the group editor | Player with superadmin |
+| `/upc` | Help/administrative command tree | Console, superadmin or delegated grant-groups access |
+| `/promote <User> <GroupPath>` | Move a player up a group path | `ultrapermissions.commands.promote` |
+| `/demote <User> <GroupPath>` | Move a player down a group path | `ultrapermissions.commands.demote` |
 
-Первого superadmin назначайте **из консоли**: `upc AddSuperAdmin ВашНик`. Сначала игрок должен зайти и получить запись пользователя. Консольные команды вводятся без `/`.
+Assign the first superadmin **from the console**: `upc AddSuperAdmin YourName`. The player must first join and have a user record. Console commands are entered without `/`.
 
-## Все ветки /upc
+## All /upc branches
 
-Список сверен с реальным командным деревом в standalone и сетевом режимах. Формы с `<Server>` появляются при распознанном сервере в настроенной сети; standalone использует варианты без него.
+This list is checked against the actual command tree in standalone and network modes. Forms with `<Server>` appear when the server is recognized in a configured network; standalone uses the forms without it.
 
-| Синтаксис | Действие | Доступ |
+| Syntax | Action | Access |
 |---|---|---|
-| `/upc AddGroup <User> <Group> [1d 2h 5m 10s]` | Добавить игроку группу; допускается время в конце команды. | Делегированный доступ / superadmin / консоль |
-| `/upc AddGroupPermission <Group> <Permission> <Server> [options]` | Добавить группе permission, область действия и/или срок. | Superadmin / консоль |
-| `/upc AddGroupPermission <Group> <Permission> <Server> <World> [options]` | Добавить группе permission, область действия и/или срок. | Superadmin / консоль |
-| `/upc AddPlayerPermission <User> <Permission> <Server> [options]` | Добавить игроку личный permission, область действия и/или срок. | Superadmin / консоль |
-| `/upc AddPlayerPermission <User> <Permission> <Server> <World> [options]` | Добавить игроку личный permission, область действия и/или срок. | Superadmin / консоль |
-| `/upc AddSuperAdmin <User>` | Выдать внутренний флаг superadmin существующему пользователю. | Superadmin / консоль |
-| `/upc copyGroup <Group> <CopyName>` | Скопировать группу под новым именем. | Superadmin / консоль |
-| `/upc createGroup <groupName> <Server>` | Создать группу; в сетевом режиме выбирается server/all. | Superadmin / консоль |
-| `/upc DeleteGroup <Group>` | Удалить группу. | Superadmin / консоль |
-| `/upc deleteUser <User>` | Удалить запись пользователя; пользователь должен быть офлайн. | Superadmin / консоль |
-| `/upc listGroupPermissions <Group>` | Показать permissions группы. | Делегированный доступ / superadmin / консоль |
-| `/upc listPlayerPermissions <User>` | Показать permissions пользователя. | Делегированный доступ / superadmin / консоль |
-| `/upc PurgeSuperAdmins` | Снять superadmin у всех пользователей. | Superadmin / консоль |
-| `/upc PurgeGroup <Group>` | Удалить выбранную группу из назначений всех пользователей. | Superadmin / консоль |
-| `/upc PurgeGroupPermission <Permission>` | Удалить permission у всех групп. | Superadmin / консоль |
-| `/upc PurgeAllPlayerPermission <User>` | Удалить все личные permissions выбранного пользователя. | Superadmin / консоль |
-| `/upc PurgePlayerPermission <Permission>` | Удалить permission у всех пользователей. | Superadmin / консоль |
-| `/upc PurgePlayerGroups <User>` | Удалить активные группы выбранного пользователя. | Superadmin / консоль |
-| `/upc RegisterUser <UUID> <PlayerName> <AssignDefaultGroup>` | Зарегистрировать UUID/имя; true/false управляет назначением default group. | Superadmin / консоль |
-| `/upc RemoveGroup <User> <Group>` | Удалить назначение группы у игрока. | Superadmin / консоль |
-| `/upc RemoveGroupPermission <Group> <Permission>` | Удалить permission у группы. | Superadmin / консоль |
-| `/upc RemovePlayerPermission <User> <Permission>` | Удалить личный permission у игрока. | Superadmin / консоль |
-| `/upc RemoveSuperAdmin <User>` | Снять внутренний флаг superadmin. | Superadmin / консоль |
-| `/upc RestrictGroupToWorld <Group> <World>` | Ограничить группу миром; all снимает ограничение. | Superadmin / консоль |
-| `/upc SetGroups <User> [Group1 Group2 ...]` | Заменить группы пользователя списком после User; пустой список снимает все. | Superadmin / консоль |
-| `/upc SetGroupPriority <Group> <Priority>` | Изменить числовой приоритет группы. | Superadmin / консоль |
-| `/upc SetGroupPrefix <Group> none` | Изменить префикс группы; none очищает его. | Superadmin / консоль |
-| `/upc SetGroupPrefix <Group> <Prefix>` | Изменить префикс группы; none очищает его. | Superadmin / консоль |
-| `/upc SetGroupSuffix <Group> none` | Изменить суффикс группы; none очищает его. | Superadmin / консоль |
-| `/upc SetGroupSuffix <Group> <Suffix>` | Изменить суффикс группы; none очищает его. | Superadmin / консоль |
-| `/upc SetPlayerPrefix clearAll` | Изменить личный префикс; none очищает, clearAll очищает у всех. | Superadmin / консоль |
-| `/upc SetPlayerPrefix <User> none` | Изменить личный префикс; none очищает, clearAll очищает у всех. | Superadmin / консоль |
-| `/upc SetPlayerPrefix <User> <Prefix>` | Изменить личный префикс; none очищает, clearAll очищает у всех. | Superadmin / консоль |
-| `/upc SetPlayerSuffix clearAll` | Изменить личный суффикс; none очищает, clearAll очищает у всех. | Superadmin / консоль |
-| `/upc SetPlayerSuffix <User> none` | Изменить личный суффикс; none очищает, clearAll очищает у всех. | Superadmin / консоль |
-| `/upc SetPlayerSuffix <User> <Suffix>` | Изменить личный суффикс; none очищает, clearAll очищает у всех. | Superadmin / консоль |
-| `/upc TransferAccount <Groups / Permissions / All> <Overwrite / Append> <User> <User>` | Перенести Groups/Permissions/All с первого User на второго; Overwrite/Append задаёт замену/добавление. | Superadmin / консоль |
-| `/upc Transfer <File / MySQL> <File / MySQL>` | Перенести хранилище File↔MySQL; требуется рабочая MySQL. | Superadmin / консоль |
-| `/upc AddGroupPermission <Group> <Permission> [options]` | Добавить группе permission, область действия и/или срок. | Superadmin / консоль |
-| `/upc AddGroupPermission <Group> <Permission> <World> [options]` | Добавить группе permission, область действия и/или срок. | Superadmin / консоль |
-| `/upc AddPlayerPermission <User> <Permission> [options]` | Добавить игроку личный permission, область действия и/или срок. | Superadmin / консоль |
-| `/upc AddPlayerPermission <User> <Permission> <World> [options]` | Добавить игроку личный permission, область действия и/или срок. | Superadmin / консоль |
-| `/upc createGroup <groupName>` | Создать группу; в сетевом режиме выбирается server/all. | Superadmin / консоль |
+| `/upc AddGroup <User> <Group> [1d 2h 5m 10s]` | Assign a group to a player; a duration may follow the command. | Delegated access / superadmin / console |
+| `/upc AddGroupPermission <Group> <Permission> <Server> [options]` | Add a permission to a group, with scope and/or expiration. | Superadmin / console |
+| `/upc AddGroupPermission <Group> <Permission> <Server> <World> [options]` | Add a permission to a group, with scope and/or expiration. | Superadmin / console |
+| `/upc AddPlayerPermission <User> <Permission> <Server> [options]` | Add a personal permission to a player, with scope and/or expiration. | Superadmin / console |
+| `/upc AddPlayerPermission <User> <Permission> <Server> <World> [options]` | Add a personal permission to a player, with scope and/or expiration. | Superadmin / console |
+| `/upc AddSuperAdmin <User>` | Grant the internal superadmin flag to an existing user. | Superadmin / console |
+| `/upc copyGroup <Group> <CopyName>` | Copy a group under a new name. | Superadmin / console |
+| `/upc createGroup <groupName> <Server>` | Create a group; network mode selects a server or all. | Superadmin / console |
+| `/upc DeleteGroup <Group>` | Delete a group. | Superadmin / console |
+| `/upc deleteUser <User>` | Delete a user record; the user must be offline. | Superadmin / console |
+| `/upc listGroupPermissions <Group>` | List a group's permissions. | Delegated access / superadmin / console |
+| `/upc listPlayerPermissions <User>` | List a user's permissions. | Delegated access / superadmin / console |
+| `/upc PurgeSuperAdmins` | Remove superadmin from every user. | Superadmin / console |
+| `/upc PurgeGroup <Group>` | Remove the selected group assignment from every user. | Superadmin / console |
+| `/upc PurgeGroupPermission <Permission>` | Remove a permission from every group. | Superadmin / console |
+| `/upc PurgeAllPlayerPermission <User>` | Remove all personal permissions from the selected user. | Superadmin / console |
+| `/upc PurgePlayerPermission <Permission>` | Remove a permission from every user. | Superadmin / console |
+| `/upc PurgePlayerGroups <User>` | Remove the selected user's active groups. | Superadmin / console |
+| `/upc RegisterUser <UUID> <PlayerName> <AssignDefaultGroup>` | Register a UUID/name; true/false controls default-group assignment. | Superadmin / console |
+| `/upc RemoveGroup <User> <Group>` | Remove a player's group assignment. | Superadmin / console |
+| `/upc RemoveGroupPermission <Group> <Permission>` | Remove a permission from a group. | Superadmin / console |
+| `/upc RemovePlayerPermission <User> <Permission>` | Remove a player's personal permission. | Superadmin / console |
+| `/upc RemoveSuperAdmin <User>` | Remove the internal superadmin flag. | Superadmin / console |
+| `/upc RestrictGroupToWorld <Group> <World>` | Restrict a group to a world; all removes the restriction. | Superadmin / console |
+| `/upc SetGroups <User> [Group1 Group2 ...]` | Replace the user's groups with the list after User; an empty list removes all. | Superadmin / console |
+| `/upc SetGroupPriority <Group> <Priority>` | Change the group's numeric priority. | Superadmin / console |
+| `/upc SetGroupPrefix <Group> none` | Change the group prefix; none clears it. | Superadmin / console |
+| `/upc SetGroupPrefix <Group> <Prefix>` | Change the group prefix; none clears it. | Superadmin / console |
+| `/upc SetGroupSuffix <Group> none` | Change the group suffix; none clears it. | Superadmin / console |
+| `/upc SetGroupSuffix <Group> <Suffix>` | Change the group suffix; none clears it. | Superadmin / console |
+| `/upc SetPlayerPrefix clearAll` | Change a personal prefix; none clears it, clearAll clears it for everyone. | Superadmin / console |
+| `/upc SetPlayerPrefix <User> none` | Change a personal prefix; none clears it, clearAll clears it for everyone. | Superadmin / console |
+| `/upc SetPlayerPrefix <User> <Prefix>` | Change a personal prefix; none clears it, clearAll clears it for everyone. | Superadmin / console |
+| `/upc SetPlayerSuffix clearAll` | Change a personal suffix; none clears it, clearAll clears it for everyone. | Superadmin / console |
+| `/upc SetPlayerSuffix <User> none` | Change a personal suffix; none clears it, clearAll clears it for everyone. | Superadmin / console |
+| `/upc SetPlayerSuffix <User> <Suffix>` | Change a personal suffix; none clears it, clearAll clears it for everyone. | Superadmin / console |
+| `/upc TransferAccount <Groups / Permissions / All> <Overwrite / Append> <User> <User>` | Transfer Groups/Permissions/All from the first User to the second; Overwrite/Append selects replacement/appending. | Superadmin / console |
+| `/upc Transfer <File / MySQL> <File / MySQL>` | Transfer storage between File and MySQL; working MySQL is required. | Superadmin / console |
+| `/upc AddGroupPermission <Group> <Permission> [options]` | Add a permission to a group, with scope and/or expiration. | Superadmin / console |
+| `/upc AddGroupPermission <Group> <Permission> <World> [options]` | Add a permission to a group, with scope and/or expiration. | Superadmin / console |
+| `/upc AddPlayerPermission <User> <Permission> [options]` | Add a personal permission to a player, with scope and/or expiration. | Superadmin / console |
+| `/upc AddPlayerPermission <User> <Permission> <World> [options]` | Add a personal permission to a player, with scope and/or expiration. | Superadmin / console |
+| `/upc createGroup <groupName>` | Create a group; network mode selects a server or all. | Superadmin / console |
 
-## Значения и опции
+## Values and options
 
-- `User` — сохранённое имя пользователя, `Group` — имя существующей группы; `CopyName`/`groupName` задаются одним аргументом.
-- `Server` — `all`, `local` или имя сервера из списка прокси. `World` — существующий мир или `all`.
-- `Permission` — permission node; начальный `-` задаёт запрет, например `-minecraft.command.op`.
-- `[options]` для добавления permissions поддерживает срок `1d 2h 5m 10s`, имя мира и контекстные слова `local`/`bungee`; явные Server/World в сетевой форме задают соответствующую область. Без срока назначение постоянное.
-- `AddGroup` принимает те же сокращения времени в конце команды; делегирование дополнительно ограничивает группу и максимальный срок выдачи.
-- `SetGroups` принимает остальные аргументы как имена групп, неизвестные имена пропускает. **Сначала снимаются прежние группы**; используйте точные имена.
-- `Prefix`/`Suffix` поддерживают форматирование; для удаления есть `none`, а `clearAll` у пользовательских форм действует на всех пользователей.
+- `User` is a saved player name; `Group` is an existing group name. Supply `CopyName`/`groupName` as a single argument.
+- `Server` is `all`, `local` or a server name from the proxy list. `World` is an existing world or `all`.
+- `Permission` is a permission node; a leading `-` specifies denial, for example `-minecraft.command.op`.
+- `[options]` for permission assignments supports a duration such as `1d 2h 5m 10s`, a world name and the context words `local`/`bungee`. Explicit Server/World arguments in network forms select the corresponding scope. Assignments without a duration are permanent.
+- `AddGroup` accepts the same time abbreviations at the end of the command. Delegation additionally limits the allowed group and maximum assignment duration.
+- `SetGroups` treats the remaining arguments as group names and skips unknown names. **Existing groups are removed first**; use exact names.
+- `Prefix`/`Suffix` support formatting. Use `none` to remove a value; `clearAll` in user forms affects every user.
 
-## Примеры
+## Examples
 
-Standalone, из консоли:
+Standalone, from the console:
 
 ```text
 upc createGroup vip
@@ -89,11 +91,11 @@ upc SetGroupPrefix vip &a[VIP]
 upc SetGroups Steve default vip
 ```
 
-В сетевом режиме при добавлении прав укажите server, например:
+In network mode, specify a server when adding permissions, for example:
 
 ```text
 upc AddGroupPermission vip essentials.fly all
 upc AddPlayerPermission Steve essentials.home survival
 ```
 
-`Purge*`, `Delete*`, `SetGroups`, Transfer и Overwrite меняют данные массово. Используйте копию хранилища перед административными переносами; GUI не заменяет этот смысл команд.
+`Purge*`, `Delete*`, `SetGroups`, Transfer and Overwrite can change data in bulk. Keep a storage copy before administrative transfers; using a GUI does not change the effect of these operations.

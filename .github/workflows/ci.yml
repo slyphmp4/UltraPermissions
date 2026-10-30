@@ -72,5 +72,17 @@ jobs:
         shell: bash
         run: |
           version=$(sed -n "s/^version = '\([^']*\)'/\1/p" build.gradle)
+          notes=build/release/RELEASE-NOTES.md
+          printf '%s\n\n' '[English](#english) · [Українська](#українська) · [Русский](#русский)' > "$notes"
+          for language in en uk ru; do
+            case "$language" in
+              en) label=English; suffix= ;;
+              uk) label=Українська; suffix=.uk ;;
+              ru) label=Русский; suffix=.ru ;;
+            esac
+            printf '## %s\n\n' "$label" >> "$notes"
+            tail -n +3 "docs/releases/$version$suffix.md" >> "$notes"
+            printf '\n\n' >> "$notes"
+          done
           gh release create "$GITHUB_REF_NAME" build/release/libs/*.jar build/release/*.zip build/release/SHA256SUMS.txt \
-            --title "UltraPermissions $version" --notes-file "docs/releases/$version.md" --verify-tag --prerelease
+            --title "UltraPermissions $version" --notes-file "$notes" --verify-tag --prerelease

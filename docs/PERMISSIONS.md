@@ -1,35 +1,37 @@
-# Права и модель доступа
+[English](PERMISSIONS.md) · [Українська](PERMISSIONS.uk.md) · [Русский](PERMISSIONS.ru.md)
 
-## Внутренний superadmin
+# Permissions and access model
 
-Superadmin — **флаг записи User в UltraPermissions**, а не permission node `ultrapermissions.admin`. Такого node для GUI здесь нет. Сам по себе OP или `*` не заменяет этот флаг при открытии `/uperms` и проверке административных веток `/upc`.
+## Internal superadmin
 
-- Выдать: консоль `upc AddSuperAdmin <User>`.
-- Снять: `upc RemoveSuperAdmin <User>`.
-- Снять у всех: `upc PurgeSuperAdmins`.
+Superadmin is **a flag on an UltraPermissions User record**. The GUI has no `ultrapermissions.admin` permission node. OP status or `*` alone does not replace this flag when opening `/uperms` or checking administrative `/upc` branches.
 
-GUI требует игрока с текущим флагом; консоль работает через `/upc`. При отзыве роли существующая GUI/chat-сессия больше не может менять permissions. Административные ветки команд также проверяют роль заново.
+- Grant it: console `upc AddSuperAdmin <User>`.
+- Revoke it: `upc RemoveSuperAdmin <User>`.
+- Revoke it from everyone: `upc PurgeSuperAdmins`.
 
-## Реальные permission nodes
+The GUI requires a player with the current flag; console administration uses `/upc`. Once the role is revoked, an existing GUI/chat session can no longer change permissions. Administrative command branches also check the role again.
 
-| Node | Назначение |
+## Available permission nodes
+
+| Node | Purpose |
 |---|---|
-| `ultrapermissions.commands.promote` | Доступ к `/promote <User> <GroupPath>` |
-| `ultrapermissions.commands.demote` | Доступ к `/demote <User> <GroupPath>` |
+| `ultrapermissions.commands.promote` | Access to `/promote <User> <GroupPath>` |
+| `ultrapermissions.commands.demote` | Access to `/demote <User> <GroupPath>` |
 
-У остальных административных операций используется внутренний superadmin, а не набор вымышленных `ultrapermissions.*` permission nodes. Эти две команды проходят обычную проверку Bukkit permissions; OP/default rules зависят от конфигурации сервера и плагина.
+Other administrative operations use the internal superadmin flag. These two commands use ordinary Bukkit permission checks; OP/default rules depend on the server and plugin configuration. Do not assume that additional `ultrapermissions.*` nodes exist for administrative actions.
 
-## Делегирование групп
+## Delegating groups
 
-В GUI группы можно настроить разрешённые к выдаче группы и максимальный срок выдачи (grant groups). Пользователь с такой действующей группой получает ограниченный доступ к `/upc`:
+In the group GUI, configure which groups may be assigned and the maximum assignment duration (grant groups). A user with such an active group receives limited `/upc` access:
 
-- `AddGroup` — только разрешённые группы и допустимый срок.
-- `listGroupPermissions`, `listPlayerPermissions` — просмотр списков.
+- `AddGroup`: only approved groups and allowed durations.
+- `listGroupPermissions`, `listPlayerPermissions`: list viewing.
 
-Делегирование не даёт редактор GUI, создание пользователей, изменение суффиксов или прочие административные операции. Они требуют superadmin. Неизвестному пользователю доступ закрывается без исключения.
+Delegation does not grant the GUI editor, user creation, suffix editing or other administrative operations. Those require superadmin. An unknown user is denied access without an exception.
 
-## Вычисление прав
+## Permission evaluation
 
-Permissions назначаются пользователям и группам, могут наследоваться и ограничиваться миром/сервером/временем. `example.node` — разрешение, `-example.node` — запрет. Wildcards, приоритет групп, персональные permissions, Bukkit defaults/OP и настройка negative override участвуют в lookup; при конфликте проверяйте результат в permission logger, не делайте вывод только по одному wildcard.
+Permissions can be assigned to users and groups, inherited, and scoped by world/server/time. `example.node` is a grant; `-example.node` is a denial. Wildcards, group priority, personal permissions, Bukkit defaults/OP and the negative-override setting participate in lookup. For conflicts, inspect the result in the permission logger rather than drawing a conclusion from a single wildcard.
 
-Консоль и доверенные плагины с доступом к API являются административной границей. Общий HMAC-key кластера означает доверие всем его держателям. MySQL-аккаунт и файлы Registry/mysql.properties/security.properties не должны быть доступны игрокам.
+The console and trusted plugins with API access form an administrative trust boundary. A shared cluster HMAC key implies trust in every holder. Players must not have access to the MySQL account or the Registry/mysql.properties/security.properties files.

@@ -1,26 +1,28 @@
-# Интеграции и placeholders
+[English](PLACEHOLDERS.md) · [Українська](PLACEHOLDERS.uk.md) · [Русский](PLACEHOLDERS.ru.md)
 
-Vault подключает permissions/chat provider; PlaceholderAPI и MVdWPlaceholderAPI позволяют использовать данные в совместимых плагинах. NametagEdit обслуживает отображение имён/префиксов при наличии интеграции. Устанавливайте эти плагины отдельно, когда они нужны; compile-only API из исходного проекта копировать на сервер не нужно.
+# Integrations and placeholders
+
+Vault provides the permissions/chat integration; PlaceholderAPI and MVdWPlaceholderAPI expose data to compatible plugins. NametagEdit handles name/prefix display when the integration is present. Install these plugins separately when needed; do not copy compile-only API files from the source project onto the server.
 
 ## PlaceholderAPI
 
-Identifier: `uperms`. Базовые placeholders:
+Identifier: `uperms`. Base placeholders:
 
-| Placeholder | Назначение |
+| Placeholder | Purpose |
 |---|---|
-| `%uperms_prefix%` | Player Prefix or Prefix of 1. Group |
-| `%uperms_prefix_color%` | Color of Player Prefix or Prefix of 1. Group |
-| `%uperms_prefixes%` | Replaced with player prefix & group prefixes |
-| `%uperms_rank%` | Group Name of 1. Group |
-| `%uperms_rank_timer%` | Rank Timer of next highest timed group |
-| `%uperms_rank_timer_detailed%` | Detailed Rank Timer of next highest timed group |
-| `%uperms_ranks%` | Group Name of all Groups |
-| `%uperms_secondaryprefix%` | Prefix of 2. Group |
-| `%uperms_secondarysuffix%` | Suffix of 2. Group |
-| `%uperms_suffix%` | Player Suffix or Suffix of 1. Group |
-| `%uperms_suffix_color%` | Color of Player Suffix or Suffix of 1. Group |
-| `%uperms_suffixes%` | Replaced with all group suffixes |
+| `%uperms_prefix%` | Player prefix, or the first group's prefix |
+| `%uperms_prefix_color%` | Color of the player prefix, or the first group's prefix |
+| `%uperms_prefixes%` | Player prefix combined with group prefixes |
+| `%uperms_rank%` | Name of the first group |
+| `%uperms_rank_timer%` | Timer of the next highest temporary group |
+| `%uperms_rank_timer_detailed%` | Detailed timer of the next highest temporary group |
+| `%uperms_ranks%` | Names of all groups |
+| `%uperms_secondaryprefix%` | Prefix of the second group |
+| `%uperms_secondarysuffix%` | Suffix of the second group |
+| `%uperms_suffix%` | Player suffix, or the first group's suffix |
+| `%uperms_suffix_color%` | Color of the player suffix, or the first group's suffix |
+| `%uperms_suffixes%` | Combined suffixes of all groups |
 
-Встроенный формат шаблонов плагина — `{Prefix}`, `{Rank}`, `{Rank_timer}` и соответствующие имена из списка, с учётом конкретного места использования. PlaceholderAPI-запрос должен иметь пользователя; значения зависят от мира/сервера и действующих групп.
+The plugin's native template format uses `{Prefix}`, `{Rank}`, `{Rank_timer}` and the corresponding names from the list, depending on the place of use. A PlaceholderAPI request must have a user context; values depend on the world/server and active groups.
 
-Дополнительные query-формы обработчика: `has_group_<group>`, `has_permission_<node>`, `permission_timer_<node>`, `inherits_group_<group>`, `rank_timer_<group>`. Они требуют существующего пользователя/объекта; интеграционный плагин определяет контекст запроса. Полный Minecraft/placeholder runtime не исполняется в офлайн CI.
+Additional query forms supported by the handler: `has_group_<group>`, `has_permission_<node>`, `permission_timer_<node>`, `inherits_group_<group>`, `rank_timer_<group>`. They require an existing user/object; the integration plugin supplies the request context. The full Minecraft/placeholder runtime is not executed in offline CI.
