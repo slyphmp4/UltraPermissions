@@ -47,7 +47,9 @@ public abstract class SpigotTechPlugin extends TechPlugin<JavaPlugin> {
 
    @Override
    protected void onPlatformDisable() {
-      this.messagingService.onDisable();
+      if (this.messagingService != null) {
+         this.messagingService.onDisable();
+      }
    }
 
    @Override
