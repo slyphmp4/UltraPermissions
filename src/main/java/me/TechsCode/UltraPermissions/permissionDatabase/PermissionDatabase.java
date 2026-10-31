@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.UltraPermissions;
-import me.TechsCode.UltraPermissions.dependencies.commons.io.FileUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.permissions.Permission;
 import org.bukkit.plugin.Plugin;
@@ -18,6 +17,7 @@ public class PermissionDatabase {
    private volatile java.util.Map<String, PermissionInfo> map = java.util.Collections.emptyMap();
    public static final String githubLink = "https://raw.githubusercontent.com/TechsCode-Team/PluginPermissions/master/Permissions/Database.updb";
    private static final int MAX_DATABASE_BYTES = 8 * 1024 * 1024;
+   private static final int MAX_RECORDS = 50000;
 
    public PermissionDatabase(UltraPermissions plugin) {
       // Bukkit's plugin manager and descriptors must be inspected on the primary thread.
@@ -44,7 +44,7 @@ public class PermissionDatabase {
             }
             // A transient error page must not overwrite a working cached database.
             String remoteText = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-            if (countValidRecords(java.util.Arrays.asList(remoteText.split("\\R"))) == 0) {
+            if (!acceptableCatalogue(remoteText)) {
                throw new IOException("Cloud catalogue has no valid records");
             }
             me.TechsCode.UltraPermissions.base.fileconf.AtomicFileSave.save(cache,
@@ -65,17 +65,25 @@ public class PermissionDatabase {
             HashMap<String, PermissionInfo> next = new HashMap<>(builtIn);
             int accepted = 0;
             int skipped = 0;
-            for (String line : java.nio.file.Files.readAllLines(cache.toPath(), java.nio.charset.StandardCharsets.UTF_8)) {
-               if (line.isBlank() || line.startsWith("#")) continue;
-               if (!safeRecord(line)) {
-                  skipped++;
-                  continue;
+            try (java.io.BufferedReader reader = java.nio.file.Files.newBufferedReader(
+                    cache.toPath(), java.nio.charset.StandardCharsets.UTF_8)) {
+               String rawLine;
+               int lines = 0;
+               while ((rawLine = reader.readLine()) != null) {
+                  if (++lines > MAX_RECORDS) throw new IOException("Cached catalogue has too many records");
+                  // Some published metadata contains tabs; render them as spaces without permitting control input.
+                  String line = rawLine.replace('\t', ' ');
+                  if (line.isBlank() || line.startsWith("#")) continue;
+                  if (!safeRecord(line)) {
+                     skipped++;
+                     continue;
+                  }
+                  String[] parts = line.split("\\+", -1);
+                  String[] commands = parts.length == 4 ? parts[3].split(",") : new String[0];
+                  next.put(parts[1], new PermissionInfo(parts[1], parts[0],
+                      parts.length >= 3 ? parts[2] : "", commands, "Permission Database (" + cache.getName() + ")"));
+                  accepted++;
                }
-               String[] parts = line.split("\\+", -1);
-               String[] commands = parts.length == 4 ? parts[3].split(",") : new String[0];
-               next.put(parts[1], new PermissionInfo(parts[1], parts[0],
-                   parts.length >= 3 ? parts[2] : "", commands, "Permission Database (" + cache.getName() + ")"));
-               accepted++;
             }
             this.map = java.util.Collections.unmodifiableMap(next);
             plugin.log("- " + accepted + " Permissions " + (downloaded ? "downloaded from Cloud" : "loaded from Cache"));
@@ -98,10 +106,20 @@ public class PermissionDatabase {
           && (fields.length < 4 || fields[3].length() <= 512);
    }
 
-   private static int countValidRecords(java.util.List<String> lines) {
-      int count = 0;
-      for (String line : lines) if (safeRecord(line)) count++;
-      return count;
+   /** Reject even small-but-pathological catalogues that contain millions of short lines. */
+   public static boolean acceptableCatalogue(String text) {
+      if (text == null || text.length() > MAX_DATABASE_BYTES) return false;
+      int valid = 0, lines = 0;
+      try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.StringReader(text))) {
+         String raw;
+         while ((raw = reader.readLine()) != null) {
+            if (++lines > MAX_RECORDS) return false;
+            if (safeRecord(raw.replace('\t', ' '))) valid++;
+         }
+      } catch (IOException invalid) {
+         return false;
+      }
+      return valid > 0;
    }
 
    public PermissionInfo getInfo(String var1) {
