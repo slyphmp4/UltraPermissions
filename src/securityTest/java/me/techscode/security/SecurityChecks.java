@@ -98,6 +98,12 @@ public final class SecurityChecks {
             "external response over byte limit rejected");
         check(PermissionDatabase.safeRecord("WorldEdit+worldedit.*+World editing commands+set,copy"),
             "valid external permission metadata permitted");
+        check(PermissionDatabase.acceptableCatalogue("# metadata\nPlugin+plugin.use+description\n"),
+            "valid permission catalogue accepted");
+        check(PermissionDatabase.acceptableCatalogue("Plugin+plugin.use+\tdescription\n"),
+            "published tab-separated text is normalized safely");
+        check(!PermissionDatabase.acceptableCatalogue("Plugin+plugin.use+desc\n".repeat(50001)),
+            "pathological record count rejected before caching");
         for (String invalid : List.of("WorldEdit+worldedit.*+spoofed\nsecurity warning",
                 "WorldEdit+worldedit.*+" + "x".repeat(2049),
                 "missing-name+", "Plugin+permission+desc+command+unexpected")) {
