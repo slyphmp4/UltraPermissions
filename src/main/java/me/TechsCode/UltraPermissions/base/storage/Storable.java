@@ -20,7 +20,6 @@ public abstract class Storable {
          JsonObject var1 = this.getState();
          if (this.lastSyncedState == null || !this.lastSyncedState.toString().equalsIgnoreCase(var1.toString())) {
             this.storage.update(this, var1);
-            this.lastSyncedState = var1;
          }
       }
    }
@@ -36,7 +35,6 @@ public abstract class Storable {
    protected void destroy() {
       if (this.storage != null) {
          this.storage.destroy(this);
-         this.storage = null;
       }
    }
 
