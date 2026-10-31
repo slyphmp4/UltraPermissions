@@ -95,45 +95,48 @@ public abstract class Storage<STORABLE extends Storable> {
                   new ReadCallback() {
                      @Override
                      public void onSuccess(HashMap<String, JsonObject> var1x) {
-                        if (var1.equalsIgnoreCase("*")) {
-                           Map<String, JsonObject> var2 = var1x.entrySet()
-                              .stream()
-                              .filter(var1xxx -> !Storage.this.instancesView.containsKey(var1xxx.getKey()))
-                              .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-                           Storage.this.createInstances(var2);
-                           Map<String, JsonObject> var3 = var1x.entrySet()
-                              .stream()
-                              .filter(var1xxx -> Storage.this.instancesView.containsKey(var1xxx.getKey()))
-                              .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-
-                           for (Entry<String, JsonObject> var5 : var3.entrySet()) {
-                              Storable var6 = Storage.this.instancesView.get(var5.getKey());
-                              if (!var6.getState().toString().equalsIgnoreCase(((JsonObject)var5.getValue()).toString())) {
-                                 var6.setState((JsonObject)var5.getValue(), Storage.this.plugin);
-                                 var6.setLastSyncedState((JsonObject)var5.getValue());
+                        // Read on a worker; apply model changes and Bukkit observers on the server thread.
+                        Storage.this.plugin.getScheduler().run(() -> {
+                           if (var1.equalsIgnoreCase("*")) {
+                              Map<String, JsonObject> var2 = var1x.entrySet()
+                                 .stream()
+                                 .filter(var1xxx -> !Storage.this.instancesView.containsKey(var1xxx.getKey()))
+                                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+                              Storage.this.createInstances(var2);
+                              Map<String, JsonObject> var3 = var1x.entrySet()
+                                 .stream()
+                                 .filter(var1xxx -> Storage.this.instancesView.containsKey(var1xxx.getKey()))
+                                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+   
+                              for (Entry<String, JsonObject> var5 : var3.entrySet()) {
+                                 Storable var6 = Storage.this.instancesView.get(var5.getKey());
+                                 if (!var6.getState().toString().equalsIgnoreCase(((JsonObject)var5.getValue()).toString())) {
+                                    var6.setState((JsonObject)var5.getValue(), Storage.this.plugin);
+                                    var6.setLastSyncedState((JsonObject)var5.getValue());
+                                 }
                               }
+   
+                              Map<String, STORABLE> var8 = Storage.this.instancesView
+                                 .entrySet()
+                                 .stream()
+                                 .filter(var1xxx -> !var1x.containsKey(var1xxx.getKey()))
+                                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+                              var8.forEach((var2x, var3x) -> {
+                                 Storage.this.instances.remove(var2x);
+                                 Storage.this.instancesChanged(StorageChangeType.REMOVED, var1, var3x);
+                              });
+                           } else if (!var1x.isEmpty() && !Storage.this.instancesView.containsKey(var1)) {
+                              Storage.this.createInstances(var1x);
+                           } else if (!var1x.isEmpty() && Storage.this.instancesView.containsKey(var1)) {
+                              Storage.this.instancesView.get(var1).setState((JsonObject)var1x.get(var1), Storage.this.plugin);
+                              Storage.this.instancesView.get(var1).setLastSyncedState((JsonObject)var1x.get(var1));
+                           } else if (var1x.isEmpty()) {
+                              STORABLE var7 = Storage.this.instances.remove(var1);
+                              Storage.this.instancesChanged(StorageChangeType.REMOVED, var1, var7);
                            }
-
-                           Map<String, STORABLE> var8 = Storage.this.instancesView
-                              .entrySet()
-                              .stream()
-                              .filter(var1xxx -> !var1x.containsKey(var1xxx.getKey()))
-                              .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-                           var8.forEach((var2x, var3x) -> {
-                              Storage.this.instances.remove(var2x);
-                              Storage.this.instancesChanged(StorageChangeType.REMOVED, var1, var3x);
-                           });
-                        } else if (!var1x.isEmpty() && !Storage.this.instancesView.containsKey(var1)) {
-                           Storage.this.createInstances(var1x);
-                        } else if (!var1x.isEmpty() && Storage.this.instancesView.containsKey(var1)) {
-                           Storage.this.instancesView.get(var1).setState((JsonObject)var1x.get(var1), Storage.this.plugin);
-                           Storage.this.instancesView.get(var1).setLastSyncedState((JsonObject)var1x.get(var1));
-                        } else if (var1x.isEmpty()) {
-                           STORABLE var7 = Storage.this.instances.remove(var1);
-                           Storage.this.instancesChanged(StorageChangeType.REMOVED, var1, var7);
-                        }
-
-                        Storage.this.onDataSynchronization();
+   
+                              Storage.this.onDataSynchronization();
+                        });
                      }
 
                      @Override
