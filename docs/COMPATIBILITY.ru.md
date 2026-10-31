@@ -2,7 +2,7 @@
 
 # Совместимость с Minecraft до 26.2
 
-Стабильный выпуск 5.6.9 поддерживает **Paper для Minecraft Java Edition 26.2 на Java 25** в пределах описанных ниже проверок. Предыдущие версии Bukkit/Spigot/Paper остаются целевыми для совместимости; они протестированы не все. Поле `api-version: 1.13` задаёт базовый API, а не доказывает работоспособность на каждой промежуточной версии сервера.
+Стабильный выпуск 5.6.10 поддерживает **Paper для Minecraft Java Edition 26.2 на Java 25** в пределах описанных ниже проверок. Предыдущие версии Bukkit/Spigot/Paper остаются целевыми для совместимости; они протестированы не все. Поле `api-version: 1.13` задаёт базовый API, а не доказывает работоспособность на каждой промежуточной версии сервера.
 
 | Сервер | Java | Проверка в этом выпуске |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ JAR Paper и образ контейнера Java закреплены по SHA-
 Воспроизведение после `gradlew build`, если установлены Python 3 и Docker:
 
 ```sh
-python tools/verify_paper.py --plugin build/libs/UltraPermissions-5.6.9.jar --probe build/runtime-test/RuntimeProbe.jar --work-dir build/paper-runtime --report-dir build/reports/runtime --accept-eula
+python tools/verify_paper.py --plugin build/libs/UltraPermissions-5.6.10.jar --probe build/runtime-test/RuntimeProbe.jar --work-dir build/paper-runtime --report-dir build/reports/runtime --accept-eula
 ```
 
 Каждый раз используйте новый рабочий каталог. `--accept-eula` явно принимает [Minecraft EULA](https://aka.ms/MinecraftEULA) для временного тестового сервера. Отчёты содержат хеш проверенного плагина и версии окружения. Перед обновлением создайте резервную копию данных сервера.
