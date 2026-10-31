@@ -1,6 +1,8 @@
 package me.techscode.security;
 
 import java.io.*;
+import java.net.URL;
+import java.net.URLConnection;
 import java.lang.reflect.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -11,6 +13,12 @@ import java.util.concurrent.atomic.*;
 import java.util.function.BiFunction;
 import java.util.logging.Logger;
 import me.TechsCode.UltraPermissions.UltraPermissions;
+import me.TechsCode.UltraPermissions.PluginEvents;
+import me.TechsCode.UltraPermissions.base.legacy.task.UpdateEvent;
+import me.TechsCode.UltraPermissions.base.legacy.task.UpdateTime;
+import me.TechsCode.UltraPermissions.base.networking.PublicIpResolver;
+import me.TechsCode.UltraPermissions.base.networking.SpigotNetworkManager;
+import me.TechsCode.UltraPermissions.hooks.pluginHooks.VaultChatHook;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.dialog.Dialog;
 import me.TechsCode.UltraPermissions.base.gui.*;
@@ -62,6 +70,7 @@ public final class SecurityChecks {
         sqlAndPool();
         boundedSync();
         tlsPolicy();
+        threadingAndNetwork();
         uiRevocation();
         serializedItems();
         removedCapabilities();
@@ -72,6 +81,66 @@ public final class SecurityChecks {
         result.add("groups", new Gson().toJsonTree(groups));
         Files.writeString(report.resolve("verification.json"), new GsonBuilder().setPrettyPrinting().create().toJson(result));
         System.out.println("Security checks passed: " + assertions + " assertions in " + groups.size() + " groups.");
+    }
+
+    private static void threadingAndNetwork() throws Exception {
+        TestScheduler scheduler = new TestScheduler();
+        TestPlugin plugin = allocate(TestPlugin.class);
+        plugin.scheduler = scheduler;
+
+        PluginEvents events = allocate(PluginEvents.class);
+        set(events, "plugin", plugin);
+        events.updateData(new UpdateEvent(UpdateTime.SEC));
+        check(scheduler.syncCalls == 1 && scheduler.asyncCalls == 0, "permissions maintenance runs on main-thread scheduler");
+        scheduler.jobs.clear();
+
+        SpigotMessagingService messaging = allocate(SpigotMessagingService.class);
+        set(messaging, "listeners", new ArrayList<>());
+        plugin.messaging = messaging;
+        new SpigotNetworkManager(plugin);
+        check(scheduler.asyncCalls == 1 && scheduler.jobs.size() == 1, "public IP lookup deferred off startup thread");
+        scheduler.jobs.clear();
+
+        VaultChatHook vault = allocate(VaultChatHook.class);
+        set(vault, "plugin", plugin);
+        vault.clearCache();
+        check(scheduler.syncCalls == 2 && scheduler.jobs.size() == 1, "Vault cache rebuild dispatched to main thread");
+        scheduler.jobs.clear();
+
+        ThreadStorage storage = allocate(ThreadStorage.class);
+        ThreadBackend backend = allocate(ThreadBackend.class);
+        set(storage, "plugin", plugin);
+        set(storage, "syncBudget", new SyncBudget());
+        set(storage, "implementation", backend);
+        Map<String, Storable> instances = new java.util.concurrent.ConcurrentHashMap<>();
+        set(storage, "instances", instances);
+        set(storage, "instancesView", Collections.unmodifiableMap(instances));
+        set(storage, "observers", new ArrayList<>());
+        storage.syncFromDatabase("fixture-key");
+        check(scheduler.asyncCalls == 2 && scheduler.jobs.size() == 1, "database refresh performs I/O on worker");
+        scheduler.jobs.remove().run();
+        check(scheduler.syncCalls == 3 && storage.synchronizations == 0, "database state not applied on worker");
+        scheduler.jobs.remove().run();
+        check(storage.synchronizations == 1, "database state applied on main-thread scheduler");
+
+        AtomicBoolean closed = new AtomicBoolean();
+        URLConnection connection = new URLConnection(new URL("https://example.invalid")) {
+            public void connect() {}
+            public InputStream getInputStream() {
+                return new ByteArrayInputStream("203.0.113.42\n".getBytes(StandardCharsets.UTF_8)) {
+                    @Override public void close() { closed.set(true); }
+                };
+            }
+        };
+        check("203.0.113.42".equals(PublicIpResolver.readAddress(connection)), "valid public address parsed");
+        check(connection.getConnectTimeout() == 2000 && connection.getReadTimeout() == 2000, "external IP lookup has bounded timeouts");
+        check(closed.get(), "HTTP response closed");
+        URLConnection untrusted = new URLConnection(new URL("https://example.invalid")) {
+            public void connect() {}
+            public InputStream getInputStream() { return new ByteArrayInputStream("not-an-ip\n".getBytes(StandardCharsets.UTF_8)); }
+        };
+        check(PublicIpResolver.readAddress(untrusted) == null, "external response cannot inject non-IP data");
+        groups.add("Thread safety: main-thread model writes / Vault cache / no blocking IP lookup / bounded HTTP");
     }
 
     private static void minecraftVersions() {
@@ -392,17 +461,34 @@ public final class SecurityChecks {
         public static HostileAlias deserialize(Map<String,Object> map){executed++;return new HostileAlias();}
     }
     public static class TestPlugin extends UltraPermissions {
-        UserList users; TestScheduler scheduler; TestManager manager; List<String> logs;
+        UserList users; TestScheduler scheduler; TestManager manager; SpigotMessagingService messaging; List<String> logs;
         me.TechsCode.UltraPermissions.base.networking.NServer currentServer;
         public TestPlugin(){super(null);}
         @Override public UserList getUsers(){return users;}
         @Override public Scheduler getScheduler(){return scheduler;}
+        @Override public SpigotMessagingService getMessagingService(){return messaging;}
         @Override public MySQLManager getMySQLManager(){return manager;}
         @Override public String getName(){return "UltraPermissions";}
         @Override public String getPrefix(){return "";}
         @Override public Optional<me.TechsCode.UltraPermissions.base.networking.NServer> getThisServer(){return Optional.ofNullable(currentServer);}
         @Override public User registerUser(UUID uuid,String name,boolean assignDefault){User user=new User(uuid,name,false,new HashMap<>(),"","",null);users.add(user);return user;}
         @Override public void log(String message){if(logs!=null)logs.add(message);}
+    }
+    public static class ThreadStorage extends Storage<Storable> {
+        int synchronizations;
+        public ThreadStorage(){super(null,null,null,null,false);}
+        public void onMount(Storable value){}
+        public void onCreation(Storable value){}
+        public void onChange(Storable previous,Storable current){}
+        public void onDestroy(Storable value){}
+        public void onDataSynchronization(){synchronizations++;}
+    }
+    public static class ThreadBackend extends StorageImplementation {
+        public ThreadBackend(){super(null,"fixture",false);}
+        public void destroy(String key,WriteCallback callback){}
+        public void create(String key,JsonObject value,WriteCallback callback){}
+        public void update(String key,JsonObject value,WriteCallback callback){}
+        public void read(String key,ReadCallback callback){callback.onSuccess(new HashMap<>());}
     }
     public static class TestManager extends MySQLManager {
         JdbcFixture db; boolean fail; int calls;
@@ -434,7 +520,8 @@ public final class SecurityChecks {
     }
     private static final class TestScheduler implements Scheduler {
         ArrayDeque<Runnable> jobs=new ArrayDeque<>();
-        public void run(Runnable task){jobs.add(task);} public void runAsync(Runnable task){jobs.add(task);}
+        int syncCalls, asyncCalls;
+        public void run(Runnable task){syncCalls++;jobs.add(task);} public void runAsync(Runnable task){asyncCalls++;jobs.add(task);}
         public Task runTaskLater(Runnable task,long delay){jobs.add(task);return new Task(){public void cancel(){}};}
         public Task runTaskLaterAsync(Runnable task,long delay){jobs.add(task);return new Task(){public void cancel(){}};}
         public RecurringTask runTaskTimer(Runnable task,long delay,long period){return new IdleTask();}
