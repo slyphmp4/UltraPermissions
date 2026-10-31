@@ -1,9 +1,11 @@
 package me.techscode.compatibility;
 
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.UUID;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
+import me.TechsCode.UltraPermissions.base.fileconf.impl.SpigotFileConfiguration;
 import me.TechsCode.UltraPermissions.base.item.CustomItem;
 import me.TechsCode.UltraPermissions.base.item.XMaterial;
 import me.TechsCode.UltraPermissions.base.reflection.utility.ReflectionUtil;
@@ -26,6 +28,7 @@ public final class RuntimeProbe extends JavaPlugin {
         Bukkit.getScheduler().runTaskLater(this, () -> run(() -> {
             permissions = (UltraPermissions) TechPlugin.getInstance();
             check(permissions.getPluginEvents() != null, "plugin initialized");
+            corruptYamlRecovery();
             check(XMaterial.getVersion() >= 21, "modern material mapping");
             check(ReflectionUtil.MINOR_VERSION >= 21, "modern reflection version");
             CustomItem item = new CustomItem(Material.DIAMOND).name("Compatibility probe").lore("metadata round trip");
@@ -43,6 +46,22 @@ public final class RuntimeProbe extends JavaPlugin {
             report("passed");
             Bukkit.shutdown();
         }), 40L);
+    }
+
+    private void corruptYamlRecovery() throws Exception {
+        Path folder = getDataFolder().toPath();
+        Files.createDirectories(folder);
+        Path malformed = folder.resolve("corrupt-config.yml");
+        String original = "permissions: [unterminated";
+        Files.writeString(malformed, original, java.nio.charset.StandardCharsets.UTF_8);
+        boolean rejected = false;
+        try {
+            new SpigotFileConfiguration(malformed.toFile());
+        } catch (IllegalStateException expected) {
+            rejected = true;
+        }
+        check(rejected, "corrupt YAML rejected instead of silently loading empty defaults");
+        check(original.equals(Files.readString(malformed)), "corrupt YAML preserved for manual recovery");
     }
 
     private void playerPermissions() throws Exception {
