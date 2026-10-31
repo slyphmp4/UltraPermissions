@@ -25,7 +25,8 @@ public abstract class Storable {
    }
 
    public void setLastSyncedState(JsonObject var1) {
-      this.lastSyncedState = var1;
+      // Last saved state must not alias a mutable JSON model instance.
+      this.lastSyncedState = var1 == null ? null : var1.deepCopy();
    }
 
    public JsonObject getLastSyncedState() {
