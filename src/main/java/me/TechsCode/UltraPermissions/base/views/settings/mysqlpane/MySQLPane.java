@@ -1,5 +1,7 @@
 package me.TechsCode.UltraPermissions.base.views.settings.mysqlpane;
 
+import java.util.Objects;
+
 import me.TechsCode.UltraPermissions.base.SpigotTechPlugin;
 import me.TechsCode.UltraPermissions.base.dialog.UserInput;
 import me.TechsCode.UltraPermissions.base.gui.ActionType;
@@ -363,27 +365,73 @@ public class MySQLPane extends SettingsPane {
             TEST_MINIMUM_IDLE.get().replace("%", this.minimumIdle + ""),
             TEST_MAXIMUM_POOL_SIZE.get().replace("%", this.maximumPoolSize + "")
          );
-      var1.action(var1x -> this.plugin.getScheduler().runAsync(() -> {
+      var1.action(var1x -> {
+         if (this.loading) {
+            return;
+         }
          if (this.credentials == null) {
             this.state = MySQLPane.SaveState.INVALID_UNSAVED_CHANGES;
             this.error = MISSING_CREDENTIALS.get();
-         } else if (this.serverName == null) {
+            return;
+         }
+         if (this.serverName == null) {
             this.state = MySQLPane.SaveState.INVALID_UNSAVED_CHANGES;
             this.error = MISSING_SERVER_NAME.get();
-         } else {
-            this.loading = true;
-            ConnectionFactory var1xx = new ConnectionFactory(this.credentials, this.ssl, this.minimumIdle, this.maximumPoolSize);
-            ConnectionTestResult var2x = var1xx.testConnection();
-            var1xx.close();
-            this.loading = false;
-            if (var2x.isValid()) {
-               this.state = MySQLPane.SaveState.CORRECT_UNSAVED_CHANGES;
-            } else {
-               this.state = MySQLPane.SaveState.INVALID_UNSAVED_CHANGES;
-               this.error = var2x.getError();
-            }
+            return;
          }
-      }));
+
+         MySQLCredentials original = this.credentials;
+         MySQLCredentials snapshot = new MySQLCredentials(
+            original.getHostname(), original.getPort(), original.getDatabase(), original.getUsername(), original.getPassword()
+         );
+         String serverName = this.serverName;
+         boolean ssl = this.ssl;
+         int minimumIdle = this.minimumIdle;
+         int maximumPoolSize = this.maximumPoolSize;
+         String failureText = COULD_NOT_CONNECT_TITLE.get();
+         this.loading = true;
+         this.plugin.getScheduler().runAsync(() -> {
+            ConnectionFactory connection = null;
+            ConnectionTestResult result;
+            try {
+               connection = new ConnectionFactory(snapshot, ssl, minimumIdle, maximumPoolSize);
+               result = connection.testConnection();
+            } catch (RuntimeException failure) {
+               result = new ConnectionTestResult(false, failureText);
+            } finally {
+               if (connection != null) {
+                  try {
+                     connection.close();
+                  } catch (RuntimeException failure) {
+                     this.plugin.log("Could not close MySQL test connection: " + failure.getMessage());
+                  }
+               }
+            }
+
+            ConnectionTestResult completed = result;
+            this.plugin.getScheduler().run(() -> {
+               this.loading = false;
+               if (this.credentials != original || !sameCredentials(this.credentials, snapshot)
+                  || !Objects.equals(this.serverName, serverName) || this.ssl != ssl
+                  || this.minimumIdle != minimumIdle || this.maximumPoolSize != maximumPoolSize) {
+                  this.state = MySQLPane.SaveState.UNSAVED_CHANGES;
+                  return;
+               }
+               this.state = completed.isValid()
+                  ? MySQLPane.SaveState.CORRECT_UNSAVED_CHANGES : MySQLPane.SaveState.INVALID_UNSAVED_CHANGES;
+               this.error = completed.isValid() ? null : completed.getError();
+            });
+         });
+      });
+   }
+
+   private static boolean sameCredentials(MySQLCredentials current, MySQLCredentials expected) {
+      return current != null && expected != null
+         && Objects.equals(current.getHostname(), expected.getHostname())
+         && Objects.equals(current.getPort(), expected.getPort())
+         && Objects.equals(current.getDatabase(), expected.getDatabase())
+         && Objects.equals(current.getUsername(), expected.getUsername())
+         && Objects.equals(current.getPassword(), expected.getPassword());
    }
 
    private void SaveChangesButton(Button var1) {
