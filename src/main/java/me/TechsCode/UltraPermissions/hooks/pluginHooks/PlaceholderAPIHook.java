@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 import me.TechsCode.UltraPermissions.CachedPlayerPermissionProvider;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.legacy.Tools;
+import me.TechsCode.UltraPermissions.base.translations.Words;
 import me.TechsCode.UltraPermissions.base.storage.Stored;
 import me.TechsCode.UltraPermissions.hooks.UpermsPlaceholder;
 import me.TechsCode.UltraPermissions.internal.lookup.LookupCheck;
@@ -109,7 +110,7 @@ public class PlaceholderAPIHook {
                         return Tools.getTimeString(var28, TimeUnit.MILLISECONDS);
                      }
 
-                     return "Permanent";
+                     return Words.PERMANENT.firstUpper();
                   }
 
                   if (var4[0].equalsIgnoreCase("inherits") && var4[1].equalsIgnoreCase("group")) {
@@ -139,7 +140,7 @@ public class PlaceholderAPIHook {
                            return Tools.getTimeString(var33, TimeUnit.MILLISECONDS, 2);
                         }
 
-                        return "Permanent";
+                        return Words.PERMANENT.firstUpper();
                      } catch (NullPointerException | NoSuchElementException var11) {
                      }
                   }
@@ -155,7 +156,7 @@ public class PlaceholderAPIHook {
                            return Tools.getTimeString(var32, TimeUnit.MILLISECONDS);
                         }
 
-                        return "Permanent";
+                        return Words.PERMANENT.firstUpper();
                      } catch (NullPointerException | NoSuchElementException var10) {
                      }
                   }
@@ -169,7 +170,7 @@ public class PlaceholderAPIHook {
                            return Tools.getTimeString(var31, TimeUnit.MILLISECONDS, 2);
                         }
 
-                        return "Permanent";
+                        return Words.PERMANENT.firstUpper();
                      }
                   }
                }
@@ -183,7 +184,7 @@ public class PlaceholderAPIHook {
                         return Tools.getTimeString(var30, TimeUnit.MILLISECONDS);
                      }
 
-                     return "Permanent";
+                     return Words.PERMANENT.firstUpper();
                   }
                }
 

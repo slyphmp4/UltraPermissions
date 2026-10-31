@@ -13,9 +13,9 @@ import org.bukkit.entity.Player;
 public abstract class UpdateView extends GUI {
    private static final Phrase TITLE = Phrase.create("updateView.title", "Update from %from% to %to%");
    private static final Phrase YES_TITLE = Phrase.create("updateView.yes.title", "Update");
-   private static final Phrase YES_ACTION = Phrase.create("updateView.yes.action", "Click to load **update**", Colors.GRAY, Colors.YELLOW);
+   private static final Phrase YES_ACTION = Phrase.create("updateView.yes.action", "Click for **installation instructions**", Colors.GRAY, Colors.YELLOW);
    private static final Phrase YES_DESCRIPTION = Phrase.create(
-      "updateView.yes.desc", "This feature requires **Discord** to verify your purchase", Colors.GRAY, Colors.AQUA
+      "updateView.yes.desc", "Install the verified JAR manually from **GitHub Releases**", Colors.GRAY, Colors.AQUA
    );
    private static final Phrase NO_TITLE = Phrase.create("updateView.no.title", "Stay on this Version");
    private static final Phrase NO_ACTION = Phrase.create("updateView.no.action", "Click to stay on this Version", Colors.GRAY);

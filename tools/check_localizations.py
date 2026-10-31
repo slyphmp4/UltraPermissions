@@ -15,6 +15,10 @@ RESOURCES = ROOT / "src/main/resources/translations"
 LANGUAGES = ("Russian", "Ukrainian")
 PARTS = ("Base", "UltraPermissions")
 PHRASE = re.compile(r'Phrase\.create\(\s*"([^"]+)"\s*,\s*"((?:\\.|[^"\\])*)"')
+PHRASE_FIELD = re.compile(
+    r'(?m)^[ \t]*((?:(?:private|public|protected|static|final|volatile|transient)\s+)+)'
+    r'Phrase\s+(\w+)\s*=\s*Phrase\.create\s*\('
+)
 LINE = re.compile(r'^([^#:]+): "(.*)"$')
 TOKEN = re.compile(r'%[A-Za-z0-9_]+%|\{[A-Za-z][^{}]*\}')
 LATIN = re.compile(r'[A-Za-z][A-Za-z0-9]*')
@@ -22,7 +26,7 @@ ALLOWED_LATIN = {
     "MySQL", "Shift", "Insane", "Editor", "Discord", "SSL",
     "none", "ID", "UltraPermissions", "Spigot", "yml", "UUID",
     "BungeeCord", "URL", "promote", "demote", "NameTagEdit",
-    "InsaneEditor", "help", "Bukkit", "JAR", "Q", "m", "h", "d",
+    "InsaneEditor", "help", "Bukkit", "JAR", "GitHub", "Q", "m", "h", "d",
 }
 
 
@@ -32,6 +36,10 @@ def read_sources(errors: list[str]) -> dict[str, dict[str, str]]:
         relative = path.relative_to(JAVA_ROOT)
         part = "Base" if relative.parts[0] == "base" else "UltraPermissions"
         content = path.read_text(encoding="utf-8")
+        for field in PHRASE_FIELD.finditer(content):
+            modifiers, name = field.groups()
+            if "static" not in modifiers.split():
+                errors.append(f"Unregistered non-static Phrase {name} in {path}")
         for match in PHRASE.finditer(content):
             key, original = match.groups()
             if key in result[part]:

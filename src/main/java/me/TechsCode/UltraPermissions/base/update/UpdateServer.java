@@ -1,13 +1,9 @@
 package me.TechsCode.UltraPermissions.base.update;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
-import me.TechsCode.UltraPermissions.base.update.customRequests.HttpGetWithBody;
 import me.TechsCode.UltraPermissions.base.update.responses.CreateUpdateRequestResponse;
 import me.TechsCode.UltraPermissions.base.update.responses.GetPluginsResponse;
 import me.TechsCode.UltraPermissions.base.update.responses.GetUpdateRequestResponse;
@@ -18,238 +14,168 @@ import me.TechsCode.UltraPermissions.dependencies.gson.Gson;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPatch;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
 public class UpdateServer {
-   private final String updateServerBaseUrl = "https://update.techscode.com";
-   private final String updateServerApiToken = System.getProperty("ultrapermissions.updateApiToken", "");
+   public static final String RELEASES_URL = "https://github.com/slyphmp4/UltraPermissions/releases";
+   private static final String RELEASES_API = "https://api.github.com/repos/slyphmp4/UltraPermissions/releases/latest";
+   private static final Pattern VERSION = Pattern.compile("^[vV]?[0-9]+(?:\\.[0-9]+){1,3}(?:-[A-Za-z0-9.-]+)?(?:\\+[A-Za-z0-9.-]+)?$");
+   private static final long SUCCESS_CACHE_MS = TimeUnit.MINUTES.toMillis(30);
+   private static final long FAILURE_CACHE_MS = TimeUnit.MINUTES.toMillis(2);
+   private static volatile LatestRelease cached = new LatestRelease(503, null, 0L);
    private CloseableHttpClient httpClient;
-   private boolean hasJarDownloadFailed = false;
-
-   public UpdateServer() {
-      super();
-   }
-
-   private void close() throws IOException {
-      if (this.httpClient != null) this.httpClient.close();
-   }
 
    private synchronized CloseableHttpClient httpClient() {
       if (this.httpClient == null) {
-         this.httpClient = org.apache.http.impl.client.HttpClients.custom()
-            .setDefaultRequestConfig(org.apache.http.client.config.RequestConfig.custom()
-               .setConnectTimeout(5000).setSocketTimeout(5000).setConnectionRequestTimeout(2000).build())
-            .build();
+         this.httpClient = HttpClients.custom().setDefaultRequestConfig(
+            org.apache.http.client.config.RequestConfig.custom()
+               .setConnectTimeout(5000).setSocketTimeout(5000).setConnectionRequestTimeout(2000).build()
+         ).build();
       }
       return this.httpClient;
    }
 
-   public JsonObject getRequest(String var1, JsonObject var2) {
-      if (this.updateServerApiToken.isBlank()) return null;
-      try {
-         HttpGetWithBody var3 = new HttpGetWithBody("https://update.techscode.com" + var1);
-         var3.addHeader("Content-Type", "application/json");
-         var3.addHeader("Authorization", this.updateServerApiToken);
-         StringEntity var4 = new StringEntity(var2.toString(), ContentType.APPLICATION_JSON);
-         var3.setEntity(var4);
-
-         JsonObject var13;
-         try (CloseableHttpResponse var5 = this.httpClient().execute(var3)) {
-            HttpEntity var6 = var5.getEntity();
-            JsonObject var7 = null;
-            if (var6 != null) {
-               Gson var8 = new Gson();
-               String var9 = EntityUtils.toString(var6);
-               var7 = var8.fromJson(var9, JsonObject.class);
-            }
-
-            var13 = var7;
-         }
-
-         return var13;
-      } catch (Exception var12) {
-         return null;
-      }
-   }
-
-   public JsonObject postRequest(String var1, JsonObject var2) {
-      if (this.updateServerApiToken.isBlank()) return null;
-      try {
-         HttpPost var3 = new HttpPost("https://update.techscode.com" + var1);
-         var3.addHeader("Content-Type", "application/json");
-         var3.addHeader("Authorization", this.updateServerApiToken);
-         StringEntity var4 = new StringEntity(var2.toString(), ContentType.APPLICATION_JSON);
-         var3.setEntity(var4);
-
-         JsonObject var13;
-         try (CloseableHttpResponse var5 = this.httpClient().execute(var3)) {
-            HttpEntity var6 = var5.getEntity();
-            JsonObject var7 = null;
-            if (var6 != null) {
-               Gson var8 = new Gson();
-               String var9 = EntityUtils.toString(var6);
-               var7 = var8.fromJson(var9, JsonObject.class);
-            }
-
-            var13 = var7;
-         }
-
-         return var13;
-      } catch (Exception var12) {
-         return null;
-      }
-   }
-
-   public JsonObject patchRequest(String var1, JsonObject var2) {
-      if (this.updateServerApiToken.isBlank()) return null;
-      try {
-         HttpPatch var3 = new HttpPatch("https://update.techscode.com" + var1);
-         var3.addHeader("Content-Type", "application/json");
-         var3.addHeader("Authorization", this.updateServerApiToken);
-         StringEntity var4 = new StringEntity(var2.toString(), ContentType.APPLICATION_JSON);
-         var3.setEntity(var4);
-
-         JsonObject var13;
-         try (CloseableHttpResponse var5 = this.httpClient().execute(var3)) {
-            HttpEntity var6 = var5.getEntity();
-            JsonObject var7 = null;
-            if (var6 != null) {
-               Gson var8 = new Gson();
-               String var9 = EntityUtils.toString(var6);
-               var7 = var8.fromJson(var9, JsonObject.class);
-            }
-
-            var13 = var7;
-         }
-
-         return var13;
-      } catch (Exception var12) {
-         return null;
-      }
-   }
-
    public IsAvailableResponse isAvailable() {
-      JsonObject var1 = new JsonObject();
-      JsonObject var2 = this.getRequest("/api/status", var1);
-      if (var2 == null) {
-         return new IsAvailableResponse(500);
-      } else {
-         int var3 = var2.has("code") ? var2.get("code").getAsInt() : 500;
-         return new IsAvailableResponse(var3);
-      }
+      return new IsAvailableResponse(this.latestRelease().status);
    }
 
-   public IsUpToDateResponse isUpToDate(TechPlugin<?> var1) {
-      JsonObject var2 = new JsonObject();
-      var2.addProperty("plugin_name", var1.getName().toLowerCase());
-      var2.addProperty("current_version", var1.getVersion());
-      JsonObject var3 = this.getRequest("/api/plugin/version-check", var2);
-      if (var3 == null) {
-         return new IsUpToDateResponse(500, false, null, "Invalid Response");
-      } else {
-         int var4 = var3.has("code") ? var3.get("code").getAsInt() : 500;
-         boolean var5 = var3.has("is_up_to_date") && var3.get("is_up_to_date").getAsBoolean();
-         String var6 = var3.has("latest_version") ? var3.get("latest_version").getAsString() : null;
-         String var7 = var3.has("message") ? var3.get("message").getAsString() : null;
-         return new IsUpToDateResponse(var4, var5, var6, var7);
+   public IsUpToDateResponse isUpToDate(TechPlugin<?> plugin) {
+      if (!"UltraPermissions".equalsIgnoreCase(plugin.getName())) {
+         return new IsUpToDateResponse(404, false, null, "Unknown plugin");
       }
+      LatestRelease release = this.latestRelease();
+      if (release.status != 200 || release.version == null) {
+         return new IsUpToDateResponse(release.status, false, null, "GitHub Releases unavailable");
+      }
+      boolean newer = isNewerVersion(release.version, plugin.getVersion());
+      return new IsUpToDateResponse(200, !newer, release.version, "GitHub Releases");
    }
 
-   public GetPluginsResponse getPlugins(String var1) {
-      JsonObject var2 = new JsonObject();
-      var2.addProperty("update_token", var1);
-      JsonObject var3 = this.getRequest("/api/get-plugins", var2);
-      if (var3 == null) {
-         return new GetPluginsResponse(500, null, "Invalid Response");
-      } else {
-         int var4 = var3.has("code") ? var3.get("code").getAsInt() : 500;
-         JsonObject var5 = var3.has("data") ? var3.get("data").getAsJsonObject() : null;
-         String var6 = var3.has("message") ? var3.get("message").getAsString() : null;
-         return new GetPluginsResponse(var4, var5, var6);
+   private LatestRelease latestRelease() {
+      LatestRelease result = cached;
+      long now = System.currentTimeMillis();
+      long lifetime = result.status == 200 ? SUCCESS_CACHE_MS : FAILURE_CACHE_MS;
+      if (now - result.checkedAt < lifetime) {
+         return result;
       }
-   }
-
-   public CreateUpdateRequestResponse createUpdateRequest(TechPlugin<?> var1) {
-      JsonObject var2 = new JsonObject();
-      var2.addProperty("plugin_name", var1.getName().toLowerCase());
-      var2.addProperty("current_version", var1.getVersion());
-      JsonObject var3 = this.postRequest("/api/plugin/request-update", var2);
-      if (var3 == null) {
-         return new CreateUpdateRequestResponse(500, null, "Invalid Response");
-      } else {
-         int var4 = var3.has("code") ? var3.get("code").getAsInt() : 500;
-         String var5 = var3.has("update_token") ? var3.get("update_token").getAsString() : null;
-         String var6 = var3.has("message") ? var3.get("message").getAsString() : null;
-         return new CreateUpdateRequestResponse(var4, var5, var6);
-      }
-   }
-
-   public GetUpdateRequestResponse getUpdateRequest(String var1) {
-      JsonObject var2 = new JsonObject();
-      var2.addProperty("update_token", var1);
-      JsonObject var3 = this.getRequest("/api/plugin/request-update", var2);
-      if (var3 == null) {
-         return new GetUpdateRequestResponse(500, null, "Invalid Response");
-      } else {
-         int var4 = var3.has("code") ? var3.get("code").getAsInt() : 500;
-         JsonObject var5 = var3.has("update_request") ? var3.get("update_request").getAsJsonObject() : null;
-         String var6 = var3.has("message") ? var3.get("message").getAsString() : null;
-         UpdateRequest var7 = null;
-         if (var5 != null) {
-            var7 = new UpdateRequest(var5);
+      synchronized (UpdateServer.class) {
+         result = cached;
+         now = System.currentTimeMillis();
+         lifetime = result.status == 200 ? SUCCESS_CACHE_MS : FAILURE_CACHE_MS;
+         if (now - result.checkedAt < lifetime) {
+            return result;
          }
-
-         return new GetUpdateRequestResponse(var4, var7, var6);
-      }
-   }
-
-   public UpdateUpdateRequestResponse updateUpdateRequest(String var1, TechPlugin<?> var2, String var3) {
-      JsonObject var4 = new JsonObject();
-      var4.addProperty("update_token", var1);
-      var4.addProperty("plugin_name", var2.getName().toLowerCase());
-      var4.addProperty("current_version", var2.getVersion());
-      var4.addProperty("update_to", var3);
-      JsonObject var5 = this.patchRequest("/api/plugin/request-update", var4);
-      if (var5 == null) {
-         return new UpdateUpdateRequestResponse(500, null, "Invalid Response");
-      } else {
-         int var6 = var5.has("code") ? var5.get("code").getAsInt() : 500;
-         JsonObject var7 = var5.has("update_request") ? var5.get("update_request").getAsJsonObject() : null;
-         String var8 = var5.has("message") ? var5.get("message").getAsString() : null;
-         UpdateRequest var9 = null;
-         if (var7 != null) {
-            var9 = new UpdateRequest(var7);
+         int status = 503;
+         String version = null;
+         try {
+            HttpGet request = new HttpGet(RELEASES_API);
+            request.addHeader("Accept", "application/vnd.github+json");
+            request.addHeader("User-Agent", "UltraPermissions-GitHub-Updater");
+            try (CloseableHttpResponse response = this.httpClient().execute(request)) {
+               status = response.getStatusLine().getStatusCode();
+               HttpEntity entity = response.getEntity();
+               if (status == 200 && entity != null) {
+                  JsonObject json = new Gson().fromJson(EntityUtils.toString(entity), JsonObject.class);
+                  if (json != null && json.has("tag_name") && json.get("tag_name").isJsonPrimitive()
+                     && (!json.has("draft") || !json.get("draft").getAsBoolean())
+                     && (!json.has("prerelease") || !json.get("prerelease").getAsBoolean())) {
+                     String tag = json.get("tag_name").getAsString();
+                     if (VERSION.matcher(tag).matches()) {
+                        version = tag.replaceFirst("^[vV]", "");
+                     }
+                  }
+                  if (version == null) {
+                     status = 502;
+                  }
+               }
+            }
+         } catch (Exception ignored) {
+            status = 503;
          }
-
-         return new UpdateUpdateRequestResponse(var6, var9, var8);
+         cached = new LatestRelease(status, version, System.currentTimeMillis());
+         return cached;
       }
    }
 
-   public Thread downloadJar(TechPlugin<?> plugin, String token) {
-      this.hasJarDownloadFailed = true;
-      plugin.log("Automatic JAR download is disabled. Install an independently verified update manually.");
-      // Callers may safely join this unstarted thread; no network request/task is started.
+   /**
+    * Compare a published release tag with a local version without treating v5.6.10
+    * and 5.6.10 as different. A prerelease is older than the same stable version.
+    */
+   public static boolean isNewerVersion(String latest, String installed) {
+      if (latest == null || installed == null
+         || !VERSION.matcher(latest).matches() || !VERSION.matcher(installed).matches()) {
+         return false;
+      }
+      String[] left = latest.replaceFirst("^[vV]", "").split("\\+", 2)[0].split("-", 2);
+      String[] right = installed.replaceFirst("^[vV]", "").split("\\+", 2)[0].split("-", 2);
+      String[] leftNumbers = left[0].split("\\.");
+      String[] rightNumbers = right[0].split("\\.");
+      try {
+         for (int i = 0; i < Math.max(leftNumbers.length, rightNumbers.length); i++) {
+            long a = i < leftNumbers.length ? Long.parseLong(leftNumbers[i]) : 0L;
+            long b = i < rightNumbers.length ? Long.parseLong(rightNumbers[i]) : 0L;
+            if (a != b) {
+               return a > b;
+            }
+         }
+         if (left.length == 1 && right.length > 1) return true;
+         if (left.length > 1 && right.length == 1) return false;
+         if (left.length == 1) return false;
+         String[] a = left[1].split("\\.");
+         String[] b = right[1].split("\\.");
+         for (int i = 0; i < Math.min(a.length, b.length); i++) {
+            if (a[i].equals(b[i])) continue;
+            boolean aNumeric = a[i].matches("[0-9]+");
+            boolean bNumeric = b[i].matches("[0-9]+");
+            if (aNumeric && bNumeric) return Long.parseLong(a[i]) > Long.parseLong(b[i]);
+            if (aNumeric != bNumeric) return !aNumeric;
+            return a[i].compareTo(b[i]) > 0;
+         }
+         return a.length > b.length;
+      } catch (NumberFormatException ignored) {
+         return false;
+      }
+   }
+
+   // The former purchase/Discord update backend is intentionally retired.
+   // Do not download executable JARs or restart servers from a remote response.
+   @Deprecated public JsonObject getRequest(String path, JsonObject payload) { return null; }
+   @Deprecated public JsonObject postRequest(String path, JsonObject payload) { return null; }
+   @Deprecated public JsonObject patchRequest(String path, JsonObject payload) { return null; }
+   @Deprecated public GetPluginsResponse getPlugins(String token) { return new GetPluginsResponse(410); }
+   @Deprecated public CreateUpdateRequestResponse createUpdateRequest(TechPlugin<?> plugin) { return new CreateUpdateRequestResponse(410); }
+   @Deprecated public GetUpdateRequestResponse getUpdateRequest(String token) { return new GetUpdateRequestResponse(410); }
+   @Deprecated public UpdateUpdateRequestResponse updateUpdateRequest(String token, TechPlugin<?> plugin, String version) {
+      return new UpdateUpdateRequestResponse(410);
+   }
+   @Deprecated public String getAuthorizeUrl(String token) { return RELEASES_URL; }
+   @Deprecated public Thread downloadJar(TechPlugin<?> plugin, String token) {
+      plugin.log("Automatic update installation is disabled. Download the verified JAR from GitHub Releases.");
       return new Thread();
    }
-
-   public boolean hasJarDownloadFailed() {
-      return this.hasJarDownloadFailed;
-   }
-
-   public String getAuthorizeUrl(String var1) {
-      return "https://update.techscode.com/authorize/" + var1;
-   }
+   @Deprecated public boolean hasJarDownloadFailed() { return true; }
 
    public void destroy() {
-      try {
-         this.close();
-      } catch (IOException var2) {
+      if (this.httpClient != null) {
+         try {
+            this.httpClient.close();
+         } catch (IOException ignored) {
+         }
+      }
+   }
+
+   private static final class LatestRelease {
+      private final int status;
+      private final String version;
+      private final long checkedAt;
+
+      private LatestRelease(int status, String version, long checkedAt) {
+         this.status = status;
+         this.version = version;
+         this.checkedAt = checkedAt;
       }
    }
 }

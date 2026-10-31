@@ -31,10 +31,10 @@ public class CustomisationPane extends SettingsPane {
       "customisationPane.prefix.enableAction", "Click to **enable** the prefix", Colors.GRAY, Colors.GREEN
    );
    private static final Phrase PREFIX_ATTRIBUTE = Phrase.create("customisationPane.prefix.attribute", "Prefix: **%prefix%**", Colors.GRAY, Colors.WHITE);
-   private final Phrase UPDATER_TITLE = Phrase.create("customisationPane.updater.title", "Ingame Updater");
-   private final Phrase UPDATER_ACTION = Phrase.create("customisationPane.updater.action", "**Click** to %action% ingame Updater", Colors.GRAY, Colors.AQUA);
-   private final Phrase UPDATER_DESC1 = Phrase.create("customisationPane.updater.desc1", "Suggests to update the plugin if the plugin is outdated", Colors.GRAY);
-   private final Phrase UPDATER_DESC2 = Phrase.create("customisationPane.updater.desc2", "and will automatically install it after confirming", Colors.GRAY);
+   private static final Phrase UPDATER_TITLE = Phrase.create("customisationPane.updater.title", "Ingame Updater");
+   private static final Phrase UPDATER_ACTION = Phrase.create("customisationPane.updater.action", "**Click** to %action% ingame Updater", Colors.GRAY, Colors.AQUA);
+   private static final Phrase UPDATER_DESC1 = Phrase.create("customisationPane.updater.desc1", "Checks GitHub Releases for new plugin versions", Colors.GRAY);
+   private static final Phrase UPDATER_DESC2 = Phrase.create("customisationPane.updater.desc2", "and offers a link for manual installation", Colors.GRAY);
    private static final Phrase GUIINTERVANL_TITLE = Phrase.create("customisationPane.guiUpdateInterval.title", "GUI Update Interval");
    private static final Phrase GUIINTERVANL_RESET_ACTION = Phrase.create(
       "customisationPane.guiUpdateInterval.resetAction", "**Left Click** to **reset** the GUI update interval", Colors.GRAY, Colors.AQUA, Colors.GOLD
@@ -110,12 +110,12 @@ public class CustomisationPane extends SettingsPane {
    private void UpdaterButton(Button var1) {
       AppearanceRegistry var2 = this.plugin.getAppearanceRegistry();
       var1.material(XMaterial.WRITABLE_BOOK)
-         .name(Animation.wave(this.UPDATER_TITLE.get(), Colors.Gold, Colors.YELLOW))
+         .name(Animation.wave(UPDATER_TITLE.get(), Colors.Gold, Colors.YELLOW))
          .lore(
-            this.UPDATER_ACTION.get().replace("%action%", var2.isUpdaterEnabled() ? "§c" + Words.DISABLE.get() + "§7" : "§a" + Words.ENABLE.get() + "§7"),
+            UPDATER_ACTION.get().replace("%action%", var2.isUpdaterEnabled() ? "§c" + Words.DISABLE.get() + "§7" : "§a" + Words.ENABLE.get() + "§7"),
             "",
-            this.UPDATER_DESC1.get(),
-            this.UPDATER_DESC2.get()
+            UPDATER_DESC1.get(),
+            UPDATER_DESC2.get()
          );
       var1.action(var1x -> var2.toggleUpdater());
    }

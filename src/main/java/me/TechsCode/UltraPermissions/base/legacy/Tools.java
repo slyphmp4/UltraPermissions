@@ -119,7 +119,7 @@ public class Tools {
    public static String getFormattedAgoString(long var0, TimeUnit var2) {
       var0 = var2.toSeconds(var0);
       if (var0 < 1L) {
-         return "Now";
+         return Words.NOW.firstUpper();
       } else if (var0 > TimeUnit.DAYS.toSeconds(1L)) {
          return getTimeString(TimeUnit.SECONDS.toDays(var0), TimeUnit.DAYS);
       } else if (var0 > TimeUnit.HOURS.toSeconds(1L)) {
@@ -131,8 +131,13 @@ public class Tools {
       }
    }
 
-   public static String getTicksString(long var0) {
-      return var0 == 0L ? var0 + " Ticks" : var0 + " Tick";
+   public static String getTicksString(long count) {
+      long lastTwo = Math.abs(count % 100);
+      long last = Math.abs(count % 10);
+      Phrase word = lastTwo >= 11 && lastTwo <= 14 ? Words.TICKS_MANY
+         : last == 1 ? Words.TICK
+         : last >= 2 && last <= 4 ? Words.TICKS_FEW : Words.TICKS_MANY;
+      return count + " " + word.firstUpper();
    }
 
    public static String getTimeString(long var0) {
@@ -146,7 +151,7 @@ public class Tools {
    public static String getTimeString(long var0, TimeUnit var2, int var3) {
       var0 = var2.toSeconds(var0);
       if (var0 < 1L) {
-         return "Now";
+         return Words.NOW.firstUpper();
       }
 
       long var4 = TimeUnit.SECONDS.toDays(var0);
