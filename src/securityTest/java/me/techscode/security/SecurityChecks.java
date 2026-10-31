@@ -12,6 +12,7 @@ import java.util.function.BiFunction;
 import java.util.logging.Logger;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
+import me.TechsCode.UltraPermissions.base.translations.TranslationManager;
 import me.TechsCode.UltraPermissions.base.dialog.Dialog;
 import me.TechsCode.UltraPermissions.base.gui.*;
 import me.TechsCode.UltraPermissions.base.messaging.*;
@@ -60,6 +61,7 @@ public final class SecurityChecks {
         minecraftVersions();
         messaging(report.resolve("config-fixture"));
         sqlAndPool();
+        lifecycleAndTranslationReadiness();
         boundedSync();
         tlsPolicy();
         uiRevocation();
@@ -85,6 +87,42 @@ public final class SecurityChecks {
             check(release.patch() == (int)fixture[2], "Minecraft patch excludes Paper build: " + fixture[0]);
         }
         groups.add("Minecraft release formats / Paper 26.2 build suffix");
+    }
+
+    private static void lifecycleAndTranslationReadiness() throws Exception {
+        TestPlugin plugin = allocate(TestPlugin.class);
+        LifecycleManager database = allocate(LifecycleManager.class);
+        set(plugin, "mySQLManager", database);
+        AtomicInteger hookCalls = new AtomicInteger();
+        set(plugin, "disableHooks", List.of(
+            (Runnable)() -> { hookCalls.incrementAndGet(); throw new IllegalStateException("simulated hook failure"); },
+            (Runnable)hookCalls::incrementAndGet
+        ));
+        Field singleton = TechPlugin.class.getDeclaredField("instance");
+        singleton.setAccessible(true);
+        Object previous = singleton.get(null);
+        try {
+            singleton.set(null, plugin);
+            plugin.disable();
+            check(hookCalls.get() == 2, "all disable hooks run even when one fails");
+            check(database.closeCalls == 1, "MySQL pool closed on disable");
+            check(singleton.get(null) == null, "singleton cleared on disable");
+            plugin.disable();
+            check(hookCalls.get() == 2 && database.closeCalls == 1, "repeat disable is idempotent");
+            TestPlugin partial = allocate(TestPlugin.class);
+            partial.disable();
+            check(true, "partially initialized plugin disables without throwing");
+        } finally {
+            singleton.set(null, previous);
+        }
+
+        TranslationManager translations = allocate(TranslationManager.class);
+        check(translations.getAvailableLanguages().isEmpty(), "language selector safe before async load");
+        check(translations.getPhrases("Russian") == null, "phrases pending before async load");
+        set(translations, "translationFiles", List.of());
+        check(translations.getAvailableLanguages().isEmpty(), "language selector safe for empty directory");
+        check(translations.getPhrases("Russian").isEmpty(), "empty translation directory yields no phrases");
+        groups.add("Lifecycle: idempotent disable / SQL pool and hooks cleanup / early locale selector");
     }
 
     private static void messaging(Path fixture) throws Exception {
@@ -403,6 +441,11 @@ public final class SecurityChecks {
         @Override public Optional<me.TechsCode.UltraPermissions.base.networking.NServer> getThisServer(){return Optional.ofNullable(currentServer);}
         @Override public User registerUser(UUID uuid,String name,boolean assignDefault){User user=new User(uuid,name,false,new HashMap<>(),"","",null);users.add(user);return user;}
         @Override public void log(String message){if(logs!=null)logs.add(message);}
+    }
+    public static class LifecycleManager extends MySQLManager {
+        int closeCalls;
+        public LifecycleManager(){super(null);}
+        @Override public void close(){closeCalls++;}
     }
     public static class TestManager extends MySQLManager {
         JdbcFixture db; boolean fail; int calls;
