@@ -3,13 +3,15 @@ package me.TechsCode.UltraPermissions.hooks.placeholders;
 import java.util.concurrent.TimeUnit;
 import me.TechsCode.UltraPermissions.base.legacy.Tools;
 import me.TechsCode.UltraPermissions.hooks.UpermsPlaceholder;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.storage.objects.Group;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 import org.bukkit.entity.Player;
 
 public class RankTimerDetailedPlaceholder extends UpermsPlaceholder {
+   private static final Phrase DESCRIPTION = Phrase.create("placeholder.rank_timer_detailed.description", "Detailed Rank Timer of next highest timed group");
    public RankTimerDetailedPlaceholder() {
-      super("rank_timer_detailed", "Detailed Rank Timer of next highest timed group");
+      super("rank_timer_detailed", DESCRIPTION);
    }
 
    @Override

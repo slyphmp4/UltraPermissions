@@ -1,6 +1,7 @@
 package me.TechsCode.UltraPermissions.hooks;
 
 import me.TechsCode.UltraPermissions.base.networking.NServer;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.base.visual.Text;
 import me.TechsCode.UltraPermissions.storage.objects.Group;
 import me.TechsCode.UltraPermissions.storage.objects.User;
@@ -10,11 +11,19 @@ import org.bukkit.entity.Player;
 public abstract class UpermsPlaceholder {
    private final String name;
    private final String description;
+   private final Phrase localizedDescription;
 
    public UpermsPlaceholder(String var1, String var2) {
       super();
       this.name = var1;
       this.description = var2;
+      this.localizedDescription = null;
+   }
+
+   public UpermsPlaceholder(String name, Phrase description) {
+      this.name = name;
+      this.description = null;
+      this.localizedDescription = description;
    }
 
    public String getName() {
@@ -22,7 +31,7 @@ public abstract class UpermsPlaceholder {
    }
 
    public String getDescription() {
-      return this.description;
+      return this.localizedDescription == null ? this.description : this.localizedDescription.get();
    }
 
    public String getNativePlaceholder() {

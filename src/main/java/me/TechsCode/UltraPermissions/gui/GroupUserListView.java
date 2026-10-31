@@ -22,6 +22,7 @@ import me.TechsCode.UltraPermissions.storage.objects.UserRankup;
 import org.bukkit.entity.Player;
 
 public abstract class GroupUserListView extends PageableGUI<UserRankup> {
+   private static final Phrase WIPE_CONFIRM = Phrase.create("groupUserListView.wipe.confirm", "Wipe all Users from %group%?");
    private final Group group;
    private final UltraPermissions plugin;
    private static final Phrase TITLE = Phrase.create("groupUserListView.title", "%group% > Users");
@@ -81,7 +82,7 @@ public abstract class GroupUserListView extends PageableGUI<UserRankup> {
       }, 52);
       var1.button(var1x -> {
          var1x.material(XMaterial.REDSTONE_BLOCK).name(Animation.fading(WIPE_TITLE.get(), Colors.DarkCyan, Colors.Cyan)).lore(WIPE_ACTION.get());
-         var1x.action(var1xx -> new ConfirmationView(this.p, this.plugin, "Wipe all Users from " + this.group.getName()) {
+         var1x.action(var1xx -> new ConfirmationView(this.p, this.plugin, WIPE_CONFIRM.get().replace("%group%", this.group.getName())) {
             @Override
             public void choose(boolean var1) {
                if (var1) {

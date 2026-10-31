@@ -19,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 
 public abstract class MaterialPickerView extends PageableGUI<XMaterial> {
    private static final Phrase CHOOSE_ACTION = Phrase.create("materialPickerView.choose.action", "**Click** to choose", Colors.GRAY, Colors.AQUA);
+   private static final Phrase AIR = Phrase.create("materialPickerView.air", "Air");
    private String title;
    private XMaterial[] materials;
 
@@ -59,7 +60,11 @@ public abstract class MaterialPickerView extends PageableGUI<XMaterial> {
    }
 
    public void construct(Button var1, XMaterial var2) {
-      var1.material(var2 == XMaterial.AIR ? XMaterial.BARRIER : var2).name(Animation.wave(var2.name(), Colors.GREEN, Colors.WHITE)).lore(CHOOSE_ACTION.get());
+      var1.material(var2 == XMaterial.AIR ? XMaterial.BARRIER : var2).lore(CHOOSE_ACTION.get());
+      // Let Minecraft translate the native item name into the player\'s client language.
+      if (var2 == XMaterial.AIR) {
+         var1.item().name(AIR.get());
+      }
       var1.action(var2x -> this.choose(this.p, var2));
    }
 

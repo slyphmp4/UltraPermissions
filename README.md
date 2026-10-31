@@ -11,7 +11,7 @@
 
 # UltraPermissions
 
-Manage Minecraft permissions, groups and ranks through commands and a graphical editor. **5.6.9** is a community security build with stronger authorization, protected synchronization and GitHub Actions checks.
+Manage Minecraft permissions, groups and ranks through commands and a graphical editor. **5.6.10** is a community security build with stronger authorization, protected synchronization and GitHub Actions checks.
 
 We prepared a standalone Gradle project, retained the core permission-management features, reworked unsafe network and SQL paths, and added negative security tests. This version addresses eight previously identified HIGH/MEDIUM findings and further strengthens authorization for administrative commands.
 
@@ -29,16 +29,16 @@ These are application-security fixes. The review did not establish the presence 
 - Local JSON storage or MySQL, with signed synchronization between trusted nodes.
 - Vault, PlaceholderAPI, MVdWPlaceholderAPI and NametagEdit integrations.
 - Migration from LuckPerms/PermissionsEx, group copying, account transfers and File/MySQL storage transfers.
-- Translations, a permission-node reference database and a permission-check logger.
+- Bundled offline Russian and Ukrainian interfaces (805 translated strings and 159 entity names each), a permission-node reference database and a permission-check logger.
 
 ## Download and install
 
-1. Download **UltraPermissions-5.6.9.jar** from [Releases](https://github.com/slyphmp4/UltraPermissions/releases). Do not install `-sources.jar` on the server.
+1. Download **UltraPermissions-5.6.10.jar** from [Releases](https://github.com/slyphmp4/UltraPermissions/releases). Do not install `-sources.jar` on the server.
 2. Place the JAR in `plugins`, remove any other copy of UltraPermissions from that folder, then restart the server.
 3. To start administration, run **from the console** `upc AddSuperAdmin YourName` after that player has joined and has a registered user record, then open `/uperms`.
 4. For a network or MySQL, follow the [configuration guide](docs/CONFIGURATION.md). Every node must use this security version.
 
-**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 passes isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. Version 5.6.9 is the stable community release.
+**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 passes isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. Version 5.6.10 is the stable community release.
 
 ## Commands and permissions
 

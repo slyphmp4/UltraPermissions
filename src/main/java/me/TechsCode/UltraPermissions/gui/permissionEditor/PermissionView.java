@@ -31,6 +31,9 @@ public abstract class PermissionView extends GUI {
    private final PermissionWithInfo permissionWithInfo;
    private List<PermissionCopy> permissionCopies;
    private int currentCopy;
+   private static final Phrase THIS_SERVER_LABEL = Phrase.create("permissionView.scope.thisServer", "This Server");
+   private static final Phrase ALL_SERVERS_LABEL = Phrase.create("permissionView.scope.allServers", "All Servers");
+   private static final Phrase ALL_WORLDS_LABEL = Phrase.create("permissionView.scope.allWorlds", "All Worlds");
    private static final Phrase COPY_ENTRY_SELECT_ACTION = Phrase.create(
       "permissionView.entry.selectAction", "Click to **select** this copy", Colors.GRAY, Colors.YELLOW
    );
@@ -214,7 +217,7 @@ public abstract class PermissionView extends GUI {
 
                @Override
                public String getTitle() {
-                  return var2.getName() + " > Server";
+                  return var2.getName() + " > " + SERVER_TITLE.get();
                }
 
                @Override
@@ -247,7 +250,7 @@ public abstract class PermissionView extends GUI {
 
                @Override
                public String getTitle() {
-                  return var2.getName() + " > World";
+                  return var2.getName() + " > " + WORLD_TITLE.get();
                }
 
                @Override
@@ -305,15 +308,15 @@ public abstract class PermissionView extends GUI {
          if (var1.getServer().get().equals("BungeeCord")) {
             return Colors.RED + "BungeeCord";
          } else {
-            return var1.getServer().get().equals(this.plugin.getThisServer().map(NServer::getName).orElse(null)) ? "This Server" : var1.getServer().get();
+            return var1.getServer().get().equals(this.plugin.getThisServer().map(NServer::getName).orElse(null)) ? THIS_SERVER_LABEL.get() : var1.getServer().get();
          }
       } else {
-         return "All Servers";
+         return ALL_SERVERS_LABEL.get();
       }
    }
 
    private String getWorld(Permission var1) {
-      return var1.getWorld().orElse("All Worlds");
+      return var1.getWorld().orElse(ALL_WORLDS_LABEL.get());
    }
 
    public abstract void onBack();

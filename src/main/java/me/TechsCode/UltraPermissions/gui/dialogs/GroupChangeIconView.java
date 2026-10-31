@@ -49,7 +49,7 @@ public abstract class GroupChangeIconView extends PageableGUI<XMaterial> {
    }
 
    public void construct(Button var1, XMaterial var2) {
-      var1.material(var2).name(Animation.wave(var2.getHumanName(), Colors.GREEN, Colors.WHITE)).lore(TITLE.get());
+      var1.material(var2).lore(TITLE.get());
       var1.action(var2x -> this.choose(this.p, var2));
    }
 

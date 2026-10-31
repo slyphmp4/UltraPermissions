@@ -6,9 +6,11 @@ import java.util.List;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.command.Argument;
 import me.TechsCode.UltraPermissions.base.command.ArgumentValue;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.base.command.EmptyReason;
 
 public class BooleanArgument extends Argument<Boolean> {
+   private static final Phrase USAGE = Phrase.create("arguments.assignDefaultGroup", "<AssignDefaultGroup>");
    private UltraPermissions plugin;
    private EmptyReason emptyReason;
 
@@ -26,7 +28,7 @@ public class BooleanArgument extends Argument<Boolean> {
 
    @Override
    public String getUsage() {
-      return "<AssignDefaultGroup>";
+      return USAGE.get();
    }
 
    @Override

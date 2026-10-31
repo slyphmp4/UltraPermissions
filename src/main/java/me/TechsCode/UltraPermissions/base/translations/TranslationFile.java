@@ -62,7 +62,6 @@ public class TranslationFile {
                .filter(var0 -> !var0.startsWith("#"))
                .map(var0 -> var0.split(": \""))
                .filter(var0 -> var0.length == 2)
-               .filter(var0 -> !var0[0].contains("_"))
                .collect(Collectors.toMap(var0 -> (String)var0[0], var0 -> var0[1].replace("\"", "")));
          } catch (IOException var4) {
             var4.printStackTrace();

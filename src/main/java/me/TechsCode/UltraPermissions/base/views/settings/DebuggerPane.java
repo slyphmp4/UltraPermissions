@@ -13,6 +13,7 @@ import me.TechsCode.UltraPermissions.base.visual.Colors;
 import org.bukkit.entity.Player;
 
 public class DebuggerPane extends SettingsPane {
+   private static final Phrase NAME = Phrase.create("debugger.name", "Debugger");
    private static final Phrase LEFT_CLICK = Phrase.create(
       "debugger.select.indicator", "**Left Click** to %action% this debug message", Colors.GRAY, Colors.AQUA
    );
@@ -32,7 +33,7 @@ public class DebuggerPane extends SettingsPane {
 
    @Override
    public String getName() {
-      return "Debugger";
+      return NAME.get();
    }
 
    @Override

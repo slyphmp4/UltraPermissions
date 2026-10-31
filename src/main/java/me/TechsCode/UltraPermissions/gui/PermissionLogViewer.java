@@ -20,6 +20,7 @@ import me.TechsCode.UltraPermissions.permissionlogger.LoggedPermission;
 import org.bukkit.entity.Player;
 
 public abstract class PermissionLogViewer extends PageableGUI<LoggedPermission> {
+   private static final Phrase FILTER_TITLE = Phrase.create("permissionLogViewer.filter.title", "Filter");
    private static final Phrase TITLE = Phrase.create("permissionLogViewer.title", "Overview > Permission Log");
    private static final Phrase ITEM_ACTION = Phrase.create(
       "permissionLogViewer.item.action", "Click to add this permission to a **group** or **user**", Colors.GRAY, Colors.AQUA, Colors.AQUA
@@ -85,7 +86,7 @@ public abstract class PermissionLogViewer extends PageableGUI<LoggedPermission> 
    protected void construct(Model var1) {
       super.construct(var1);
       var1.button(this.getRightOptionSlot(), var1x -> {
-         var1x.material(XMaterial.REDSTONE_BLOCK).name(Animation.wave("Filter", Colors.AQUA, Colors.WHITE)).appendLore(FILTER_TOGGLE_BUTTON.get());
+         var1x.material(XMaterial.REDSTONE_BLOCK).name(Animation.wave(FILTER_TITLE.get(), Colors.AQUA, Colors.WHITE)).appendLore(FILTER_TOGGLE_BUTTON.get());
          if (!this.plugin.getToggledPluginsRegistry().isEmpty()) {
             var1x.item().appendLore("").appendLore(FILTER_TOGGLE_LORE.get());
             String var2 = "";

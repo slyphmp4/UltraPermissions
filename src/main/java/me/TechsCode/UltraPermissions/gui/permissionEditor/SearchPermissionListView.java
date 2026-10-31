@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.gui.pageableview.SearchFeature;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.permissionDatabase.PermissionInfo;
 import me.TechsCode.UltraPermissions.storage.objects.PermissionHolder;
 import org.bukkit.Bukkit;
@@ -13,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 public abstract class SearchPermissionListView extends PermissionListView {
+   private static final Phrase TITLE = Phrase.create("searchPermissionListView.title", "Permissions containing '%search%'");
    private final String searchTerm;
    private final PermissionWithInfo[] permissions;
 
@@ -32,7 +34,7 @@ public abstract class SearchPermissionListView extends PermissionListView {
 
    @Override
    public String getTitle() {
-      return "Permissions with '" + this.searchTerm + "'";
+      return TITLE.get().replace("%search%", this.searchTerm);
    }
 
    public PermissionWithInfo[] getObjects() {

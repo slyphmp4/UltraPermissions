@@ -3,7 +3,7 @@ package me.TechsCode.UltraPermissions.base.gui;
 import java.util.HashMap;
 
 public class Model {
-   private String title = "Unnamed Inventory";
+   private String title = GuiLabels.inventory();
    private int slots = 27;
    private final HashMap<Integer, Entry> entries = new HashMap<>();
 

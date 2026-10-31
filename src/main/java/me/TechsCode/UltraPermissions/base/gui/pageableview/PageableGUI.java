@@ -16,6 +16,7 @@ import me.TechsCode.UltraPermissions.base.visual.Colors;
 import org.bukkit.entity.Player;
 
 public abstract class PageableGUI<OBJ> extends GUI {
+   private static final Phrase PAGE_NUMBER = Phrase.create("pageableView.pageNumber", "%title% page (%page%)");
    private static final Phrase NEXT_TITLE = Phrase.create("pageableView.next.title", "Next");
    private static final Phrase NEXT_ACTION = Phrase.create("pageableView.next.action", "Click to go to the next page", Colors.GRAY);
    private static final Phrase PREVIOUS_TITLE = Phrase.create("pageableView.previous.title", "Previous");
@@ -73,7 +74,7 @@ public abstract class PageableGUI<OBJ> extends GUI {
          var1.button(
             var1x -> {
                var1x.material(XMaterial.ARROW)
-                  .name(Animation.fading(PREVIOUS_TITLE.get() + " page (" + (this.page - 1) + ")", Colors.DarkCyan, Colors.Cyan))
+                  .name(Animation.fading(PAGE_NUMBER.get().replace("%title%", PREVIOUS_TITLE.get()).replace("%page%", Integer.toString(this.page - 1)), Colors.DarkCyan, Colors.Cyan))
                   .lore(PREVIOUS_ACTION.get());
                var1x.action(var1xx -> {
                   this.page--;
@@ -90,7 +91,7 @@ public abstract class PageableGUI<OBJ> extends GUI {
          var1.button(
             var1x -> {
                var1x.material(XMaterial.ARROW)
-                  .name(Animation.fading(NEXT_TITLE.get() + " page (" + (this.page + 1) + ")", Colors.DarkCyan, Colors.Cyan))
+                  .name(Animation.fading(PAGE_NUMBER.get().replace("%title%", NEXT_TITLE.get()).replace("%page%", Integer.toString(this.page + 1)), Colors.DarkCyan, Colors.Cyan))
                   .lore(NEXT_ACTION.get());
                var1x.action(var1xx -> this.page++);
             },

@@ -7,11 +7,13 @@ import java.util.Optional;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.command.Argument;
 import me.TechsCode.UltraPermissions.base.command.ArgumentValue;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.base.command.EmptyReason;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 public class WorldArgument extends Argument<World> {
+   private static final Phrase USAGE = Phrase.create("arguments.world", "<World>");
    private UltraPermissions plugin;
    private EmptyReason emptyReason;
 
@@ -31,7 +33,7 @@ public class WorldArgument extends Argument<World> {
 
    @Override
    public String getUsage() {
-      return "<World>";
+      return USAGE.get();
    }
 
    @Override

@@ -16,6 +16,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 public abstract class GroupStorageSettingsView extends GUI {
+   private static final Phrase STORAGE_TITLE = Phrase.create("groupStorageSettingsView.title", "%group% > Storage Settings");
    private final UltraPermissions plugin;
    private final Group group;
    private static final Phrase WORLD_TITLE = Phrase.create("groupStorageSettingsView.world.title", "World");
@@ -53,7 +54,7 @@ public abstract class GroupStorageSettingsView extends GUI {
 
    @Override
    public String getCurrentTitle() {
-      return this.group.getName() + " > Storage Settings";
+      return STORAGE_TITLE.get().replace("%group%", this.group.getName());
    }
 
    @Override
@@ -82,7 +83,7 @@ public abstract class GroupStorageSettingsView extends GUI {
 
                @Override
                public String getTitle() {
-                  return GroupStorageSettingsView.this.group.getName() + " > World";
+                  return GroupStorageSettingsView.this.group.getName() + " > " + WORLD_TITLE.get();
                }
 
                @Override
@@ -118,7 +119,7 @@ public abstract class GroupStorageSettingsView extends GUI {
 
                   @Override
                   public String getTitle() {
-                     return GroupStorageSettingsView.this.group.getName() + " > Server";
+                     return GroupStorageSettingsView.this.group.getName() + " > " + SERVER_TITLE.get();
                   }
 
                   @Override

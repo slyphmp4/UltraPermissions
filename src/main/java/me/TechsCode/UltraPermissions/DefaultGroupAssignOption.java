@@ -1,17 +1,18 @@
 package me.TechsCode.UltraPermissions;
 
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
+
 public enum DefaultGroupAssignOption {
-   FIRST_JOIN("Only add default groups on the first join", "Default Groups will be only added on first join"),
-   NO_GROUP("If a player has no groups, assign all default groups", "Default Groups will be assigned if a player has no groups"),
-   ALWAYS_ASSIGN("Always force every player to all default groups", "Default Groups will always be assigned to all players");
+   FIRST_JOIN,
+   NO_GROUP,
+   ALWAYS_ASSIGN;
 
-   private final String description;
-   private final String explanation;
-
-   DefaultGroupAssignOption(String var3, String var4) {
-      this.description = var3;
-      this.explanation = var4;
-   }
+   private static final Phrase FIRST_JOIN_DESC = Phrase.create("defaultGroupAssign.firstJoin.description", "Only add default groups on the first join");
+   private static final Phrase FIRST_JOIN_EXPLAIN = Phrase.create("defaultGroupAssign.firstJoin.explanation", "Default Groups will be only added on first join");
+   private static final Phrase NO_GROUP_DESC = Phrase.create("defaultGroupAssign.noGroup.description", "If a player has no groups, assign all default groups");
+   private static final Phrase NO_GROUP_EXPLAIN = Phrase.create("defaultGroupAssign.noGroup.explanation", "Default Groups will be assigned if a player has no groups");
+   private static final Phrase ALWAYS_DESC = Phrase.create("defaultGroupAssign.always.description", "Always force every player to all default groups");
+   private static final Phrase ALWAYS_EXPLAIN = Phrase.create("defaultGroupAssign.always.explanation", "Default Groups will always be assigned to all players");
 
    public DefaultGroupAssignOption next() {
       switch (this) {
@@ -27,10 +28,20 @@ public enum DefaultGroupAssignOption {
    }
 
    public String getDescription() {
-      return this.description;
+      switch (this) {
+         case FIRST_JOIN: return FIRST_JOIN_DESC.get();
+         case NO_GROUP: return NO_GROUP_DESC.get();
+         case ALWAYS_ASSIGN: return ALWAYS_DESC.get();
+         default: throw new IllegalStateException();
+      }
    }
 
    public String getExplanation() {
-      return this.explanation;
+      switch (this) {
+         case FIRST_JOIN: return FIRST_JOIN_EXPLAIN.get();
+         case NO_GROUP: return NO_GROUP_EXPLAIN.get();
+         case ALWAYS_ASSIGN: return ALWAYS_EXPLAIN.get();
+         default: throw new IllegalStateException();
+      }
    }
 }

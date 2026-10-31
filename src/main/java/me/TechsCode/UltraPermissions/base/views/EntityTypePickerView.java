@@ -8,6 +8,7 @@ import me.TechsCode.UltraPermissions.base.gui.Button;
 import me.TechsCode.UltraPermissions.base.gui.pageableview.BasicSearch;
 import me.TechsCode.UltraPermissions.base.gui.pageableview.PageableGUI;
 import me.TechsCode.UltraPermissions.base.gui.pageableview.SearchFeature;
+import me.TechsCode.UltraPermissions.base.item.LocalizedEntityNames;
 import me.TechsCode.UltraPermissions.base.item.XEntityType;
 import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.base.visual.Animation;
@@ -21,9 +22,11 @@ public abstract class EntityTypePickerView extends PageableGUI<XEntityType> {
    private static final Phrase CHOOSE_ACTION = Phrase.create("entityTypePickerView.choose.action", "**Click** to choose", Colors.GRAY, Colors.AQUA);
    private String title;
    private XEntityType[] entityTypes;
+   private final SpigotTechPlugin plugin;
 
    public EntityTypePickerView(Player var1, SpigotTechPlugin var2, String var3) {
       super(var1, var2);
+      this.plugin = var2;
       this.title = var3;
       ArrayList<XEntityType> var4 = new ArrayList<>();
       Inventory var5 = Bukkit.createInventory(null, 9, "Testing");
@@ -48,7 +51,9 @@ public abstract class EntityTypePickerView extends PageableGUI<XEntityType> {
    }
 
    public void construct(Button var1, XEntityType var2) {
-      var1.material(var2.getIcon().getAsItemStack().get().getType()).name(Animation.wave(var2.name(), Colors.GREEN, Colors.WHITE)).lore(CHOOSE_ACTION.get());
+      var1.material(var2.getIcon().getAsItemStack().get().getType())
+         .name(Animation.wave(LocalizedEntityNames.get(var2, this.plugin.getTranslationManager().getSelectedLanguage()), Colors.GREEN, Colors.WHITE))
+         .lore(CHOOSE_ACTION.get());
       var1.action(var2x -> this.choose(this.p, var2));
    }
 
@@ -62,7 +67,7 @@ public abstract class EntityTypePickerView extends PageableGUI<XEntityType> {
    public SearchFeature<XEntityType> getSearch() {
       return new BasicSearch<XEntityType>() {
          public String[] getSearchableText(XEntityType var1) {
-            return new String[]{var1.getIcon().getHumanName()};
+            return new String[]{var1.getIcon().getHumanName(), var1.name(), LocalizedEntityNames.get(var1, EntityTypePickerView.this.plugin.getTranslationManager().getSelectedLanguage())};
          }
       };
    }

@@ -1,5 +1,6 @@
 package me.TechsCode.UltraPermissions.base.gui.Furnace;
 
+import me.TechsCode.UltraPermissions.base.gui.GuiLabels;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -141,7 +142,7 @@ public abstract class Furnace implements Listener {
    }
 
    public String getCurrentTitle() {
-      return "Unnamed Inventory";
+      return GuiLabels.inventory();
    }
 
    public void onClose() {

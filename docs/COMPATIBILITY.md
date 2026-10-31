@@ -2,7 +2,7 @@
 
 # Minecraft compatibility through 26.2
 
-The 5.6.9 stable release supports **Paper for Minecraft Java Edition 26.2 on Java 25** within the runtime checks below. Earlier Bukkit/Spigot/Paper versions remain compatibility targets; they have not all been tested. The `api-version: 1.13` descriptor specifies the API baseline, not proof that every intervening server works.
+The 5.6.10 stable release supports **Paper for Minecraft Java Edition 26.2 on Java 25** within the runtime checks below. Earlier Bukkit/Spigot/Paper versions remain compatibility targets; they have not all been tested. The `api-version: 1.13` descriptor specifies the API baseline, not proof that every intervening server works.
 
 | Server | Java | Verification in this release |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ The Paper JAR and Java container image are pinned by SHA-256. Only Paper's depen
 To reproduce after `gradlew build`, with Python 3 and Docker available:
 
 ```sh
-python tools/verify_paper.py --plugin build/libs/UltraPermissions-5.6.9.jar --probe build/runtime-test/RuntimeProbe.jar --work-dir build/paper-runtime --report-dir build/reports/runtime --accept-eula
+python tools/verify_paper.py --plugin build/libs/UltraPermissions-5.6.10.jar --probe build/runtime-test/RuntimeProbe.jar --work-dir build/paper-runtime --report-dir build/reports/runtime --accept-eula
 ```
 
 Use a new work directory each time. `--accept-eula` explicitly accepts the [Minecraft EULA](https://aka.ms/MinecraftEULA) for the disposable test server. Reports contain the tested plugin hash and runtime versions. Back up existing server data before upgrading.

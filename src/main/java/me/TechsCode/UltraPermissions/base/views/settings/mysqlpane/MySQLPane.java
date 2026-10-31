@@ -23,6 +23,8 @@ import me.TechsCode.UltraPermissions.base.visual.Colors;
 import org.bukkit.entity.Player;
 
 public class MySQLPane extends SettingsPane {
+   private static final Phrase MISSING_CREDENTIALS = Phrase.create("mysqlPane.error.missingCredentials", "No credentials provided.");
+   private static final Phrase MISSING_SERVER_NAME = Phrase.create("mysqlPane.error.missingServerName", "No server name provided.");
    private static final Phrase NAME = Phrase.create("mysqlPane.name", "MySQL Database");
    private static final Phrase HOSTNAME = Phrase.create("mysqlPane.hostname", "hostname");
    private static final Phrase PORT = Phrase.create("mysqlPane.port", "port");
@@ -364,10 +366,10 @@ public class MySQLPane extends SettingsPane {
       var1.action(var1x -> this.plugin.getScheduler().runAsync(() -> {
          if (this.credentials == null) {
             this.state = MySQLPane.SaveState.INVALID_UNSAVED_CHANGES;
-            this.error = "No credentials provided.";
+            this.error = MISSING_CREDENTIALS.get();
          } else if (this.serverName == null) {
             this.state = MySQLPane.SaveState.INVALID_UNSAVED_CHANGES;
-            this.error = "No server name provided.";
+            this.error = MISSING_SERVER_NAME.get();
          } else {
             this.loading = true;
             ConnectionFactory var1xx = new ConnectionFactory(this.credentials, this.ssl, this.minimumIdle, this.maximumPoolSize);

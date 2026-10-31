@@ -46,6 +46,14 @@ import org.bukkit.command.CommandSender;
 public class UPCCommand extends Command {
    private final UltraPermissions plugin;
    private CachedOnlineChecker cachedOnlineChecker;
+   private static final Phrase ALL_SERVERS_LABEL = Phrase.create("command.scope.allServers", "All Servers");
+   private static final Phrase GROUP_NAME_USAGE = Phrase.create("command.usage.groupName", "GroupName");
+   private static final Phrase COPY_NAME_USAGE = Phrase.create("command.usage.copyName", "Name of Copy");
+   private static final Phrase PLAYER_NAME_USAGE = Phrase.create("command.usage.playerName", "<PlayerName>");
+   private static final Phrase PRIORITY_USAGE = Phrase.create("command.usage.priority", "Priority");
+   private static final Phrase PREFIX_USAGE = Phrase.create("command.usage.prefix", "<Prefix>");
+   private static final Phrase SUFFIX_USAGE = Phrase.create("command.usage.suffix", "<Suffix>");
+   private static final Phrase INVALID_ARGUMENTS = Phrase.create("command.invalidArguments", "Invalid Arguments");
    private static final Phrase LIST_PLAYER_PERMISSIONS = Phrase.create(
       "command.listPlayerPermissions", "Permissions of User **%user%**", Colors.GRAY, Colors.AQUA
    );
@@ -127,7 +135,7 @@ public class UPCCommand extends Command {
       "command.registerUser.success", "Successfully registered the user **%playerName%** (**%uuid%**)", Colors.GRAY, Colors.YELLOW, Colors.WHITE
    );
    private static final Phrase PLAYER_REMOVE_GROUP = Phrase.create(
-      "command.playerRemoveGroup", "The player **%player%** is not in the group **%group%**", Colors.GRAY, Colors.AQUA, Colors.YELLOW
+      "command.playerRemoveGroup", "Successfully removed **%player%** from group **%group%**", Colors.GRAY, Colors.AQUA, Colors.YELLOW
    );
    private static final Phrase PLAYER_NOT_IN_GROUP = Phrase.create(
       "command.playerNotInGroup", "The player **%player%** is not in the group **%group%**", Colors.GRAY, Colors.AQUA, Colors.YELLOW
@@ -146,7 +154,7 @@ public class UPCCommand extends Command {
    );
    private static final Phrase REMOVE_PERMISSION_SUCCESSFUL_MULTI = Phrase.create(
       "command.groupRemovePermission.successfulMultiple",
-      "Removed **count** copies of **%permission%** from **%target%**",
+      "Removed **%count%** copies of **%permission%** from **%target%**",
       Colors.GRAY,
       Colors.YELLOW,
       Colors.YELLOW,
@@ -363,7 +371,7 @@ public class UPCCommand extends Command {
       var1.newNode(
          new SpecificArgument("createGroup"),
          var1x -> var1x.newNode(
-            new StringArgument(this.plugin, "groupName"),
+            new StringArgument(this.plugin, GROUP_NAME_USAGE),
             var1xx -> {
                var1xx.require(new SuperadminRequirement(this.plugin));
                if (this.plugin.getThisServer().isPresent()) {
@@ -374,7 +382,7 @@ public class UPCCommand extends Command {
                            ArgumentValue var6 = var1xx.getValue(var5);
                            ArgumentValue var7 = var2.getValue(var5);
                            if (var7.isValid()) {
-                              String var8 = var7.get() != null ? ((NServer)var7.get()).getName() : "All Servers";
+                              String var8 = var7.get() != null ? ((NServer)var7.get()).getName() : ALL_SERVERS_LABEL.get();
                               if (((String)var6.get()).contains(" ")) {
                                  var3.sendMessage(this.plugin.getPrefix() + CREATE_GROUP_NO_SPACES);
                               } else if (((String)var6.get()).contains("&")) {
@@ -429,7 +437,7 @@ public class UPCCommand extends Command {
          var1x -> var1x.newNode(
             new GroupArgument(this.plugin, EmptyReason.INVALID),
             var1xx -> var1xx.newNode(
-               new StringArgument(this.plugin, "Name of Copy"),
+               new StringArgument(this.plugin, COPY_NAME_USAGE),
                var2 -> {
                   var2.require(new SuperadminRequirement(this.plugin));
                   var2.action(
@@ -601,7 +609,7 @@ public class UPCCommand extends Command {
                                        ArgumentValue var10 = var3.getValue(var7);
                                        ArgumentValue var11 = var4.getValue(var7);
                                        if (var10.isValid()) {
-                                          String var12 = var10.get() != null ? ((NServer)var10.get()).getName() : "All Servers";
+                                          String var12 = var10.get() != null ? ((NServer)var10.get()).getName() : ALL_SERVERS_LABEL.get();
                                           if (this.isValidGroup(var5, var8)) {
                                              CommandOptions var13 = new CommandOptions(this.plugin, var2.getSpareArguments(var7));
                                              boolean var14 = ((Group)var8.get())
@@ -643,7 +651,7 @@ public class UPCCommand extends Command {
                                  ArgumentValue var8 = var2.getValue(var6);
                                  ArgumentValue var9 = var3.getValue(var6);
                                  if (var9.isValid()) {
-                                    String var10 = var9.get() != null ? ((NServer)var9.get()).getName() : "All Servers";
+                                    String var10 = var9.get() != null ? ((NServer)var9.get()).getName() : ALL_SERVERS_LABEL.get();
                                     if (this.isValidGroup(var4, var7)) {
                                        CommandOptions var11 = new CommandOptions(this.plugin, var2.getSpareArguments(var6));
                                        boolean var12 = ((Group)var7.get())
@@ -784,7 +792,7 @@ public class UPCCommand extends Command {
                                     ArgumentValue var10 = var3.getValue(var7);
                                     ArgumentValue var11 = var4.getValue(var7);
                                     if (var10.isValid()) {
-                                       String var12 = var10.get() != null ? ((NServer)var10.get()).getName() : "All Servers";
+                                       String var12 = var10.get() != null ? ((NServer)var10.get()).getName() : ALL_SERVERS_LABEL.get();
                                        if (this.isValidUser(var5, var8)) {
                                           CommandOptions var13 = new CommandOptions(this.plugin, var3.getSpareArguments(var7));
                                           long var14 = var13.getExpiration();
@@ -834,7 +842,7 @@ public class UPCCommand extends Command {
                                     ArgumentValue var8 = var2.getValue(var6);
                                     ArgumentValue var9 = var3.getValue(var6);
                                     if (var9.isValid()) {
-                                       String var10 = var9.get() != null ? ((NServer)var9.get()).getName() : "All Servers";
+                                       String var10 = var9.get() != null ? ((NServer)var9.get()).getName() : ALL_SERVERS_LABEL.get();
                                        if (this.isValidUser(var4x, var7)) {
                                           CommandOptions var11 = new CommandOptions(this.plugin, var3.getSpareArguments(var6));
                                           long var12 = var11.getExpiration();
@@ -1000,7 +1008,7 @@ public class UPCCommand extends Command {
          var1x -> var1x.newNode(
             new AnyArgument("<UUID>"),
             var1xx -> var1xx.newNode(
-               new AnyArgument("<PlayerName>"),
+               new AnyArgument(PLAYER_NAME_USAGE),
                var2 -> var2.newNode(
                   new BooleanArgument(this.plugin, EmptyReason.INVALID),
                   var3 -> var3.action(
@@ -1369,7 +1377,7 @@ public class UPCCommand extends Command {
          var1x -> var1x.newNode(
             new GroupArgument(this.plugin, EmptyReason.INVALID),
             var1xx -> var1xx.newNode(
-               new AnyIntegerArgument("Priority", EmptyReason.INVALID),
+               new AnyIntegerArgument(PRIORITY_USAGE, EmptyReason.INVALID),
                var2 -> {
                   var2.require(new SuperadminRequirement(this.plugin));
                   var2.action(
@@ -1395,7 +1403,7 @@ public class UPCCommand extends Command {
                                     .replace("%priority%", ((Integer)var7.get()).toString())
                            );
                         } catch (NullPointerException | NoSuchElementException var11) {
-                           var3.sendMessage(this.plugin.getPrefix() + Colors.GRAY + "Invalid Arguments");
+                           var3.sendMessage(this.plugin.getPrefix() + Colors.GRAY + INVALID_ARGUMENTS.get());
                         }
                      }
                   );
@@ -1422,7 +1430,7 @@ public class UPCCommand extends Command {
                   });
                });
                var1xx.newNode(
-                  new AnyArgument("<Prefix>"),
+                  new AnyArgument(PREFIX_USAGE),
                   var2 -> {
                      var2.require(new SuperadminRequirement(this.plugin));
                      var2.action(
@@ -1467,7 +1475,7 @@ public class UPCCommand extends Command {
                   });
                });
                var1xx.newNode(
-                  new AnyArgument("<Suffix>"),
+                  new AnyArgument(SUFFIX_USAGE),
                   var2 -> var2.action(
                      (var3, var4, var5) -> {
                         var2.require(new SuperadminRequirement(this.plugin));
@@ -1519,7 +1527,7 @@ public class UPCCommand extends Command {
                      });
                   });
                   var1xx.newNode(
-                     new AnyArgument("<Prefix>"),
+                     new AnyArgument(PREFIX_USAGE),
                      var2 -> {
                         var2.require(new SuperadminRequirement(this.plugin));
                         var2.action(
@@ -1574,7 +1582,7 @@ public class UPCCommand extends Command {
                      });
                   });
                   var1xx.newNode(
-                     new AnyArgument("<Suffix>"),
+                     new AnyArgument(SUFFIX_USAGE),
                      var2 -> var2.action(
                         (var3, var4, var5) -> {
                            ArgumentValue var6 = var1xx.getValue(var5);

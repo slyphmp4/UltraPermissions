@@ -6,10 +6,12 @@ import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.command.Argument;
 import me.TechsCode.UltraPermissions.base.command.ArgumentValue;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.base.command.EmptyReason;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 
 public class UserArgument extends Argument<User> {
+   private static final Phrase USAGE = Phrase.create("arguments.user", "<User>");
    private UltraPermissions plugin;
    private EmptyReason emptyReason;
 
@@ -27,7 +29,7 @@ public class UserArgument extends Argument<User> {
 
    @Override
    public String getUsage() {
-      return "<User>";
+      return USAGE.get();
    }
 
    @Override
