@@ -154,49 +154,53 @@ public abstract class Storage<STORABLE extends Storable> {
    }
 
    void update(final Storable var1, JsonObject var2) {
-      JsonObject var3 = var1.getLastSyncedState();
-      if (var3 != null) {
-         Storable var4 = ClassInstanceCreator.create(this.storable);
-         var4.setState(var3, this.plugin);
-         var4.setKey(var1.getKey());
-         var4.onMount(this.plugin);
-         this.onChange((STORABLE)var4, (STORABLE)var1);
+      JsonObject lastSynced = var1.getLastSyncedState();
+      STORABLE previous = null;
+      if (lastSynced != null) {
+         Storable copy = ClassInstanceCreator.create(this.storable);
+         copy.setState(lastSynced, this.plugin);
+         copy.setKey(var1.getKey());
+         copy.onMount(this.plugin);
+         previous = (STORABLE)copy;
       }
+      final STORABLE beforeChange = previous;
 
       this.implementation.update(var1.getKey(), var2, new WriteCallback() {
          @Override
          public void onSuccess() {
+            // Never acknowledge a stale asynchronous write as the newest state.
+            if (var1.getState().toString().equals(var2.toString())) {
+               var1.setLastSyncedState(var2);
+            }
+            if (beforeChange != null) {
+               Storage.this.onChange(beforeChange, (STORABLE)var1);
+            }
             Storage.this.syncingAgent.notifyNewDataChanges(Storage.this, var1.getKey());
          }
 
          @Override
-         public void onFailure(Exception var1x) {
-            Storage.this.plugin.log("Could not sync '" + var1.getKey() + "' of '" + Storage.this.storable.getName() + "' :");
-            Storage.this.plugin.log(var1x.getMessage() + "");
-            Storage.this.plugin.log("Json Data:");
-            Storage.this.plugin.log(var1.getState().toString());
-            Storage.this.plugin.log("It is strongly advised to restart the Server!");
+         public void onFailure(Exception failure) {
+            Storage.this.plugin.log("Could not persist '" + var1.getKey() + "' of '" + Storage.this.storable.getName() + "': " + failure.getMessage());
+            Storage.this.plugin.log("Changes remain in memory but are NOT saved. Fix storage and retry; do not restart until backed up.");
          }
       });
    }
 
    void destroy(final Storable var1) {
-      this.instances.remove(var1.getKey());
-      this.instancesChanged(StorageChangeType.REMOVED, var1.getKey(), null);
-      this.onDestroy((STORABLE)var1);
       this.implementation.destroy(var1.getKey(), new WriteCallback() {
          @Override
          public void onSuccess() {
+            Storage.this.instances.remove(var1.getKey(), (STORABLE)var1);
+            var1.setStorage(null);
+            Storage.this.instancesChanged(StorageChangeType.REMOVED, var1.getKey(), null);
+            Storage.this.onDestroy((STORABLE)var1);
             Storage.this.syncingAgent.notifyNewDataChanges(Storage.this, var1.getKey());
          }
 
          @Override
-         public void onFailure(Exception var1x) {
-            Storage.this.plugin.log("Could not destroy '" + var1.getKey() + "' of '" + Storage.this.storable.getName() + "' :");
-            Storage.this.plugin.log(var1x.getMessage() + "");
-            Storage.this.plugin.log("Json Data:");
-            Storage.this.plugin.log(var1.getState().toString());
-            Storage.this.plugin.log("It is strongly advised to restart the Server!");
+         public void onFailure(Exception failure) {
+            Storage.this.plugin.log("Could not delete '" + var1.getKey() + "' of '" + Storage.this.storable.getName() + "': " + failure.getMessage());
+            Storage.this.plugin.log("The object remains available in memory; no deletion was acknowledged.");
          }
       });
    }
@@ -204,27 +208,27 @@ public abstract class Storage<STORABLE extends Storable> {
    public STORABLE create(final STORABLE var1) {
       var1.onMount(this.plugin);
       var1.setStorage(this);
-      this.onMount((STORABLE)var1);
-      final String var2 = var1.getKey();
-      this.instances.put(var2, (STORABLE)var1);
-      this.instancesChanged(StorageChangeType.ADDED, var2, (STORABLE)var1);
-      this.onCreation((STORABLE)var1);
-      this.implementation.create(var2, var1.getState(), new WriteCallback() {
+      this.onMount(var1);
+      final String key = var1.getKey();
+      final JsonObject state = var1.getState();
+      this.implementation.create(key, state, new WriteCallback() {
          @Override
          public void onSuccess() {
-            Storage.this.syncingAgent.notifyNewDataChanges(Storage.this, var2);
+            var1.setLastSyncedState(state);
+            Storage.this.instances.put(key, var1);
+            Storage.this.instancesChanged(StorageChangeType.ADDED, key, var1);
+            Storage.this.onCreation(var1);
+            Storage.this.syncingAgent.notifyNewDataChanges(Storage.this, key);
          }
 
          @Override
-         public void onFailure(Exception var1x) {
-            Storage.this.plugin.log("Could not create '" + var2 + "' of '" + Storage.this.storable.getName() + "' :");
-            Storage.this.plugin.log(var1x.getMessage() + "");
-            Storage.this.plugin.log("Json Data:");
-            Storage.this.plugin.log(var1.getState().toString());
-            Storage.this.plugin.log("It is strongly advised to restart the Server!");
+         public void onFailure(Exception failure) {
+            var1.setStorage(null);
+            Storage.this.plugin.log("Could not create '" + key + "' of '" + Storage.this.storable.getName() + "': " + failure.getMessage());
+            throw new IllegalStateException("Storage creation failed for " + key, failure);
          }
       });
-      return (STORABLE)var1;
+      return var1;
    }
 
    public int getNextNumericId() {
