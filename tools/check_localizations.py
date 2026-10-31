@@ -93,6 +93,12 @@ def main() -> int:
     parser.add_argument("--jar", type=Path, help="Also inspect packaged JAR resources")
     args = parser.parse_args()
     errors: list[str] = []
+    # TranslationFile must accept valid keys containing underscores (e.g. rank_timer).
+    loader_source = (JAVA_ROOT / "base/translations/TranslationFile.java").read_text(encoding="utf-8")
+    if '.filter(var0 -> !var0[0].contains("_"))' in loader_source:
+        errors.append("Runtime language loader silently rejects keys containing underscores")
+    if 'StandardCharsets.UTF_8' not in loader_source:
+        errors.append("Runtime language loader must decode bundled UTF-8 locale files")
     expected = read_sources(errors)
     locales = {}
     for part in PARTS:
