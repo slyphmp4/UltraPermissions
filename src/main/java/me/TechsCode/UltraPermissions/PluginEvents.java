@@ -94,7 +94,7 @@ public class PluginEvents implements Listener {
    @EventHandler
    public void updateData(UpdateEvent var1) {
       if (var1.getUpdateTime() == UpdateTime.SEC) {
-         this.plugin.getScheduler().runAsync(() -> {
+         this.plugin.getScheduler().run(() -> {
             GroupList var1x = this.plugin.getGroups();
             UserList var2 = this.plugin.getUsers();
             PermissionList var3 = this.plugin.getPermissions();
