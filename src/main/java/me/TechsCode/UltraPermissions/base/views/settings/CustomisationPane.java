@@ -123,8 +123,7 @@ public class CustomisationPane extends SettingsPane {
    private void GuiUpdateIntervalButton(Button var1) {
       AppearanceRegistry var2 = this.plugin.getAppearanceRegistry();
       var1.material(XMaterial.CLOCK)
-         .name(Animation.wave(GUIINTERVANL_TITLE.get(), Colors.Gold, Colors.YELLOW))
-         .lore((var2.isPrefixModified() ? GUIINTERVANL_RESET_ACTION : GUIINTERVANL_CHANGE_ACTION).get());
+         .name(Animation.wave(GUIINTERVANL_TITLE.get(), Colors.Gold, Colors.YELLOW));
       if (var2.isGuiUpdateIntervalModified()) {
          var1.item().lore(GUIINTERVANL_RESET_ACTION.get());
       } else {
