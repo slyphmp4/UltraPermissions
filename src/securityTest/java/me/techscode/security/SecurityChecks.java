@@ -37,6 +37,7 @@ import me.TechsCode.UltraPermissions.base.update.*;
 import me.TechsCode.UltraPermissions.base.update.networkUpdate.*;
 import me.TechsCode.UltraPermissions.dependencies.gson.*;
 import me.TechsCode.UltraPermissions.storage.collection.UserList;
+import me.TechsCode.UltraPermissions.permissionDatabase.PermissionDatabase;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 import me.TechsCode.UltraPermissions.migration.InsaneEditorDownload;
 import org.bukkit.*;
@@ -71,6 +72,7 @@ public final class SecurityChecks {
         setupBukkit();
         minecraftVersions();
         messaging(report.resolve("config-fixture"));
+        remoteCatalogue();
         sqlAndPool();
         boundedSync();
         tlsPolicy();
@@ -86,6 +88,22 @@ public final class SecurityChecks {
         result.add("groups", new Gson().toJsonTree(groups));
         Files.writeString(report.resolve("verification.json"), new GsonBuilder().setPrettyPrinting().create().toJson(result));
         System.out.println("Security checks passed: " + assertions + " assertions in " + groups.size() + " groups.");
+    }
+
+    private static void remoteCatalogue() throws Exception {
+        byte[] small = new byte[]{1, 2, 3, 4};
+        check(Arrays.equals(small, BoundedInput.read(new ByteArrayInputStream(small), 4)),
+            "remote source reads precisely within byte limit");
+        throwsType(IOException.class, () -> BoundedInput.read(new ByteArrayInputStream(new byte[5]), 4),
+            "external response over byte limit rejected");
+        check(PermissionDatabase.safeRecord("WorldEdit+worldedit.*+World editing commands+set,copy"),
+            "valid external permission metadata permitted");
+        for (String invalid : List.of("WorldEdit+worldedit.*+spoofed\nsecurity warning",
+                "WorldEdit+worldedit.*+" + "x".repeat(2049),
+                "missing-name+", "Plugin+permission+desc+command+unexpected")) {
+            check(!PermissionDatabase.safeRecord(invalid), "malformed catalogue record rejected");
+        }
+        groups.add("External permission catalogue: bounded download / text validation / immutable GUI snapshots");
     }
 
     private static void threadingAndNetwork() throws Exception {
@@ -256,7 +274,7 @@ public final class SecurityChecks {
         byte[] key = new byte[32]; Arrays.fill(key, (byte)42);
         SecureMessaging backend = new SecureMessaging(key, "realm", "survival", "proxy", clock::get);
         SecureMessaging proxy = new SecureMessaging(key, "realm", "proxy", "proxy", clock::get);
-        JsonObject data = new JsonObject(); data.addProperty("model", "Users"); data.addProperty("dataKey", "safe-key");
+        JsonObject data = new JsonObject(); data.addProperty("model", User.class.getName()); data.addProperty("dataKey", "safe-key");
         Message cache = new Message("cache", data);
         byte[] wire = backend.encode("SERVER_TO_PROXY", "survival", "proxy", cache.encode());
         check(cache.encode().equals(proxy.decode(wire, "SERVER_TO_PROXY", "survival", "proxy")), "signed cache accepted");
@@ -279,6 +297,40 @@ public final class SecurityChecks {
         }
         for (String injection : List.of("x' OR '1'='1", "../secret", "", "x".repeat(65), "a\n")) check(!MessagePolicy.storageKey(injection), "invalid cache key");
         check(MessagePolicy.allowed(cache, "SERVER_TO_PROXY"), "ordinary cache allowed");
+        for (Class<?> model : List.of(User.class,
+                me.TechsCode.UltraPermissions.storage.objects.Group.class,
+                me.TechsCode.UltraPermissions.storage.objects.Permission.class,
+                me.TechsCode.UltraPermissions.storage.objects.GroupPath.class,
+                me.TechsCode.UltraPermissions.base.registry.RegistryStorageEntry.class)) {
+            JsonObject item = new JsonObject();
+            item.addProperty("model", model.getName());
+            item.addProperty("dataKey", "*");
+            check(MessagePolicy.allowed(new Message("cache", item), "SERVER_TO_PROXY"),
+                "actual storage model can synchronize: " + model.getSimpleName());
+        }
+        for (String fake : List.of("Users", "java.lang.Runtime",
+                User.class.getName() + "$Injected", "../User", "User\nAdmin")) {
+            JsonObject spoofed = new JsonObject();
+            spoofed.addProperty("model", fake);
+            spoofed.addProperty("dataKey", "*");
+            check(!MessagePolicy.allowed(new Message("cache", spoofed), "SERVER_TO_PROXY"),
+                "unknown or injected storage model denied");
+        }
+        JsonObject network = new JsonObject();
+        network.addProperty("proxyVersion", "1.2.3");
+        JsonArray serverList = new JsonArray();
+        JsonObject server = new JsonObject();
+        server.addProperty("name", "survival");
+        server.addProperty("ip", "2001:db8::1");
+        server.addProperty("port", 25565);
+        server.add("players", new JsonArray());
+        serverList.add(server);
+        network.add("serverList", serverList);
+        check(MessagePolicy.allowed(new Message("networking", network), "PROXY_TO_SERVER"),
+            "valid IPv6 networking metadata allowed");
+        server.addProperty("ip", "server.example\nFORGED");
+        check(!MessagePolicy.allowed(new Message("networking", network), "PROXY_TO_SERVER"),
+            "host control-character injection rejected");
         throwsType(RuntimeException.class, () -> Message.decode(Base64.getEncoder().encodeToString(("{\"key\":\"cache\",\"data\":" + "[".repeat(40) + "]".repeat(40) + "}").getBytes())), "deep JSON rejected");
         SecureMessaging limited = new SecureMessaging(key, "realm", "proxy", "proxy", clock::get);
         for (int i=0;i<40;i++) check(limited.decode(backend.encode("SERVER_TO_PROXY", "survival", "proxy", cache.encode()), "SERVER_TO_PROXY", "survival", "proxy") != null, "burst within limit");
