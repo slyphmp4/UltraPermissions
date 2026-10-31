@@ -501,6 +501,8 @@ togglePluginDialog.subtitle: "Введите **Название плагина**
 togglePluginDialog.title: "Переключение плагина"
 transferAssistant.kickMessage: "UltraPermissions приступает к конвертации данных. Сервер выключится по окончании"
 transferAssistant.loginMessage: "UltraPermissions приступает к передаче данных. Сервер выключится по окончании"
+userGroupAddView.duration.permanent: "Навсегда"
+userGroupAddView.duration.title: "Срок действия >"
 userGroupAddView.entry.action: "Нажмите, чтобы **добавить** игроку **%user%**"
 userGroupAddView.title: "%user% > добавить группу"
 userGroupListView.add.action: "Нажмите, чтобы добавить группу"

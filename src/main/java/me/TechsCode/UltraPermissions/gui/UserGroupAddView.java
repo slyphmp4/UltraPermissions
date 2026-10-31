@@ -17,6 +17,8 @@ public abstract class UserGroupAddView extends PageableGUI<Group> {
    private final UltraPermissions plugin;
    private final User user;
    private static final Phrase TITLE = Phrase.create("userGroupAddView.title", "%user% > Add Group");
+   private static final Phrase DURATION_TITLE = Phrase.create("userGroupAddView.duration.title", "Duration >");
+   private static final Phrase DURATION_PERMANENT = Phrase.create("userGroupAddView.duration.permanent", "Permanent");
    private static final Phrase ENTRY_ACTION = Phrase.create(
       "userGroupAddView.entry.action", "Click to **add** to **%user%**", Colors.GRAY, Colors.GREEN, Colors.YELLOW
    );
@@ -41,7 +43,7 @@ public abstract class UserGroupAddView extends PageableGUI<Group> {
          .name(Animation.wave(var2.getName(), Colors.Green, Colors.WHITE))
          .lore(ENTRY_ACTION.get().replace("%user%", this.user.getName()))
          .setDamage(var2.getDamage());
-      var1.action(var2x -> new TimePickerView(this.p, this.plugin, "Duration >", "Permanent", true, 0L) {
+      var1.action(var2x -> new TimePickerView(this.p, this.plugin, DURATION_TITLE.get(), DURATION_PERMANENT.get(), true, 0L) {
          @Override
          public void onResult(long var1) {
             if (var1 == 0L) {

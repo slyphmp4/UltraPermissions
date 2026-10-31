@@ -8,6 +8,7 @@ import me.TechsCode.UltraPermissions.base.legacy.task.UpdateTime;
 import me.TechsCode.UltraPermissions.internal.ModifiedPermissible;
 import me.TechsCode.UltraPermissions.internal.PermissibleInjector;
 import me.TechsCode.UltraPermissions.permissionlogger.PermissionLogger;
+import me.TechsCode.UltraPermissions.base.update.Updater;
 import me.TechsCode.UltraPermissions.storage.collection.GroupList;
 import me.TechsCode.UltraPermissions.storage.collection.PermissionList;
 import me.TechsCode.UltraPermissions.storage.collection.UserList;
@@ -20,6 +21,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerLoginEvent.Result;
 import org.bukkit.plugin.Plugin;
@@ -66,6 +68,22 @@ public class PluginEvents implements Listener {
       if (var1.getResult() != Result.KICK_WHITELIST) {
          this.login(var1.getPlayer());
       }
+   }
+
+   @EventHandler
+   public void join(PlayerJoinEvent event) {
+      if (!this.plugin.getAppearanceRegistry().isUpdaterEnabled()) {
+         return;
+      }
+      this.plugin.getScheduler().runTaskLater(() -> {
+         Player player = event.getPlayer();
+         if (!player.isOnline() || !this.plugin.getAppearanceRegistry().isUpdaterEnabled()) {
+            return;
+         }
+         this.plugin.getUsers().uuid(player.getUniqueId())
+            .filter(User::isSuperadmin)
+            .ifPresent(user -> Updater.suggestUpdateIfAvailable(this.plugin, player, ignored -> {}, false));
+      }, 40L);
    }
 
    @EventHandler
