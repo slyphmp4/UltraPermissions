@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.command.Argument;
 import me.TechsCode.UltraPermissions.base.command.ArgumentValue;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.permissionDatabase.PermissionInfo;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
@@ -13,11 +14,17 @@ import org.bukkit.plugin.Plugin;
 public class StringArgument extends Argument<String> {
    private UltraPermissions plugin;
    private String usage;
+   private Phrase localizedUsage;
 
    public StringArgument(UltraPermissions var1, String var2) {
       super();
       this.plugin = var1;
       this.usage = var2;
+   }
+
+   public StringArgument(UltraPermissions plugin, Phrase usage) {
+      this.plugin = plugin;
+      this.localizedUsage = usage;
    }
 
    @Override
@@ -27,7 +34,7 @@ public class StringArgument extends Argument<String> {
 
    @Override
    public String getUsage() {
-      return "<" + this.usage + ">";
+      return "<" + (this.localizedUsage == null ? this.usage : this.localizedUsage.get()) + ">";
    }
 
    @Override

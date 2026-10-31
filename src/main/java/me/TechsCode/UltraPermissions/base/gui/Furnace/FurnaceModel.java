@@ -1,10 +1,11 @@
 package me.TechsCode.UltraPermissions.base.gui.Furnace;
 
+import me.TechsCode.UltraPermissions.base.gui.GuiLabels;
 import java.util.HashMap;
 import me.TechsCode.UltraPermissions.base.gui.Entry;
 
 public class FurnaceModel {
-   private String title = "Unnamed Furnace";
+   private String title = GuiLabels.furnace();
    private int slots = 3;
    private final HashMap<Integer, Entry> entries = new HashMap<>();
 

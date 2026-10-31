@@ -6,10 +6,12 @@ import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.command.Argument;
 import me.TechsCode.UltraPermissions.base.command.ArgumentValue;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.base.command.EmptyReason;
 import me.TechsCode.UltraPermissions.storage.objects.GroupPath;
 
 public class GroupPathArgument extends Argument<GroupPath> {
+   private static final Phrase USAGE = Phrase.create("arguments.groupPath", "<GroupPath>");
    private UltraPermissions plugin;
    private EmptyReason emptyReason;
 
@@ -27,7 +29,7 @@ public class GroupPathArgument extends Argument<GroupPath> {
 
    @Override
    public String getUsage() {
-      return "<GroupPath>";
+      return USAGE.get();
    }
 
    @Override

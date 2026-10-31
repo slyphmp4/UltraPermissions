@@ -33,6 +33,8 @@ import me.TechsCode.UltraPermissions.visual.VisualType;
 import org.bukkit.entity.Player;
 
 public abstract class GroupView extends GUI {
+   private static final Phrase ICON_ATTRIBUTE = Phrase.create("groupView.changeIcon.attribute", "Icon: **%icon%**", Colors.GRAY, Colors.WHITE);
+   private static final Phrase PURGE_CONFIRM = Phrase.create("groupView.purge.confirm", "Confirm purging: %group%");
    private static final Phrase TITLE = Phrase.create("groupView.title", "Groups > %group%");
    private final UltraPermissions plugin;
    private final Group group;
@@ -317,7 +319,7 @@ public abstract class GroupView extends GUI {
          var1.item().appendLore(CHANGE_ICON_ACTION_SHIFT_RIGHT_CLICK.get());
       }
 
-      var1.item().appendLore("", "§7Icon: §f" + this.group.getIcon().getHumanName());
+      var1.item().appendLore("", ICON_ATTRIBUTE.get().replace("%icon%", this.group.getIcon().getHumanName()));
       if (XMaterial.isDamageable(this.group.getIcon().getBukkitMaterial().get())) {
          var1.item().appendLore(CHANGE_ICON_LORE_DAMAGE_VALUE.get().replace("%damageValue%", String.valueOf(this.group.getDamage())));
       }
@@ -383,7 +385,7 @@ public abstract class GroupView extends GUI {
             }
 
             if (var1x == ActionType.LEFT) {
-               new MaterialPickerView(this.p, this.plugin, this.group.getName() + " > Icon") {
+               new MaterialPickerView(this.p, this.plugin, this.group.getName() + " > " + CHANGE_ICON_TITLE.get()) {
                   @Override
                   public void choose(Player var1, XMaterial var2) {
                      GroupView.this.group.setIcon(var2);
@@ -416,7 +418,7 @@ public abstract class GroupView extends GUI {
             }
 
             if (var1x == ActionType.RIGHT) {
-               new ConfirmationView(this.p, this.plugin, "Confirm purging: " + this.group.getName()) {
+               new ConfirmationView(this.p, this.plugin, PURGE_CONFIRM.get().replace("%group%", this.group.getName())) {
                   @Override
                   public void choose(boolean var1) {
                      if (var1) {

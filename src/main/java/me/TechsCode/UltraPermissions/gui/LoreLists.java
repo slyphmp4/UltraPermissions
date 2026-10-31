@@ -14,6 +14,7 @@ import me.TechsCode.UltraPermissions.storage.objects.Group;
 import me.TechsCode.UltraPermissions.storage.objects.UserRankup;
 
 public class LoreLists {
+   private static final Phrase INVALID_SCOPE = Phrase.create("lists.invalidScope", "INVALID");
    private static final Phrase LIST_NONE_LINE = Phrase.create("lists.all.noneLine", "- **None**", Colors.GRAY, Colors.RED);
    private static final Phrase RANK_UP_LIST_PERMANENT_LINE = Phrase.create("lists.rankUps.permanentLine", "%index%. **%group%**", Colors.GRAY, Colors.YELLOW);
    private static final Phrase RANK_UP_LIST_TEMPORARY_LINE = Phrase.create(
@@ -112,8 +113,8 @@ public class LoreLists {
 
                   return var4.get()
                      .replace("%permission%", var0x.getColoredName())
-                     .replace("%server%", var1x.orElse("INVALID"))
-                     .replace("%world%", var2.orElse("INVALID"));
+                     .replace("%server%", var1x.orElse(INVALID_SCOPE.get()))
+                     .replace("%world%", var2.orElse(INVALID_SCOPE.get()));
                }
             }
          )

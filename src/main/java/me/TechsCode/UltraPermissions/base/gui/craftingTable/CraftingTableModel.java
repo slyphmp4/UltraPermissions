@@ -1,10 +1,11 @@
 package me.TechsCode.UltraPermissions.base.gui.craftingTable;
 
+import me.TechsCode.UltraPermissions.base.gui.GuiLabels;
 import java.util.HashMap;
 import me.TechsCode.UltraPermissions.base.gui.Entry;
 
 public class CraftingTableModel {
-   private String title = "Unnamed CraftingTable";
+   private String title = GuiLabels.craftingTable();
    private int slots = 10;
    private final HashMap<Integer, Entry> entries = new HashMap<>();
 

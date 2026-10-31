@@ -1,13 +1,15 @@
 package me.TechsCode.UltraPermissions.hooks.placeholders;
 
 import me.TechsCode.UltraPermissions.hooks.UpermsPlaceholder;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.storage.objects.Group;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 import org.bukkit.entity.Player;
 
 public class RanksPlaceholder extends UpermsPlaceholder {
+   private static final Phrase DESCRIPTION = Phrase.create("placeholder.ranks.description", "Group Name of all Groups");
    public RanksPlaceholder() {
-      super("ranks", "Group Name of all Groups");
+      super("ranks", DESCRIPTION);
    }
 
    @Override

@@ -6,11 +6,13 @@ import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.command.Argument;
 import me.TechsCode.UltraPermissions.base.command.ArgumentValue;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.permissionDatabase.PermissionInfo;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 public class PermissionArgument extends Argument<String> {
+   private static final Phrase USAGE = Phrase.create("arguments.permission", "<Permission>");
    private UltraPermissions plugin;
 
    public PermissionArgument(UltraPermissions var1) {
@@ -25,7 +27,7 @@ public class PermissionArgument extends Argument<String> {
 
    @Override
    public String getUsage() {
-      return "<Permission>";
+      return USAGE.get();
    }
 
    @Override

@@ -1,13 +1,15 @@
 package me.TechsCode.UltraPermissions.hooks.placeholders;
 
 import me.TechsCode.UltraPermissions.hooks.UpermsPlaceholder;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.storage.objects.Group;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 import org.bukkit.entity.Player;
 
 public class PrefixPlaceholder extends UpermsPlaceholder {
+   private static final Phrase DESCRIPTION = Phrase.create("placeholder.prefix.description", "Player Prefix or Prefix of 1. Group");
    public PrefixPlaceholder() {
-      super("prefix", "Player Prefix or Prefix of 1. Group");
+      super("prefix", DESCRIPTION);
    }
 
    @Override

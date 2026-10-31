@@ -1,14 +1,16 @@
 package me.TechsCode.UltraPermissions.hooks.placeholders;
 
 import me.TechsCode.UltraPermissions.hooks.UpermsPlaceholder;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.storage.objects.Group;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 public class SuffixColorPlaceholder extends UpermsPlaceholder {
+   private static final Phrase DESCRIPTION = Phrase.create("placeholder.suffix_color.description", "Color of Player Suffix or Suffix of 1. Group");
    public SuffixColorPlaceholder() {
-      super("suffix_color", "Color of Player Suffix or Suffix of 1. Group");
+      super("suffix_color", DESCRIPTION);
    }
 
    @Override

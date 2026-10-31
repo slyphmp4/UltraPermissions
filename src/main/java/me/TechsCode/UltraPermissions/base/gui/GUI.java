@@ -179,7 +179,7 @@ public abstract class GUI implements Listener {
    }
 
    public String getCurrentTitle() {
-      return "Unnamed Inventory";
+      return GuiLabels.inventory();
    }
 
    public void onClose() {

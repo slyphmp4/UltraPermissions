@@ -2,10 +2,9 @@ package me.TechsCode.UltraPermissions.base.translations;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -22,11 +21,6 @@ import me.TechsCode.UltraPermissions.base.reflection.indexer.ClasspathIndexer;
 import me.TechsCode.UltraPermissions.base.reflection.indexer.Node;
 import me.TechsCode.UltraPermissions.base.registry.RegistrationChoice;
 import me.TechsCode.UltraPermissions.dependencies.commons.io.FileUtils;
-import me.TechsCode.UltraPermissions.dependencies.commons.io.IOUtils;
-import me.TechsCode.UltraPermissions.dependencies.gson.JsonArray;
-import me.TechsCode.UltraPermissions.dependencies.gson.JsonElement;
-import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
-import me.TechsCode.UltraPermissions.dependencies.gson.JsonParser;
 
 public class TranslationManager {
    private final TranslationRegistry translationRegistry;
@@ -53,7 +47,7 @@ public class TranslationManager {
                   var1.getName(),
                   var1xx -> var1xx.getValue().getName().startsWith("me.TechsCode." + var1.getName()) && !var1xx.getValue().getName().contains(".base")
                );
-               downloadTranslationFromGithub(var1, var2);
+               installBundledTranslations(var1, var2);
                this.translationFiles = Arrays.stream(Objects.requireNonNull(var2.listFiles()))
                   .map(TranslationFile::new)
                   .filter(TranslationFile::isValid)
@@ -83,22 +77,23 @@ public class TranslationManager {
             .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
    }
 
-   private static void downloadTranslationFromGithub(TechPlugin<?> var0, File var1) {
-      try {
-         String var2 = IOUtils.toString(new URL("https://api.github.com/repos/TechsCode-Team/PluginTranslations/contents/Translations"), StandardCharsets.UTF_8);
-         JsonParser var3 = new JsonParser();
-
-         for (JsonElement var6 : (JsonArray)var3.parse(var2)) {
-            JsonObject var7 = (JsonObject)var6;
-            String var8 = var7.get("name").getAsString();
-            if (var8.endsWith(".lang") && var8.contains("_") && (var8.startsWith("Base_") || var8.startsWith(var0.getName()))) {
-               String var9 = var7.get("download_url").getAsString();
-               File var10 = new File(var1.getAbsolutePath() + "/" + var8);
-               FileUtils.copyURLToFile(new URL(var9), var10);
+   // Ship our maintained locales with the plugin. No network dependency and no
+   // upstream overwrite of community translations on every server restart.
+   private static void installBundledTranslations(TechPlugin<?> plugin, File languageFolder) {
+      String[] bundled = {
+         "Base_Russian.lang", "UltraPermissions_Russian.lang",
+         "Base_Ukrainian.lang", "UltraPermissions_Ukrainian.lang"
+      };
+      for (String fileName : bundled) {
+         try (InputStream resource = plugin.getResource("translations/" + fileName)) {
+            if (resource == null) {
+               plugin.log("Bundled translation missing: " + fileName);
+               continue;
             }
+            FileUtils.copyInputStreamToFile(resource, new File(languageFolder, fileName));
+         } catch (IOException exception) {
+            plugin.log("Could not install bundled translation " + fileName + ": " + exception.getMessage());
          }
-      } catch (IOException var11) {
-         var0.log("Could not load translations from github");
       }
    }
 
