@@ -4,8 +4,10 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -101,8 +103,12 @@ public class SkinTexture {
 
    private static String getResponse(String var0) {
       try {
-         URL var1 = new URL(var0);
-         return IOUtils.toString(var1.openStream(), StandardCharsets.UTF_8);
+         URLConnection connection = new URL(var0).openConnection();
+         connection.setConnectTimeout(4000);
+         connection.setReadTimeout(4000);
+         try (InputStream response = connection.getInputStream()) {
+            return IOUtils.toString(response, StandardCharsets.UTF_8);
+         }
       } catch (IOException var2) {
          return null;
       }
