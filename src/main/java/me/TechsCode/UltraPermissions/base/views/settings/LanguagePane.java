@@ -97,7 +97,7 @@ public class LanguagePane extends SettingsPane {
 
    private void LanguageButton(Button var1, String var2, int var3, int var4, boolean var5) {
       var1.material(XMaterial.PAPER)
-         .name(Animation.wave(var2, Colors.GOLD, Colors.YELLOW))
+         .name(Animation.wave(displayLanguageName(var2), Colors.GOLD, Colors.YELLOW))
          .lore(
             var5 ? SELECTED_INDICATOR.get() : SELECT_ACTION.get(),
             "",
@@ -114,4 +114,27 @@ public class LanguagePane extends SettingsPane {
          }
       });
    }
+   private static String displayLanguageName(String language) {
+      switch (language.toLowerCase(java.util.Locale.ROOT)) {
+         case "russian": return "Русский";
+         case "ukrainian": return "Українська";
+         case "english": return "English";
+         case "german": return "Deutsch";
+         case "french": return "Français";
+         case "spanish": return "Español";
+         case "polish": return "Polski";
+         case "czech": return "Čeština";
+         case "dutch": return "Nederlands";
+         case "brazil": return "Português (Brasil)";
+         case "brazilian": return "Português (Brasil)";
+         case "portuguese": return "Português";
+         case "italian": return "Italiano";
+         case "hungarian": return "Magyar";
+         case "danish": return "Dansk";
+         case "turkish": return "Türkçe";
+         case "romanian": return "Română";
+         default: return language;
+      }
+   }
+
 }

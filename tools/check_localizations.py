@@ -22,7 +22,7 @@ ALLOWED_LATIN = {
     "MySQL", "Shift", "Insane", "Editor", "Discord", "SSL",
     "none", "ID", "UltraPermissions", "Spigot", "yml", "UUID",
     "BungeeCord", "URL", "promote", "demote", "NameTagEdit",
-    "InsaneEditor", "help", "Bukkit", "Q", "m", "h", "d",
+    "InsaneEditor", "help", "Bukkit", "JAR", "Q", "m", "h", "d",
 }
 
 

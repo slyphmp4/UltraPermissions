@@ -48,7 +48,7 @@ public abstract class EntityTypePickerView extends PageableGUI<XEntityType> {
    }
 
    public void construct(Button var1, XEntityType var2) {
-      var1.material(var2.getIcon().getAsItemStack().get().getType()).name(Animation.wave(var2.name(), Colors.GREEN, Colors.WHITE)).lore(CHOOSE_ACTION.get());
+      var1.material(var2.getIcon().getAsItemStack().get().getType()).lore(CHOOSE_ACTION.get());
       var1.action(var2x -> this.choose(this.p, var2));
    }
 

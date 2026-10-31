@@ -14,6 +14,10 @@ import org.bukkit.plugin.InvalidDescriptionException;
 import org.bukkit.plugin.InvalidPluginException;
 
 public class InsaneEditorDownload {
+   private static final Phrase MANUAL_INSTALL = Phrase.create(
+      "insaneEditorDownload.manualInstall",
+      "Install a verified InsaneEditor JAR manually, then restart the server. Automatic installation is disabled."
+   );
    private UltraPermissions plugin;
    private Player player;
    private static final String currentLocation = System.getProperty("user.dir");
@@ -51,7 +55,7 @@ public class InsaneEditorDownload {
 
    private void installJar(String ignored) {
       this.player.sendMessage(this.plugin.getPrefix()
-         + "Install a verified InsaneEditor JAR manually, then restart the server. Automatic installation is disabled.");
+         + MANUAL_INSTALL.get());
    }
 
    private String getDownloadLink() {
