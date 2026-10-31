@@ -54,8 +54,8 @@ public class MySQL extends StorageImplementation {
 
    @Override
    public void update(String key, JsonObject state, WriteCallback callback) {
-      key(key);
-      write("UPDATE " + table() + " SET `value`=? WHERE `key`=?", callback, jsonToString(state), key);
+      // A remote delete between refresh and update must not silently discard local changes.
+      this.create(key, state, callback);
    }
 
    @Override
