@@ -36,22 +36,27 @@ public class BungeeScheduler implements Scheduler {
 
    @Override
    public RecurringTask runTaskTimer(final Runnable var1, final long var2, final long var4) {
-      final ScheduledTask var6 = ProxyServer.getInstance()
-         .getScheduler()
-         .schedule(this.plugin.getBootstrap(), var1, var2 * 1000L / 20L, var4 * 1000L / 20L, TimeUnit.MILLISECONDS);
       return new RecurringTask() {
-         private boolean cancelled;
+         private ScheduledTask task = this.schedule();
 
-         @Override
-         public void stop() {
-            var6.cancel();
-            this.cancelled = true;
+         private ScheduledTask schedule() {
+            return ProxyServer.getInstance()
+               .getScheduler()
+               .schedule(BungeeScheduler.this.plugin.getBootstrap(), var1, var2 * 1000L / 20L, var4 * 1000L / 20L, TimeUnit.MILLISECONDS);
          }
 
          @Override
-         public void start() {
-            if (this.cancelled) {
-               BungeeScheduler.this.runTaskTimer(var1, var2, var4);
+         public synchronized void stop() {
+            if (this.task != null) {
+               this.task.cancel();
+               this.task = null;
+            }
+         }
+
+         @Override
+         public synchronized void start() {
+            if (this.task == null) {
+               this.task = this.schedule();
             }
          }
       };
