@@ -29,6 +29,11 @@ import me.TechsCode.UltraPermissions.base.scheduler.*;
 import me.TechsCode.UltraPermissions.base.security.*;
 import me.TechsCode.UltraPermissions.base.storage.*;
 import me.TechsCode.UltraPermissions.base.storage.implementations.MySQL;
+import me.TechsCode.UltraPermissions.base.storage.implementations.LocalFile;
+import me.TechsCode.UltraPermissions.base.fileconf.AtomicFileSave;
+import me.TechsCode.UltraPermissions.base.fileconf.FileConfiguration;
+import me.TechsCode.UltraPermissions.base.fileconf.impl.SpigotFileConfiguration;
+import me.TechsCode.UltraPermissions.base.storage.syncing.SyncingAgent;
 import me.TechsCode.UltraPermissions.base.update.*;
 import me.TechsCode.UltraPermissions.base.update.networkUpdate.*;
 import me.TechsCode.UltraPermissions.dependencies.gson.*;
@@ -71,6 +76,7 @@ public final class SecurityChecks {
         boundedSync();
         tlsPolicy();
         threadingAndNetwork();
+        persistenceFailureRecovery(report.resolve("persistence-fixture"));
         uiRevocation();
         serializedItems();
         removedCapabilities();
@@ -141,6 +147,101 @@ public final class SecurityChecks {
         };
         check(PublicIpResolver.readAddress(untrusted) == null, "external response cannot inject non-IP data");
         groups.add("Thread safety: main-thread model writes / Vault cache / no blocking IP lookup / bounded HTTP");
+    }
+
+    private static void persistenceFailureRecovery(Path folder) throws Exception {
+        Files.createDirectories(folder);
+        Path file = folder.resolve("Users.json");
+        Files.writeString(file, "previous durable state", StandardCharsets.UTF_8);
+        throwsType(IOException.class, () -> AtomicFileSave.save(file.toFile(), staged -> {
+            Files.writeString(staged.toPath(), "partial state", StandardCharsets.UTF_8);
+            throw new IOException("simulated interrupted write");
+        }), "interrupted atomic save reports failure");
+        check("previous durable state".equals(Files.readString(file)), "failed save preserves original file");
+        try (var files = Files.list(folder)) {
+            check(files.noneMatch(path -> path.getFileName().toString().startsWith(".Users.json-")), "failed atomic save removes temp");
+        }
+        AtomicFileSave.save(file.toFile(), staged -> Files.writeString(staged.toPath(), "new durable state", StandardCharsets.UTF_8));
+        check("new durable state".equals(Files.readString(file)), "successful atomic save replaces file");
+
+        Path malformed = folder.resolve("corrupt.yml");
+        String invalidYaml = "permissions: [unterminated";
+        Files.writeString(malformed, invalidYaml, StandardCharsets.UTF_8);
+        throwsType(IllegalStateException.class, () -> new SpigotFileConfiguration(malformed.toFile()),
+            "corrupt YAML is rejected rather than parsed as empty defaults");
+        check(invalidYaml.equals(Files.readString(malformed)), "corrupt original YAML preserved");
+
+        TestFileConfiguration configuration = allocate(TestFileConfiguration.class);
+        configuration.values = new HashMap<>();
+        configuration.values.put("user", "original");
+        configuration.fail = true;
+        LocalFile local = allocate(LocalFile.class);
+        set(local, "configuration", configuration);
+        set(local, "file", file.toFile());
+        AtomicInteger writes = new AtomicInteger(), failures = new AtomicInteger();
+        WriteCallback callback = new WriteCallback() {
+            public void onSuccess() { writes.incrementAndGet(); }
+            public void onFailure(Exception failure) { failures.incrementAndGet(); }
+        };
+        JsonObject state = new JsonObject(); state.addProperty("rank", "admin");
+        local.update("user", state, callback);
+        check(writes.get() == 0 && failures.get() == 1, "failed disk update calls failure callback exactly once");
+        check("original".equals(configuration.values.get("user")), "failed disk update rolls back in-memory config");
+        local.destroy("user", callback);
+        check(writes.get() == 0 && failures.get() == 2, "failed deletion is never acknowledged");
+        check("original".equals(configuration.values.get("user")), "failed deletion retains prior state");
+        configuration.fail = false;
+        local.update("user", state, callback);
+        check(writes.get() == 1 && failures.get() == 2, "recovered disk update acknowledged");
+        configuration.values.put("user", "{broken json");
+        throwsType(IllegalStateException.class, () -> local.read("*", new ReadCallback() {
+            public void onSuccess(HashMap<String, JsonObject> rows) { throw new AssertionError("corrupt read must not succeed"); }
+            public void onFailure(Exception failure) { throw new AssertionError("corrupt storage must fail startup"); }
+        }), "corrupt local storage stops loading without wiping data");
+
+        TestPlugin plugin = allocate(TestPlugin.class);
+        plugin.logs = new ArrayList<>();
+        ThreadStorage storage = allocate(ThreadStorage.class);
+        PersistenceBackend backend = allocate(PersistenceBackend.class);
+        set(storage, "plugin", plugin);
+        set(storage, "implementation", backend);
+        set(storage, "storable", PersistedItem.class);
+        set(storage, "syncingAgent", new SyncingAgent.EmptyAgent());
+        Map<String, Storable> instances = new java.util.concurrent.ConcurrentHashMap<>();
+        set(storage, "instances", instances);
+        set(storage, "instancesView", Collections.unmodifiableMap(instances));
+        set(storage, "observers", new ArrayList<>());
+
+        PersistedItem user = new PersistedItem();
+        user.setStorage(storage);
+        user.data.addProperty("level", "one");
+        user.data.addProperty("secret", "sensitive-value");
+        backend.fail = true;
+        user.persist();
+        check(user.getLastSyncedState() == null, "failed update does not advance last-saved marker");
+        backend.fail = false;
+        user.persist();
+        check(user.getLastSyncedState() != null, "successful update advances last-saved marker");
+        user.data.addProperty("level", "two");
+        backend.fail = true;
+        user.persist();
+        check("one".equals(user.getLastSyncedState().get("level").getAsString()), "failed newer update retains last durable state");
+
+        PersistedItem created = new PersistedItem();
+        throwsType(IllegalStateException.class, () -> storage.create(created), "failed creation propagated to caller");
+        check(instances.isEmpty() && !created.isLinkedToStorage(), "failed creation not published in permission model");
+        backend.fail = false;
+        storage.create(created);
+        check(instances.containsKey(created.getKey()) && created.getLastSyncedState() != null, "created object published only after persistence");
+        backend.fail = true;
+        created.remove();
+        check(instances.containsKey(created.getKey()) && created.isLinkedToStorage(), "failed deletion keeps object linked");
+        backend.fail = false;
+        created.remove();
+        check(!instances.containsKey(created.getKey()) && !created.isLinkedToStorage(), "successful deletion removes object");
+
+        check(plugin.logs.stream().noneMatch(log -> log.contains("sensitive-value")), "failure logs exclude private JSON state");
+        groups.add("Data integrity: atomic writes / corrupt data fail-closed / callbacks / durable state markers / create-delete rollback");
     }
 
     private static void minecraftVersions() {
@@ -232,7 +333,8 @@ public final class SecurityChecks {
         check(injection.equals(db.parameters.get(1)), "INSERT key bound");
         check(new String(Base64.getDecoder().decode(db.parameters.get(2)), StandardCharsets.UTF_8).equals(state.toString()), "JSON quote preserved");
         storage.update(injection, state, write);
-        check(db.sql.contains("SET `value`=? WHERE `key`=?") && injection.equals(db.parameters.get(2)), "UPDATE parameterized");
+        check(db.sql.contains("ON DUPLICATE KEY UPDATE") && db.sql.contains("VALUES (?,?)")
+            && injection.equals(db.parameters.get(1)) && !db.sql.contains(injection), "UPDATE uses parameterized UPSERT to avoid lost rows");
         storage.destroy(injection, write);
         check(db.sql.contains("WHERE `key`=?") && injection.equals(db.parameters.get(1)), "DELETE parameterized");
         storage.read("*", read); check(!db.sql.contains("WHERE") && db.parameters.isEmpty(), "full sync is separate fixed query");
@@ -488,6 +590,39 @@ public final class SecurityChecks {
         public void destroy(String key,WriteCallback callback){}
         public void create(String key,JsonObject value,WriteCallback callback){}
         public void update(String key,JsonObject value,WriteCallback callback){}
+        public void read(String key,ReadCallback callback){callback.onSuccess(new HashMap<>());}
+    }
+    public static class TestFileConfiguration extends FileConfiguration {
+        Map<String, Object> values;
+        boolean fail;
+        public TestFileConfiguration(){super(null,null);}
+        @Override public Object get(String key){return values.get(key);}
+        @Override public String getString(String key){return (String)values.get(key);}
+        @Override public Set<String> getKeys(boolean deep){return values.keySet();}
+        @Override public void set(String key,Object value){if(value==null)values.remove(key);else values.put(key,value);}
+        @Override public void save(){if(fail)throw new UncheckedIOException(new IOException("simulated disk failure"));}
+    }
+    public static class PersistedItem extends Storable {
+        String key = "fixture-user";
+        JsonObject data = new JsonObject();
+        public void persist(){sync();}
+        public void remove(){destroy();}
+        public String getKey(){return key;}
+        public void setKey(String key){this.key=key;}
+        public JsonObject getState(){return data;}
+        public void setState(JsonObject data,TechPlugin<?> plugin){this.data=data;}
+        public void onMount(TechPlugin<?> plugin){}
+    }
+    public static class PersistenceBackend extends StorageImplementation {
+        boolean fail;
+        public PersistenceBackend(){super(null,"fixture",false);}
+        private void complete(WriteCallback callback){
+            if(fail)callback.onFailure(new IOException("simulated database outage"));
+            else callback.onSuccess();
+        }
+        public void update(String key,JsonObject value,WriteCallback callback){complete(callback);}
+        public void create(String key,JsonObject value,WriteCallback callback){complete(callback);}
+        public void destroy(String key,WriteCallback callback){complete(callback);}
         public void read(String key,ReadCallback callback){callback.onSuccess(new HashMap<>());}
     }
     public static class TestManager extends MySQLManager {
