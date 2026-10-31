@@ -1,8 +1,9 @@
 package me.TechsCode.UltraPermissions.hooks.pluginHooks;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.networking.NServer;
 import me.TechsCode.UltraPermissions.hooks.placeholders.PrefixPlaceholder;
@@ -14,8 +15,17 @@ import net.milkbowl.vault.permission.Permission;
 
 public class VaultChatHook extends Chat {
    private final UltraPermissions plugin;
-   private ConcurrentHashMap<String, String> prefixesCache;
-   private ConcurrentHashMap<String, String> suffixesCache;
+   private volatile CacheSnapshot cache = new CacheSnapshot(Map.of(), Map.of());
+
+   private static final class CacheSnapshot {
+      private final Map<String, String> prefixes;
+      private final Map<String, String> suffixes;
+
+      private CacheSnapshot(Map<String, String> prefixes, Map<String, String> suffixes) {
+         this.prefixes = prefixes;
+         this.suffixes = suffixes;
+      }
+   }
 
    public VaultChatHook(Permission var1, UltraPermissions var2) {
       super(var1);
@@ -32,23 +42,25 @@ public class VaultChatHook extends Chat {
    }
 
    public void clearCache() {
-      this.plugin.getScheduler().runAsync(this.loadInCache());
+      this.plugin.getScheduler().run(this.loadInCache());
    }
 
    private Runnable loadInCache() {
       return () -> {
-         this.prefixesCache = new ConcurrentHashMap<>();
-         this.suffixesCache = new ConcurrentHashMap<>();
+         Map<String, String> prefixes = new HashMap<>();
+         Map<String, String> suffixes = new HashMap<>();
          NServer var1 = this.plugin.getThisServer().orElse(null);
          this.plugin.getUsers().stream().filter(Objects::nonNull).forEach(var2 -> {
-            this.prefixesCache.put(var2.getName() == null ? "UNDEFINED" : var2.getName(), new PrefixPlaceholder().get(var2, var1));
-            this.suffixesCache.put(var2.getName() == null ? "UNDEFINED" : var2.getName(), new SuffixPlaceholder().get(var2, var1));
+            String playerName = var2.getName() == null ? "UNDEFINED" : var2.getName();
+            prefixes.put(playerName, new PrefixPlaceholder().get(var2, var1));
+            suffixes.put(playerName, new SuffixPlaceholder().get(var2, var1));
          });
+         this.cache = new CacheSnapshot(Map.copyOf(prefixes), Map.copyOf(suffixes));
       };
    }
 
    public String getPlayerPrefix(String var1, String var2) {
-      return this.prefixesCache.getOrDefault(var2, null);
+      return this.cache.prefixes.get(var2);
    }
 
    public void setPlayerPrefix(String var1, String var2, String var3) {
@@ -57,7 +69,7 @@ public class VaultChatHook extends Chat {
    }
 
    public String getPlayerSuffix(String var1, String var2) {
-      return this.suffixesCache.getOrDefault(var2, null);
+      return this.cache.suffixes.get(var2);
    }
 
    public void setPlayerSuffix(String var1, String var2, String var3) {
