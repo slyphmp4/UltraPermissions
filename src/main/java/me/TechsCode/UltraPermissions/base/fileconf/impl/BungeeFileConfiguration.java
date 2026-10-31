@@ -2,9 +2,11 @@ package me.TechsCode.UltraPermissions.base.fileconf.impl;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+import me.TechsCode.UltraPermissions.base.fileconf.AtomicFileSave;
 import me.TechsCode.UltraPermissions.base.fileconf.Configuration;
 import net.md_5.bungee.config.ConfigurationProvider;
 import net.md_5.bungee.config.YamlConfiguration;
@@ -18,17 +20,20 @@ public class BungeeFileConfiguration implements Configuration {
       this.file = var1;
       if (!var1.exists()) {
          try {
-            var1.getParentFile().mkdirs();
+            File parent = var1.getAbsoluteFile().getParentFile();
+            if (parent != null) {
+               parent.mkdirs();
+            }
             var1.createNewFile();
          } catch (IOException var4) {
-            var4.printStackTrace();
+            throw new UncheckedIOException("Could not initialize configuration " + var1, var4);
          }
       }
 
       try {
          this.configuration = ConfigurationProvider.getProvider(YamlConfiguration.class).load(var1);
       } catch (IOException var3) {
-         var3.printStackTrace();
+         throw new UncheckedIOException("Could not load configuration " + var1 + "; refusing to overwrite existing data", var3);
       }
    }
 
@@ -91,9 +96,9 @@ public class BungeeFileConfiguration implements Configuration {
    @Override
    public void save() {
       try {
-         ConfigurationProvider.getProvider(YamlConfiguration.class).save(this.configuration, this.file);
-      } catch (IOException var2) {
-         var2.printStackTrace();
+         AtomicFileSave.save(this.file, staged -> ConfigurationProvider.getProvider(YamlConfiguration.class).save(this.configuration, staged));
+      } catch (IOException failure) {
+         throw new UncheckedIOException("Could not save configuration " + this.file, failure);
       }
    }
 }
