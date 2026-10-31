@@ -88,6 +88,41 @@ def check_translation(
             errors.append(f"{part}_{language}: untranslated Latin words in {key}: {unexpected}")
 
 
+def check_entity_names(errors: list[str]) -> dict[str, Path]:
+    """The entity picker must have a translated label for every enum member."""
+    source = (JAVA_ROOT / "base/item/XEntityType.java").read_text(encoding="utf-8")
+    declaration = source.split("public static final XRegistry", 1)[0]
+    names = {name.lower() for name in re.findall(r"^\s*([A-Z][A-Z0-9_]*)\s*\(", declaration, re.M)}
+    resources: dict[str, Path] = {}
+    for language in LANGUAGES:
+        file_name = f"entities_{language}.properties"
+        path = RESOURCES / file_name
+        resources[file_name] = path
+        if not path.is_file():
+            errors.append(f"Missing entity name resource: {path}")
+            continue
+        keys: set[str] = set()
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip() or line.startswith("#"):
+                continue
+            if "=" not in line:
+                errors.append(f"{path}:{lineno}: malformed entity label")
+                continue
+            key, value = line.split("=", 1)
+            if key in keys:
+                errors.append(f"{path}:{lineno}: duplicate entity name: {key}")
+            keys.add(key)
+            if not value.strip():
+                errors.append(f"{path}:{lineno}: empty entity name: {key}")
+            if LATIN.search(value):
+                errors.append(f"{path}:{lineno}: untranslated entity name: {key}: {value}")
+        for missing in sorted(names - keys):
+            errors.append(f"{path}: missing entity name: {missing}")
+        for extra in sorted(keys - names):
+            errors.append(f"{path}: unknown entity name: {extra}")
+    return resources
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--jar", type=Path, help="Also inspect packaged JAR resources")
@@ -109,12 +144,13 @@ def main() -> int:
             locales[name] = path
             check_translation(part, language, expected[part], values, errors)
 
+    entity_resources = check_entity_names(errors)
     if args.jar:
         if not args.jar.is_file():
             errors.append(f"Missing plugin JAR: {args.jar}")
         else:
             with zipfile.ZipFile(args.jar) as jar:
-                for name, path in locales.items():
+                for name, path in {**locales, **entity_resources}.items():
                     member = f"translations/{name}"
                     if member not in jar.namelist():
                         errors.append(f"JAR does not contain {member}")
