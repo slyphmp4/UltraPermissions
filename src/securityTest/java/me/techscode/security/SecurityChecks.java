@@ -1081,7 +1081,43 @@ public final class SecurityChecks {
             second, fixture.resolve("outside-update"), secondBackup, allowed);
         check("FAILED".equals(wrongFolder.toString()),
             "installer refuses update directories outside the native Bukkit plugin location");
-        groups.add("Automatic GitHub updater: authenticated asset metadata / SHA-256 / backup / native Bukkit stage / no overwrite");
+
+        // Simulate a Bukkit bridge returning a remapped/cache JAR from getFile().
+        // Only one authentic plugin JAR in plugins/ may be chosen as update target.
+        Path remapped = Files.createDirectories(secondPlugins.resolve(".loader-cache")).resolve("UltraPermissions.jar");
+        Files.write(remapped, oldJar);
+        Path uniqueStaged = secondUpdate.resolve(second.getFileName());
+        Files.write(uniqueStaged, nextJar);
+        Method detailed = installer.getDeclaredMethod("downloadAndStageDetailed",
+            UpdateServer.ReleaseAsset.class, String.class, String.class, File.class,
+            File.class, File.class, java.util.function.BooleanSupplier.class);
+        detailed.setAccessible(true);
+        Object fallback = detailed.invoke(null, verified, "5.6.12", "5.6.11", remapped.toFile(),
+            secondUpdate.toFile(), fixture.toFile(), allowed);
+        check(fallback.toString().contains("result=ALREADY_STAGED"),
+            "remapped loader path resolves the unique original plugin JAR in plugins/");
+        Path duplicate = secondPlugins.resolve("UltraPermissions-duplicate.jar");
+        Files.write(duplicate, oldJar);
+        Object ambiguous = detailed.invoke(null, verified, "5.6.12", "5.6.11", remapped.toFile(),
+            secondUpdate.toFile(), fixture.toFile(), allowed);
+        check(ambiguous.toString().contains("result=FAILED") && ambiguous.toString().contains("unique"),
+            "ambiguous plugin JARs fail closed with an actionable diagnostic");
+        Files.delete(duplicate);
+        Files.delete(uniqueStaged);
+        Method stagedDetailed = installer.getDeclaredMethod("stageFromStreamDetailed", InputStream.class,
+            UpdateServer.ReleaseAsset.class, String.class, Path.class, Path.class, Path.class,
+            java.util.function.BooleanSupplier.class);
+        stagedDetailed.setAccessible(true);
+        Object badDigest = stagedDetailed.invoke(null, new ByteArrayInputStream(tampered), verified, "5.6.12",
+            second, secondUpdate, secondBackup, allowed);
+        check(badDigest.toString().contains("SHA-256"), "hash failure reports its precise validation stage");
+        Method allowedRedirect = installer.getDeclaredMethod("allowedHost", URI.class, boolean.class);
+        allowedRedirect.setAccessible(true);
+        check((boolean) allowedRedirect.invoke(null, URI.create("https://release-assets.githubusercontent.com/asset?signature=fake"), false),
+            "GitHub release-assets redirect host is permitted");
+        check(!(boolean) allowedRedirect.invoke(null, URI.create("https://release-assets.githubusercontent.com.evil.example/asset"), false),
+            "lookalike release-asset domain is rejected");
+        groups.add("Automatic GitHub updater: authenticated assets / SHA-256 diagnostics / remapped Cardboard path / native Bukkit stage / no overwrite");
     }
 
     private static void updaterChecks() throws Exception {

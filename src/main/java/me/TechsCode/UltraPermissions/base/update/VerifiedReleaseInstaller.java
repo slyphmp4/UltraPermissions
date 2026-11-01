@@ -18,6 +18,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.stream.Stream;
 import java.util.function.BooleanSupplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -32,6 +33,9 @@ import me.TechsCode.UltraPermissions.base.update.UpdateServer.ReleaseAsset;
  */
 final class VerifiedReleaseInstaller {
    enum Result { STAGED, ALREADY_STAGED, CONFLICT, CANCELLED, FAILED }
+   record Outcome(Result result, String detail) {
+      private static Outcome of(Result result, String detail) { return new Outcome(result, detail); }
+   }
 
    private static final HttpClient CLIENT = HttpClient.newBuilder()
       .connectTimeout(Duration.ofSeconds(5))
@@ -45,32 +49,88 @@ final class VerifiedReleaseInstaller {
    static Result downloadAndStage(
       ReleaseAsset asset, String version, File installedJar, File updateFolder, File dataFolder, BooleanSupplier permitted
    ) {
-      if (asset == null || installedJar == null || updateFolder == null || dataFolder == null || !permitted.getAsBoolean())
-         return Result.FAILED;
+      return downloadAndStageDetailed(asset, version, null, installedJar, updateFolder, dataFolder, permitted).result();
+   }
+
+   static Outcome downloadAndStageDetailed(
+      ReleaseAsset asset, String version, String installedVersion, File installedJar,
+      File updateFolder, File dataFolder, BooleanSupplier permitted
+   ) {
+      if (asset == null || version == null || installedJar == null || updateFolder == null
+         || dataFolder == null || permitted == null) return Outcome.of(Result.FAILED, "Missing updater input");
+      if (!permitted.getAsBoolean()) return Outcome.of(Result.CANCELLED, "Update check cancelled");
+      Path original;
       try {
-         Path original = installedJar.toPath().toAbsolutePath().normalize();
          Path folder = updateFolder.toPath().toAbsolutePath().normalize();
-         if (Files.isSymbolicLink(original) || !Files.isRegularFile(original, LinkOption.NOFOLLOW_LINKS)
-            || folder.getParent() == null || !folder.getParent().toRealPath().equals(original.getParent().toRealPath())
-            || Files.isSymbolicLink(folder)) return Result.FAILED;
+         original = resolveInstalledJar(installedJar.toPath(), folder, installedVersion);
+         if (original == null) return Outcome.of(Result.FAILED,
+            "Loaded JAR is outside plugins/ and no unique installed UltraPermissions JAR was found there");
          Path target = folder.resolve(original.getFileName());
          if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
             return Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(target)
                && Files.size(target) == asset.getSize() && asset.getSha256().equalsIgnoreCase(sha256(target))
-               ? Result.ALREADY_STAGED : Result.CONFLICT;
+               ? Outcome.of(Result.ALREADY_STAGED, "Verified JAR already staged")
+               : Outcome.of(Result.CONFLICT, "A different JAR already exists in plugins/update");
          }
       } catch (IOException | RuntimeException invalidDirectory) {
-         return Result.FAILED;
+         return Outcome.of(Result.FAILED, "Cannot access installed JAR or Bukkit update directory ("
+            + invalidDirectory.getClass().getSimpleName() + ")");
       }
-      try (InputStream download = openVerifiedSource(asset.getDownloadUri())) {
-         return stageFromStream(download, asset, version, installedJar.toPath(), updateFolder.toPath(),
-            dataFolder.toPath().resolve("auto-update-backups"), permitted);
-      } catch (InterruptedException interrupted) {
-         Thread.currentThread().interrupt();
-         return Result.FAILED;
-      } catch (IOException | RuntimeException failure) {
-         return Result.FAILED;
+      // This runs on the plugin's asynchronous scheduler. Transient network failures
+      // may be retried, but validation, disk and permission failures must fail closed.
+      for (int attempt = 1; attempt <= 3; attempt++) {
+         if (!permitted.getAsBoolean()) return Outcome.of(Result.CANCELLED, "Update check cancelled");
+         try (InputStream download = openVerifiedSource(asset.getDownloadUri())) {
+            return stageFromStreamDetailed(download, asset, version, original, updateFolder.toPath(),
+               dataFolder.toPath().resolve("auto-update-backups"), permitted);
+         } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return Outcome.of(Result.CANCELLED, "Update worker interrupted");
+         } catch (DownloadHttpException http) {
+            if (attempt == 3 || http.status < 500 || http.status > 599)
+               return Outcome.of(Result.FAILED, "GitHub asset download HTTP " + http.status);
+         } catch (IOException failure) {
+            if (attempt == 3) return Outcome.of(Result.FAILED,
+               "Network or disk I/O while downloading/staging (" + failure.getClass().getSimpleName() + ")");
+         } catch (RuntimeException failure) {
+            return Outcome.of(Result.FAILED, "Updater validation error (" + failure.getClass().getSimpleName() + ")");
+         }
+         try {
+            Thread.sleep(250L * attempt);
+         } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return Outcome.of(Result.CANCELLED, "Update retry interrupted");
+         }
       }
+      return Outcome.of(Result.FAILED, "Download failed after retries");
+   }
+
+   private static Path resolveInstalledJar(Path loaded, Path updateFolder, String installedVersion) throws IOException {
+      if (Files.isSymbolicLink(updateFolder) || updateFolder.getParent() == null) throw new IOException("Unsafe update directory");
+      Path plugins = updateFolder.getParent().toRealPath();
+      Path source = loaded.toAbsolutePath().normalize();
+      if (!Files.isSymbolicLink(source) && Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)
+         && source.getParent().toRealPath().equals(plugins) && source.getFileName().toString().endsWith(".jar"))
+         return source;
+      // Some Bukkit-compatible loaders expose a remapped/cache JAR through JavaPlugin#getFile().
+      // Bukkit's update folder instead needs the uniquely named original plugins/*.jar.
+      if (installedVersion == null) return null;
+      Path candidate = null;
+      try (Stream<Path> entries = Files.list(plugins)) {
+         for (Path entry : (Iterable<Path>) entries::iterator) {
+            if (Files.isSymbolicLink(entry) || !Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS)
+               || !entry.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar")) continue;
+            if (!validPluginJar(entry, installedVersion)) continue;
+            if (candidate != null) return null; // Do not guess when duplicate copies exist.
+            candidate = entry;
+         }
+      }
+      return candidate;
+   }
+
+   private static final class DownloadHttpException extends IOException {
+      private final int status;
+      private DownloadHttpException(int status) { super("HTTP " + status); this.status = status; }
    }
 
    private static InputStream openVerifiedSource(URI initial) throws IOException, InterruptedException {
@@ -87,7 +147,7 @@ final class VerifiedReleaseInstaller {
          if (status == 200) return response.body();
          try (InputStream unused = response.body()) {
             if (status != 301 && status != 302 && status != 303 && status != 307 && status != 308)
-               throw new IOException("Update asset HTTP " + status);
+               throw new DownloadHttpException(status);
             String location = response.headers().firstValue("Location")
                .orElseThrow(() -> new IOException("Missing update redirect"));
             current = current.resolve(location);
@@ -112,21 +172,31 @@ final class VerifiedReleaseInstaller {
       InputStream input, ReleaseAsset asset, String version, Path installedJar,
       Path updateFolder, Path backupFolder, BooleanSupplier permitted
    ) throws IOException {
-      if (input == null || asset == null || version == null || !permitted.getAsBoolean()) return Result.CANCELLED;
+      return stageFromStreamDetailed(input, asset, version, installedJar, updateFolder, backupFolder, permitted).result();
+   }
+
+   private static Outcome stageFromStreamDetailed(
+      InputStream input, ReleaseAsset asset, String version, Path installedJar,
+      Path updateFolder, Path backupFolder, BooleanSupplier permitted
+   ) throws IOException {
+      if (!permitted.getAsBoolean()) return Outcome.of(Result.CANCELLED, "Update disabled");
+      if (input == null || asset == null || version == null) return Outcome.of(Result.FAILED, "Missing download stream");
       Path source = installedJar.toAbsolutePath().normalize();
       if (Files.isSymbolicLink(source) || !Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)
-         || !source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar")) return Result.FAILED;
+         || !source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar"))
+         return Outcome.of(Result.FAILED, "Installed plugin JAR is missing or unsafe");
       Path installedDirectory = source.getParent().toRealPath();
       Path staging = updateFolder.toAbsolutePath().normalize();
       if (staging.getParent() == null || !staging.getParent().toRealPath().equals(installedDirectory)
-         || Files.isSymbolicLink(staging)) return Result.FAILED;
+         || Files.isSymbolicLink(staging)) return Outcome.of(Result.FAILED, "Update directory is not plugins/update");
       Files.createDirectories(staging);
       Path target = staging.resolve(source.getFileName().toString());
       if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
          if (Files.isSymbolicLink(target) || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))
-            return Result.CONFLICT;
+            return Outcome.of(Result.CONFLICT, "Staged target is not a regular JAR");
          return Files.size(target) == asset.getSize() && asset.getSha256().equalsIgnoreCase(sha256(target))
-            ? Result.ALREADY_STAGED : Result.CONFLICT;
+            ? Outcome.of(Result.ALREADY_STAGED, "Verified JAR already staged")
+            : Outcome.of(Result.CONFLICT, "A different JAR already exists in plugins/update");
       }
 
       Path temp = Files.createTempFile(staging, ".ultrapermissions-download-", ".part");
@@ -138,22 +208,24 @@ final class VerifiedReleaseInstaller {
             int read;
             while ((read = input.read(buffer)) != -1) {
                count += read;
-               if (count > asset.getSize()) return Result.FAILED;
+               if (count > asset.getSize()) return Outcome.of(Result.FAILED, "Download exceeds published asset size");
                digest.update(buffer, 0, read);
                output.write(buffer, 0, read);
-               if (!permitted.getAsBoolean()) return Result.CANCELLED;
+               if (!permitted.getAsBoolean()) return Outcome.of(Result.CANCELLED, "Update disabled during download");
             }
          }
-         if (count != asset.getSize()
-            || !HexFormat.of().formatHex(digest.digest()).equalsIgnoreCase(asset.getSha256())
-            || !validPluginJar(temp, version)) return Result.FAILED;
-         if (!permitted.getAsBoolean()) return Result.CANCELLED;
-         if (!backupOriginal(source, backupFolder, version)) return Result.FAILED;
-         if (!permitted.getAsBoolean()) return Result.CANCELLED;
-         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return Result.CONFLICT;
+         if (count != asset.getSize()) return Outcome.of(Result.FAILED, "Downloaded byte count does not match GitHub release");
+         if (!HexFormat.of().formatHex(digest.digest()).equalsIgnoreCase(asset.getSha256()))
+            return Outcome.of(Result.FAILED, "Downloaded SHA-256 differs from GitHub release digest");
+         if (!validPluginJar(temp, version)) return Outcome.of(Result.FAILED, "Downloaded plugin.yml name/version is invalid");
+         if (!permitted.getAsBoolean()) return Outcome.of(Result.CANCELLED, "Update disabled before backup");
+         if (!backupOriginal(source, backupFolder, version))
+            return Outcome.of(Result.FAILED, "Existing backup does not match the installed plugin JAR");
+         if (!permitted.getAsBoolean()) return Outcome.of(Result.CANCELLED, "Update disabled before staging");
+         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return Outcome.of(Result.CONFLICT, "Another update appeared during download");
          // Rename only a complete, verified temp JAR; never replace another staged file.
          Files.move(temp, target);
-         return Result.STAGED;
+         return Outcome.of(Result.STAGED, "Verified JAR staged for next restart");
       } finally {
          Files.deleteIfExists(temp);
       }

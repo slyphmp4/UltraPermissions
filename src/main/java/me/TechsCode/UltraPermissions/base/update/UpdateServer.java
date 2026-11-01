@@ -43,7 +43,7 @@ public class UpdateServer {
       .connectTimeout(Duration.ofSeconds(5))
       .followRedirects(HttpClient.Redirect.NEVER)
       .build();
-   private static volatile LatestRelease cached = new LatestRelease(503, null, null, null, 0L, 0L);
+   private static volatile LatestRelease cached = new LatestRelease(503, null, null, null, 0L, 0L, "Not checked yet");
 
    public IsAvailableResponse isAvailable() {
       return new IsAvailableResponse(this.latestRelease().status);
@@ -59,7 +59,7 @@ public class UpdateServer {
       }
       LatestRelease release = this.latestRelease();
       if (release.status != 200 || release.version == null) {
-         return new IsUpToDateResponse(release.status, false, null, "GitHub Releases unavailable");
+         return new IsUpToDateResponse(release.status, false, null, "GitHub Releases unavailable: " + release.detail);
       }
       boolean newer = isNewerVersion(release.version, installedVersion);
       String releasePage = RELEASES_URL + "/tag/" + release.tagName;
@@ -88,6 +88,7 @@ public class UpdateServer {
       String tag = null;
       ReleaseAsset asset = null;
       long ttl = FAILURE_CACHE_MS;
+      String detail = "HTTP response " + status;
       try {
          HttpRequest request = HttpRequest.newBuilder(RELEASES_API)
             .timeout(Duration.ofSeconds(8))
@@ -97,6 +98,7 @@ public class UpdateServer {
             .build();
          HttpResponse<InputStream> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofInputStream());
          status = response.statusCode();
+         detail = "HTTP response " + status;
          try (InputStream input = response.body()) {
             if (status == 200) {
                String body = new String(BoundedInput.read(input, MAX_RELEASE_BYTES), StandardCharsets.UTF_8);
@@ -104,9 +106,13 @@ public class UpdateServer {
                if (tag != null) {
                   version = tag.replaceFirst("^[vV]", "");
                   asset = publishedVerifiedAsset(body, tag);
-                  ttl = SUCCESS_CACHE_MS;
+                  // GitHub publishes the release page before CI finishes uploading
+                  // its JAR. Recheck soon instead of caching that incomplete state
+                  // for half an hour and reporting a persistent false failure.
+                  ttl = asset == null ? FAILURE_CACHE_MS : SUCCESS_CACHE_MS;
                } else {
                   status = 502;
+                  detail = "Published GitHub Release tag is missing or invalid";
                }
             } else if (status == 404) {
                ttl = SUCCESS_CACHE_MS;
@@ -121,11 +127,14 @@ public class UpdateServer {
       } catch (InterruptedException interrupted) {
          Thread.currentThread().interrupt();
          status = 503;
+         detail = "Update check interrupted";
       } catch (IOException | RuntimeException failed) {
          status = 503;
+         // Avoid logging raw exceptions: HttpClient error messages may contain URLs.
+         detail = "GitHub metadata request failed (" + failed.getClass().getSimpleName() + ")";
       }
       long finishedAt = System.currentTimeMillis();
-      return new LatestRelease(status, version, tag, asset, finishedAt, finishedAt + ttl);
+      return new LatestRelease(status, version, tag, asset, finishedAt, finishedAt + ttl, detail);
    }
 
    /** Require a published, non-prerelease GitHub release and a plain numeric stable tag. */
@@ -291,14 +300,16 @@ public class UpdateServer {
       private final ReleaseAsset asset;
       private final long checkedAt;
       private final long nextCheckAt;
+      private final String detail;
 
-      private LatestRelease(int status, String version, String tagName, ReleaseAsset asset, long checkedAt, long nextCheckAt) {
+      private LatestRelease(int status, String version, String tagName, ReleaseAsset asset, long checkedAt, long nextCheckAt, String detail) {
          this.status = status;
          this.version = version;
          this.tagName = tagName;
          this.asset = asset;
          this.checkedAt = checkedAt;
          this.nextCheckAt = nextCheckAt;
+         this.detail = detail;
       }
    }
 }

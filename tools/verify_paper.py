@@ -10,6 +10,7 @@ import subprocess
 import time
 import urllib.request
 import uuid
+import zipfile
 
 IMAGE = "eclipse-temurin@sha256:83f4a7fc27df94dcc7b8de04d14cbbba8da14406f921e966969c3b09000aa507"
 PAPER_SHA = "ef3dbc68b013deafdbbee3bebf1ba351671ebcda94a8f136809b7532d5ba2fe1"
@@ -120,7 +121,20 @@ def main():
         return
     if not (work / "plugins/RuntimeProbe/phase-one.marker").exists():
         raise RuntimeError("Boot 1 did not leave an authenticated completion marker")
+    # Verify Paper actually applies an update staged under the *installed* JAR
+    # name. This is a controlled binary fixture, not a GitHub network test.
+    staged = work / "plugins/update/UltraPermissions.jar"
+    staged.parent.mkdir(exist_ok=True)
+    shutil.copyfile(plugin, staged)
+    with zipfile.ZipFile(staged, "a") as archive:
+        archive.writestr("updater-handover-test.marker", "staged-between-boots\n")
     second = run_boot(2)
+    installed = work / "plugins/UltraPermissions.jar"
+    with zipfile.ZipFile(installed) as archive:
+        if archive.read("updater-handover-test.marker") != b"staged-between-boots\n":
+            raise RuntimeError("Paper did not replace the installed JAR from plugins/update on restart")
+    if staged.exists():
+        raise RuntimeError("Paper left a staged plugin update after successful restart")
     result = {
         "status": "passed",
         "assertions": first["assertions"] + second["assertions"],
@@ -134,6 +148,7 @@ def main():
         "network": "none",
         "connected_player_test": False,
         "persistence_across_restart": True,
+        "native_update_folder_handover": True,
     }
     (reports / "verification.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf8")
     print(json.dumps(result, indent=2), flush=True)
