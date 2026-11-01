@@ -1,6 +1,6 @@
 [English](README.md) · [Українська](README.uk.md) · [Русский](README.ru.md)
 
-<p align="center"><img src="assets/prv1.png" alt="UltraPermissions" width="920"></p>
+<p align="center"><img src="assets/cover.png" alt="UltraPermissions" width="920"></p>
 
 <p align="center">
 <a href="https://github.com/slyphmp4/UltraPermissions/actions/workflows/ci.yml"><img src="https://github.com/slyphmp4/UltraPermissions/actions/workflows/ci.yml/badge.svg" alt="Build and verify"></a>
