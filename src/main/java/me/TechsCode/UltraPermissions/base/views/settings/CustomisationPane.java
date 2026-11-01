@@ -8,6 +8,7 @@ import me.TechsCode.UltraPermissions.base.gui.Button;
 import me.TechsCode.UltraPermissions.base.gui.Model;
 import me.TechsCode.UltraPermissions.base.item.XMaterial;
 import me.TechsCode.UltraPermissions.base.translations.Phrase;
+import me.TechsCode.UltraPermissions.base.update.Updater;
 import me.TechsCode.UltraPermissions.base.translations.Words;
 import me.TechsCode.UltraPermissions.base.visual.Animation;
 import me.TechsCode.UltraPermissions.base.visual.Colors;
@@ -33,8 +34,8 @@ public class CustomisationPane extends SettingsPane {
    private static final Phrase PREFIX_ATTRIBUTE = Phrase.create("customisationPane.prefix.attribute", "Prefix: **%prefix%**", Colors.GRAY, Colors.WHITE);
    private static final Phrase UPDATER_TITLE = Phrase.create("customisationPane.updater.title", "Ingame Updater");
    private static final Phrase UPDATER_ACTION = Phrase.create("customisationPane.updater.action", "**Click** to %action% ingame Updater", Colors.GRAY, Colors.AQUA);
-   private static final Phrase UPDATER_DESC1 = Phrase.create("customisationPane.updater.desc1", "Checks GitHub Releases for new plugin versions", Colors.GRAY);
-   private static final Phrase UPDATER_DESC2 = Phrase.create("customisationPane.updater.desc2", "and offers a link for manual installation", Colors.GRAY);
+   private static final Phrase UPDATER_DESC1 = Phrase.create("customisationPane.updater.desc1", "Automatically downloads verified GitHub Release updates", Colors.GRAY);
+   private static final Phrase UPDATER_DESC2 = Phrase.create("customisationPane.updater.desc2", "Applies them on your next server restart", Colors.GRAY);
    private static final Phrase GUIINTERVANL_TITLE = Phrase.create("customisationPane.guiUpdateInterval.title", "GUI Update Interval");
    private static final Phrase GUIINTERVANL_RESET_ACTION = Phrase.create(
       "customisationPane.guiUpdateInterval.resetAction", "**Left Click** to **reset** the GUI update interval", Colors.GRAY, Colors.AQUA, Colors.GOLD
@@ -117,7 +118,11 @@ public class CustomisationPane extends SettingsPane {
             UPDATER_DESC1.get(),
             UPDATER_DESC2.get()
          );
-      var1.action(var1x -> var2.toggleUpdater());
+      var1.action(var1x -> {
+         var2.toggleUpdater();
+         if (var2.isUpdaterEnabled()) Updater.checkForUpdates(this.plugin);
+         else Updater.clearNotifications();
+      });
    }
 
    private void GuiUpdateIntervalButton(Button var1) {
