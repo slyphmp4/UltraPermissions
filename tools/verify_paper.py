@@ -28,6 +28,7 @@ def main():
     parser.add_argument("--work-dir", type=Path, required=True)
     parser.add_argument("--report-dir", type=Path, required=True)
     parser.add_argument("--accept-eula", action="store_true", help="Accept https://aka.ms/MinecraftEULA for this test server")
+    parser.add_argument("--performance", action="store_true", help="One-boot, real-Paper synthetic permission and storage stress test")
     args = parser.parse_args()
     if not args.accept_eula:
         parser.error("This runtime test requires explicit --accept-eula.")
@@ -63,11 +64,15 @@ def main():
         b"pause-when-empty-seconds=-1\n")
     def run_boot(boot):
         name = "ultrapermissions-probe-" + uuid.uuid4().hex[:12]
-        print(f"Boot {boot}/2: starting real Paper with UltraPermissions; no published host ports or network...", flush=True)
+        mode = "synthetic performance" if args.performance else f"compatibility boot {boot}/2"
+        print(f"Starting {mode} on real Paper with UltraPermissions; no host ports or network...", flush=True)
         try:
-            command("docker", "run", "--detach", "--name", name, "--network", "none", *base,
-                    IMAGE, "java", "-Xms512M", "-Xmx1536M", "-jar", "paper.jar", "--nogui")
-            deadline = time.monotonic() + 150
+            java_args = ["java", "-Xms512M", "-Xmx1536M"]
+            if args.performance:
+                java_args.append("-Dultrapermissions.performanceProbe=true")
+            java_args.extend(["-jar", "paper.jar", "--nogui"])
+            command("docker", "run", "--detach", "--name", name, "--network", "none", *base, IMAGE, *java_args)
+            deadline = time.monotonic() + (260 if args.performance else 150)
             while time.monotonic() < deadline:
                 state = json.loads(command("docker", "inspect", "--format", "{{json .State}}", name, capture=True))
                 if not state["Running"]:
@@ -76,16 +81,23 @@ def main():
                     break
                 time.sleep(2)
             else:
-                raise TimeoutError(f"Boot {boot}: Runtime probe exceeded 150 seconds")
-            result_path = work / "plugins/RuntimeProbe/verification.json"
+                raise TimeoutError(f"Boot {boot}: runtime probe exceeded its deadline")
+            result_path = work / "plugins/RuntimeProbe" / ("performance.json" if args.performance else "verification.json")
             result = json.loads(result_path.read_text(encoding="utf8"))
-            min_checks = 15 if boot == 1 else 10
-            if (result.get("status") != "passed" or result.get("boot") != boot
-                    or result.get("assertions", 0) < min_checks
-                    or result.get("server") != "26.2.build.135-stable"):
-                raise RuntimeError(f"Boot {boot} failed or did not run expected checks: {result}")
-            (reports / f"boot-{boot}-verification.json").write_text(
-                json.dumps(result, indent=2) + "\n", encoding="utf8")
+            output_name = "performance-verification.json" if args.performance else f"boot-{boot}-verification.json"
+            (reports / output_name).write_text(json.dumps(result, indent=2) + "\n", encoding="utf8")
+            if args.performance:
+                if (result.get("status") != "passed" or result.get("synthetic_profiles") != 128
+                        or result.get("measured_permission_checks", 0) < 112000
+                        or result.get("connected_players") != 0
+                        or result.get("server") != "26.2.build.135-stable"):
+                    raise RuntimeError(f"Paper performance test failed: {result}")
+            else:
+                min_checks = 15 if boot == 1 else 10
+                if (result.get("status") != "passed" or result.get("boot") != boot
+                        or result.get("assertions", 0) < min_checks
+                        or result.get("server") != "26.2.build.135-stable"):
+                    raise RuntimeError(f"Boot {boot} failed or did not run expected checks: {result}")
             return result
         finally:
             logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True)
@@ -93,6 +105,19 @@ def main():
             subprocess.run(["docker", "rm", "--force", name], check=False, stdout=subprocess.DEVNULL)
 
     first = run_boot(1)
+    if args.performance:
+        summary = {
+            **first,
+            "paper_sha256": PAPER_SHA,
+            "plugin_sha256": hashlib.sha256(plugin.read_bytes()).hexdigest(),
+            "container_image": IMAGE,
+            "network": "none",
+            "container_cpu_limit": 2,
+            "container_memory_limit_mib": 2300,
+        }
+        (reports / "verification.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf8")
+        print(json.dumps(summary, indent=2), flush=True)
+        return
     if not (work / "plugins/RuntimeProbe/phase-one.marker").exists():
         raise RuntimeError("Boot 1 did not leave an authenticated completion marker")
     second = run_boot(2)
