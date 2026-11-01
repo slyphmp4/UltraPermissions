@@ -1,7 +1,5 @@
 package me.TechsCode.UltraPermissions.base.gui;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -54,15 +52,8 @@ public abstract class GUI implements Listener {
                var1.openInventory(this.inventory);
             }
 
-            String var4;
-            try {
-               InventoryView var5 = var1.getOpenInventory();
-               Method var6 = var5.getClass().getMethod("getTitle");
-               var6.setAccessible(true);
-               var4 = (String)var6.invoke(var5);
-            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException var7) {
-               throw new RuntimeException(var7);
-            }
+            // Bukkit exposes the title directly; repeated reflective lookup is costly in animated GUIs.
+            String var4 = var1.getOpenInventory().getTitle();
 
             if (!var4.equals(var3x.getTitle())) {
                this.inventory = Bukkit.createInventory(null, var3x.getSlots(), var3x.getTitle());
