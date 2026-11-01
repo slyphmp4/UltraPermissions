@@ -172,7 +172,8 @@ final class PerformanceLoad {
 
     private void checkPermissions(int count) {
         for (int i = 0; i < count; i++) {
-            Profile profile = profiles.get(cursor % profiles.size());
+            // Every synthetic profile exercises both allow and deny paths.
+            Profile profile = profiles.get((cursor / 2) % profiles.size());
             boolean expect = (cursor & 1) == 0;
             boolean result = profile.permissions().hasPermission(
                 expect ? "performance.allowed" : "performance.denied");
