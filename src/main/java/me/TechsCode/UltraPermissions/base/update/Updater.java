@@ -56,14 +56,20 @@ public class Updater {
       private final State state;
       private final String version;
       private final int httpStatus;
+      private final String detail;
 
       private Status(State state, String version, int httpStatus) {
+         this(state, version, httpStatus, "");
+      }
+
+      private Status(State state, String version, int httpStatus, String detail) {
          this.state = state;
          this.version = version;
          this.httpStatus = httpStatus;
+         this.detail = detail;
       }
 
-      private String noticeKey() { return state.name() + ":" + (version == null ? "" : version) + ":" + httpStatus; }
+      private String noticeKey() { return state.name() + ":" + (version == null ? "" : version) + ":" + httpStatus + ":" + detail; }
    }
 
    /**
@@ -106,29 +112,31 @@ public class Updater {
                if (response.getStatusCode() == 404) {
                   result = new Status(State.UP_TO_DATE, installedVersion, 200);
                } else if (!response.isSuccessFull()) {
-                  result = new Status(State.CHECK_FAILED, null, response.getStatusCode());
+                  result = new Status(State.CHECK_FAILED, null, response.getStatusCode(), response.getMessage());
                } else if (response.isUpToDate()) {
                   result = new Status(State.UP_TO_DATE, installedVersion, 200);
                } else if (!autoDownload) {
                   result = new Status(State.AVAILABLE, response.getLatestVersion(), 200);
                } else if (response.getReleaseAsset() == null) {
-                  result = new Status(State.DOWNLOAD_FAILED, response.getLatestVersion(), 200);
+                  result = new Status(State.DOWNLOAD_FAILED, response.getLatestVersion(), 200,
+                     "Published release has no unambiguous executable JAR with a GitHub SHA-256 digest");
                } else {
-                  VerifiedReleaseInstaller.Result staged = VerifiedReleaseInstaller.downloadAndStage(
-                     response.getReleaseAsset(), response.getLatestVersion(), currentJar,
+                  VerifiedReleaseInstaller.Outcome staged = VerifiedReleaseInstaller.downloadAndStageDetailed(
+                     response.getReleaseAsset(), response.getLatestVersion(), installedVersion, currentJar,
                      updateFolder, dataFolder, permitted
                   );
-                  State state = switch (staged) {
+                  State state = switch (staged.result()) {
                      case STAGED -> State.STAGED;
                      case ALREADY_STAGED -> State.ALREADY_STAGED;
                      case CONFLICT -> State.STAGING_CONFLICT;
                      case CANCELLED -> State.CANCELLED;
                      case FAILED -> State.DOWNLOAD_FAILED;
                   };
-                  result = new Status(state, response.getLatestVersion(), 200);
+                  result = new Status(state, response.getLatestVersion(), 200, staged.detail());
                }
             } catch (RuntimeException failed) {
-               result = new Status(State.CHECK_FAILED, null, 503);
+               result = new Status(State.CHECK_FAILED, null, 503,
+                  "Unexpected updater error (" + failed.getClass().getSimpleName() + ")");
             } finally {
                server.destroy();
                checking.compareAndSet(attempt, null);
@@ -145,9 +153,9 @@ public class Updater {
                      switch (completed.state) {
                         case STAGED -> plugin.log("Verified GitHub Release " + completed.version
                            + " staged in the Bukkit update folder; restart manually to apply it.");
-                        case DOWNLOAD_FAILED -> plugin.log("Automatic update download/verification failed. Check the release asset, SHA-256 and update folder.");
-                        case STAGING_CONFLICT -> plugin.log("Automatic update cancelled: another JAR already exists in the Bukkit update folder.");
-                        case CHECK_FAILED -> plugin.log("Could not check GitHub Releases (HTTP " + completed.httpStatus + ").");
+                        case DOWNLOAD_FAILED -> plugin.log("Automatic update download/verification failed: " + completed.detail);
+                        case STAGING_CONFLICT -> plugin.log("Automatic update staging conflict: " + completed.detail);
+                        case CHECK_FAILED -> plugin.log("Could not check GitHub Releases (HTTP " + completed.httpStatus + "). " + completed.detail);
                         default -> {}
                      }
                   }

@@ -40,7 +40,7 @@ jobs:
         shell: bash
         run: |
           version=$(sed -n "s/^version = '\\([^']*\\)'/\\1/p" build.gradle)
-          python3 tools/check_localizations.py --jar "build/libs/UltraPermissions-$version.jar"
+          python3 tools/check_localizations.py --jar "build/libs/UltraPermissions.jar"
       - name: Validate EN, RU and UK release notes before tagging
         if: matrix.os == 'ubuntu-24.04'
         shell: bash
@@ -106,7 +106,7 @@ jobs:
         run: |
           set -euo pipefail
           version=$(sed -n "s/^version = '\([^']*\)'/\1/p" build.gradle)
-          for name in "UltraPermissions-$version.jar" "UltraPermissions-$version-sources.jar"; do
+          for name in "UltraPermissions.jar" "UltraPermissions-sources.jar"; do
             python3 tools/verify_reproducible_archives.py "build/compare/linux/libs/$name" "build/compare/windows/libs/$name"
           done
   compatibility:
@@ -127,7 +127,7 @@ jobs:
         run: |
           version=$(sed -n "s/^version = '\([^']*\)'/\1/p" build.gradle)
           python3 tools/verify_paper.py \
-            --plugin "build/runtime-input/libs/UltraPermissions-$version.jar" \
+            --plugin "build/runtime-input/libs/UltraPermissions.jar" \
             --probe build/runtime-input/runtime-test/RuntimeProbe.jar \
             --work-dir build/paper-runtime \
             --report-dir build/reports/runtime \
@@ -161,7 +161,7 @@ jobs:
         run: |
           version=$(sed -n "s/^version = '\\([^']*\\)'/\\1/p" build.gradle)
           python3 tools/verify_paper.py \
-            --plugin "build/performance-input/libs/UltraPermissions-$version.jar" \
+            --plugin "build/performance-input/libs/UltraPermissions.jar" \
             --probe build/performance-input/runtime-test/RuntimeProbe.jar \
             --work-dir build/paper-performance \
             --report-dir build/reports/performance \

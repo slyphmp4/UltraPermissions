@@ -1,7 +1,7 @@
 plugins { id 'java'; id 'idea' }
 
 group = 'me.TechsCode'
-version = '5.6.13'
+version = '5.6.14'
 
 repositories { maven { url = uri('libs/repository') } }
 java {
@@ -71,6 +71,11 @@ sourceSets {
         java.srcDir 'src/runtimeTest/java'
         compileClasspath += sourceSets.main.output + configurations.compileClasspath
     }
+    liveUpdateTest {
+        java.srcDir 'src/liveUpdateTest/java'
+        compileClasspath += sourceSets.main.output + configurations.compileClasspath
+        runtimeClasspath += sourceSets.main.output + configurations.compileClasspath + configurations.runtimeClasspath
+    }
 }
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
@@ -90,9 +95,11 @@ tasks.withType(AbstractArchiveTask).configureEach {
 }
 tasks.named('jar', Jar) {
     archiveBaseName = 'UltraPermissions'
+    archiveFileName = 'UltraPermissions.jar'
     duplicatesStrategy = DuplicatesStrategy.FAIL
     from({ configurations.runtimeClasspath.collect { zipTree(it) } }) { exclude 'META-INF/MANIFEST.MF' }
 }
+tasks.named('sourcesJar', Jar) { archiveFileName = 'UltraPermissions-sources.jar' }
 tasks.named('processResources', ProcessResources) { exclude 'META-INF/MANIFEST.MF' }
 idea { module { excludeDirs += files('build', 'dist', '.gradle') } }
 tasks.named('wrapper', Wrapper) {
@@ -120,6 +127,32 @@ tasks.register('verifySecurityFixes', JavaExec) {
     args layout.buildDirectory.dir('reports/security').get().asFile.absolutePath
 }
 tasks.named('check') { dependsOn tasks.named('verifyComponents'), tasks.named('verifySecurityFixes'), 'runtimeProbeJar' }
+
+tasks.register('verifyLiveReleaseUpdater', JavaExec) {
+    group = 'verification'
+    description = 'Opt-in, networked GitHub Release download and native Bukkit staging smoke test.'
+    dependsOn tasks.named('jar'), tasks.named('liveUpdateTestClasses')
+    classpath = sourceSets.liveUpdateTest.runtimeClasspath
+    mainClass = 'me.TechsCode.UltraPermissions.base.update.LiveReleaseUpdateProbe'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    args tasks.named('jar').get().archiveFile.get().asFile.absolutePath
+    // GitHub-hosted runners have direct egress. Local diagnostic environments
+    // may require an HTTP proxy exposed only as an HTTPS_PROXY environment var.
+    def proxy = System.getenv('HTTPS_PROXY')
+    if (proxy != null && !proxy.isBlank()) {
+        def uri = new URI(proxy)
+        if (uri.scheme == 'http' && uri.host != null && uri.port > 0) {
+            systemProperty 'https.proxyHost', uri.host
+            systemProperty 'https.proxyPort', uri.port.toString()
+        }
+    }
+    if (System.getenv('UPDATER_PROBE_TRUSTSTORE')) {
+        systemProperty 'javax.net.ssl.trustStore', System.getenv('UPDATER_PROBE_TRUSTSTORE')
+        if (System.getenv('UPDATER_PROBE_TRUSTSTORE_PASSWORD')) {
+            systemProperty 'javax.net.ssl.trustStorePassword', System.getenv('UPDATER_PROBE_TRUSTSTORE_PASSWORD')
+        }
+    }
+}
 
 tasks.register('runtimeProbeJar', Jar) {
     description = 'Build the disposable Minecraft compatibility-test companion, never the production plugin.'
