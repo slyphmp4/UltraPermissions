@@ -23,6 +23,7 @@ import org.bukkit.plugin.Plugin;
 public class NametagEditHook implements Listener {
    private final UltraPermissions plugin;
    private final NServer thisServer;
+   private boolean hookAvailable = true;
 
    public NametagEditHook(UltraPermissions var1) {
       super();
@@ -33,14 +34,14 @@ public class NametagEditHook implements Listener {
          if (this.isEnabled()) {
             String var2 = this.color(new PrefixPlaceholder().get(var1xx, this.thisServer));
             String var3 = this.color(new SuffixPlaceholder().get(var1xx, this.thisServer));
-            NametagEdit.getApi().setNametag(var1xx.getName(), var2.equals("") ? "" : var2 + " ", var3.equals("") ? "" : " " + var3);
+            this.callSafely(() -> NametagEdit.getApi().setNametag(var1xx.getName(), var2.equals("") ? "" : var2 + " ", var3.equals("") ? "" : " " + var3));
          }
       }), 5L);
    }
 
    private boolean isEnabled() {
       // An optional provider may be disabled/reloaded after this listener was registered.
-      return Bukkit.getPluginManager().isPluginEnabled("NametagEdit")
+      return this.hookAvailable && Bukkit.getPluginManager().isPluginEnabled("NametagEdit")
          && this.plugin.getVisualRegistry().get().isEditingNametags();
    }
 
@@ -53,7 +54,7 @@ public class NametagEditHook implements Listener {
                if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
-               NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3);
+               this.callSafely(() -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
             }, 5L);
          }
       }
@@ -65,7 +66,7 @@ public class NametagEditHook implements Listener {
          Optional var2 = Optional.ofNullable(Bukkit.getPlayer(var1.getUser().getUuid()));
          String var3 = this.color(new PrefixPlaceholder().get(var1.getUser(), this.thisServer));
          if (var2.isPresent()) {
-            NametagEdit.getApi().setPrefix(var1.getUser().getName(), var3.equals("") ? "" : var3 + " ");
+            this.callSafely(() -> NametagEdit.getApi().setPrefix(var1.getUser().getName(), var3.equals("") ? "" : var3 + " "));
          }
       }
    }
@@ -76,7 +77,7 @@ public class NametagEditHook implements Listener {
          Optional var2 = Optional.ofNullable(Bukkit.getPlayer(var1.getUser().getUuid()));
          String var3 = this.color(new SuffixPlaceholder().get(var1.getUser(), this.thisServer));
          if (var2.isPresent()) {
-            NametagEdit.getApi().setSuffix(var1.getUser().getName(), var3.equals("") ? "" : " " + var3);
+            this.callSafely(() -> NametagEdit.getApi().setSuffix(var1.getUser().getName(), var3.equals("") ? "" : " " + var3));
          }
       }
    }
@@ -86,7 +87,7 @@ public class NametagEditHook implements Listener {
       if (this.isEnabled()) {
          var1.getGroup().getUsers().forEach(var1x -> Optional.ofNullable(Bukkit.getPlayer(var1x.getUuid())).ifPresent(var2 -> {
             String var3 = this.color(new PrefixPlaceholder().get(var1x, this.thisServer));
-            NametagEdit.getApi().setPrefix(var2, var3.equals("") ? "" : var3 + " ");
+            this.callSafely(() -> NametagEdit.getApi().setPrefix(var2, var3.equals("") ? "" : var3 + " "));
          }));
       }
    }
@@ -96,7 +97,7 @@ public class NametagEditHook implements Listener {
       if (this.isEnabled()) {
          var1.getGroup().getUsers().forEach(var1x -> Optional.ofNullable(Bukkit.getPlayer(var1x.getUuid())).ifPresent(var2 -> {
             String var3 = this.color(new SuffixPlaceholder().get(var1x, this.thisServer));
-            NametagEdit.getApi().setSuffix(var2, var3.equals("") ? "" : " " + var3);
+            this.callSafely(() -> NametagEdit.getApi().setSuffix(var2, var3.equals("") ? "" : " " + var3));
          }));
       }
    }
@@ -110,7 +111,7 @@ public class NametagEditHook implements Listener {
                if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
-               NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3);
+               this.callSafely(() -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
             }, 5L);
          }
       }
@@ -125,9 +126,20 @@ public class NametagEditHook implements Listener {
                if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
-               NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3);
+               this.callSafely(() -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
             }, 5L);
          }
+      }
+   }
+
+   private void callSafely(Runnable action) {
+      if (!this.isEnabled()) return;
+      try {
+         action.run();
+      } catch (LinkageError | RuntimeException unavailable) {
+         this.hookAvailable = false;
+         this.plugin.log("NametagEdit integration disabled ("
+            + unavailable.getClass().getSimpleName() + "); core permissions remain available.");
       }
    }
 
