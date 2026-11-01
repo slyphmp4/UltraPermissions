@@ -996,7 +996,19 @@ public final class SecurityChecks {
         Object again = stage.invoke(null, new ByteArrayInputStream(nextJar), verified, "5.6.12",
             live, update, backup, allowed);
         check("ALREADY_STAGED".equals(again.toString()), "same verified release is not repeatedly downloaded over itself");
+        Method automaticDownload = installer.getDeclaredMethod("downloadAndStage",
+            UpdateServer.ReleaseAsset.class, String.class, File.class, File.class, File.class,
+            java.util.function.BooleanSupplier.class);
+        automaticDownload.setAccessible(true);
+        Object skipped = automaticDownload.invoke(null, verified, "5.6.12", live.toFile(),
+            update.toFile(), fixture.toFile(), allowed);
+        check("ALREADY_STAGED".equals(skipped.toString()),
+            "already staged and verified binary skips HTTP entirely in a network-denied test JVM");
         Files.write(staged, new byte[] {1, 2, 3});
+        Object blocked = automaticDownload.invoke(null, verified, "5.6.12", live.toFile(),
+            update.toFile(), fixture.toFile(), allowed);
+        check("CONFLICT".equals(blocked.toString()),
+            "unknown staged JAR is not overwritten and also causes no HTTP request");
         Object conflict = stage.invoke(null, new ByteArrayInputStream(nextJar), verified, "5.6.12",
             live, update, backup, allowed);
         check("CONFLICT".equals(conflict.toString()) && Files.size(staged) == 3,
