@@ -103,6 +103,7 @@ public final class SecurityChecks {
         uiRevocation();
         serializedItems();
         removedCapabilities();
+        updaterChecks();
         commandReference(report);
         JsonObject result = new JsonObject();
         result.addProperty("status", "passed"); result.addProperty("assertions", assertions);
@@ -918,6 +919,63 @@ public final class SecurityChecks {
         throwsType(IOException.class,()->SafeItems.decode(alias),"arbitrary Bukkit alias rejected");
         throwsType(IOException.class,()->SafeItems.decode("x".repeat(524289)),"encoded item limit");
         groups.add("M-04 JSON round-trip / legacy migration / class and alias whitelist / allocation bounds");
+    }
+
+
+    private static void updaterChecks() throws Exception {
+        check(UpdateServer.isNewerVersion("v5.6.12", "5.6.11"), "stable tagged release is newer");
+        check(!UpdateServer.isNewerVersion("5.6.12+ci.7", "v5.6.12+ci.6"), "SemVer build metadata does not indicate an update");
+        check(UpdateServer.isNewerVersion("5.6.12", "5.6.12-rc.3"), "stable release succeeds its prerelease");
+        check(!UpdateServer.isNewerVersion("5.6.12-rc.3", "5.6.12"), "prerelease cannot replace stable release");
+        check(UpdateServer.isNewerVersion("5.6.12-rc.10", "5.6.12-rc.2"), "numeric prerelease identifiers are ordered numerically");
+        check(!UpdateServer.isNewerVersion("5.6.12-rc.2", "5.6.12-rc.10"), "lower prerelease number does not win");
+        check(!UpdateServer.isNewerVersion("5.6.12.0", "5.6.12"), "trailing version zeros are equal");
+        check(UpdateServer.isNewerVersion("5.6.12.1", "5.6.12"), "four-component versions are supported");
+        check(UpdateServer.isNewerVersion("999999999999999999999999.9", "999999999999999999999998.9999"),
+            "comparison cannot overflow machine integer");
+        check(!UpdateServer.isNewerVersion("v5.6.12/../../../danger", "5.6.11"), "malicious tags are refused");
+        check(!UpdateServer.isNewerVersion("5.6.12", "not-a-version"), "unknown installed versions do not invite unsafe update");
+
+        Method parse = UpdateServer.class.getDeclaredMethod("publishedStableTag", String.class);
+        parse.setAccessible(true);
+        String published = "{\"tag_name\":\"v5.6.12\",\"draft\":false,\"prerelease\":false,\"published_at\":\"2026-10-01T12:00:00Z\"}";
+        check("v5.6.12".equals(parse.invoke(null, published)), "stable published GitHub release accepted");
+        for (String untrusted : List.of(
+            published.replace("\"draft\":false", "\"draft\":true"),
+            published.replace("\"prerelease\":false", "\"prerelease\":true"),
+            published.replace("\"published_at\":\"2026-10-01T12:00:00Z\"", "\"published_at\":null"),
+            published.replace("v5.6.12", "v5.6.12-rc.1"),
+            published.replace("v5.6.12", "v5.6.12%2fattack"),
+            "{\"tag_name\":\"v5.6.12\",\"draft\":false,\"prerelease\":false}",
+            "{invalid json"
+        )) {
+            check(parse.invoke(null, untrusted) == null, "unsafe/malformed releases are not offered");
+        }
+
+        Method backoff = UpdateServer.class.getDeclaredMethod("retryDelayMillis", String.class, String.class, long.class);
+        backoff.setAccessible(true);
+        long now = 1_700_000_000_000L;
+        check((long) backoff.invoke(null, "900", null, now) == 900_000L, "GitHub Retry-After is honored");
+        check((long) backoff.invoke(null, null, String.valueOf((now + 7_200_000L) / 1000), now) == 7_200_000L,
+            "GitHub rate-limit reset timestamp is honored");
+        check((long) backoff.invoke(null, null, null, now) >= 3_600_000L,
+            "missing rate-limit headers fall back to safe hourly backoff");
+        check((long) backoff.invoke(null, "99999999999999999999999999", null, now) == 86_400_000L,
+            "untrusted backoff values are capped");
+
+        Method notified = Updater.class.getDeclaredMethod("markNotified", UUID.class, String.class, boolean.class);
+        notified.setAccessible(true);
+        Updater.clearNotifications();
+        UUID admin = UUID.randomUUID();
+        check((boolean) notified.invoke(null, admin, "5.6.12", false), "first release notification is displayed");
+        check(!(boolean) notified.invoke(null, admin, "5.6.12", false), "same release does not spam player");
+        check((boolean) notified.invoke(null, admin, "5.6.13", false), "new release triggers new notification");
+        check((boolean) notified.invoke(null, admin, "5.6.13", true), "explicit update check can be forced");
+        check((boolean) notified.invoke(null, UUID.randomUUID(), "5.6.13", false),
+            "different superadmins receive their own notification");
+        Updater.clearNotifications();
+        check((boolean) notified.invoke(null, admin, "5.6.13", false), "shutdown resets per-session notifications");
+        groups.add("In-game updater: stable GitHub Releases / version ordering / rate limits / per-release notices");
     }
 
     private static void removedCapabilities() throws Exception {
