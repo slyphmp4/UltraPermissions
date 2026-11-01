@@ -27,6 +27,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Verify Gradle Wrapper integrity before executing it
+        shell: bash
+        run: |
+          printf '%s  %s\n' '7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172' 'gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
+          grep -Fx 'distributionSha256Sum=6f74b601422d6d6fc4e1f9a1ab6522f642c2fdcbc15ae33ebd30ba3d7198e854' gradle/wrapper/gradle-wrapper.properties
       - name: Build and verify components and security
         shell: bash
         run: bash ./gradlew --no-daemon clean build --offline --no-build-cache --console=plain
@@ -49,6 +54,32 @@ jobs:
             build/runtime-test/RuntimeProbe.jar
           if-no-files-found: error
           retention-days: 14
+  reproducibility:
+    name: Compare Linux and Windows JAR bytes
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: UltraPermissions-Linux
+          path: build/compare/linux
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: UltraPermissions-Windows
+          path: build/compare/windows
+      - name: Verify byte-for-byte reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(sed -n "s/^version = '\([^']*\)'/\1/p" build.gradle)
+          for name in "UltraPermissions-$version.jar" "UltraPermissions-$version-sources.jar"; do
+            cmp "build/compare/linux/libs/$name" "build/compare/windows/libs/$name"
+            sha256sum "build/compare/linux/libs/$name"
+          done
   compatibility:
     name: Paper 26.2 / Java 25 runtime
     needs: build
@@ -83,7 +114,7 @@ jobs:
   release:
     name: Publish verified release
     if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
-    needs: [build, compatibility]
+    needs: [build, compatibility, reproducibility]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
