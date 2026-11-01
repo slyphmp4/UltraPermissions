@@ -141,6 +141,7 @@ public final class SecurityChecks {
 
         VaultChatHook vault = allocate(VaultChatHook.class);
         set(vault, "plugin", plugin);
+        set(vault, "refreshPending", new AtomicBoolean());
         vault.clearCache();
         check(scheduler.syncCalls == 2 && scheduler.jobs.size() == 1, "Vault cache rebuild dispatched to main thread");
         scheduler.jobs.clear();
