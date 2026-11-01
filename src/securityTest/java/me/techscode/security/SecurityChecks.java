@@ -21,6 +21,7 @@ import me.TechsCode.UltraPermissions.base.legacy.task.UpdateTime;
 import me.TechsCode.UltraPermissions.base.networking.PublicIpResolver;
 import me.TechsCode.UltraPermissions.base.networking.SpigotNetworkManager;
 import me.TechsCode.UltraPermissions.hooks.pluginHooks.VaultChatHook;
+import me.TechsCode.UltraPermissions.hooks.pluginHooks.VaultPermissionHook;
 import me.TechsCode.UltraPermissions.hooks.pluginHooks.PlaceholderAPIHook;
 import me.TechsCode.UltraPermissions.hooks.PluginHookManager;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
@@ -83,6 +84,7 @@ public final class SecurityChecks {
         setupBukkit();
         minecraftVersions();
         compatibilityHooks();
+        vaultGroupPermissions();
         performanceHotpaths();
         messaging(report.resolve("config-fixture"));
         remoteCatalogue();
@@ -432,6 +434,72 @@ public final class SecurityChecks {
         plugin.scheduler.jobs.remove().run();
         check(plugin.scheduler.jobs.isEmpty(), "Vault follow-up refresh completes without repeated scheduling");
         groups.add("Performance: ordered wildcard lookup / O(1) bounded logging / 2048 LRU / coalesced Vault cache rebuild");
+    }
+
+    private static void vaultGroupPermissions() throws Exception {
+        TestPlugin plugin = allocate(TestPlugin.class);
+        VaultPermissionFixture vault = allocate(VaultPermissionFixture.class);
+        set(vault, "plugin", plugin);
+        VaultGroupFixture group = new VaultGroupFixture();
+        vault.selected = Optional.of(group);
+
+        me.TechsCode.UltraPermissions.storage.objects.Holder holder =
+            me.TechsCode.UltraPermissions.storage.objects.Holder.fromGroup(group);
+        group.own.add(new me.TechsCode.UltraPermissions.storage.objects.Permission(
+            101, holder, null, null, "vault.global", true, 0L));
+        group.own.add(new me.TechsCode.UltraPermissions.storage.objects.Permission(
+            102, holder, null, null, "vault.denied", false, 0L));
+        group.own.add(new me.TechsCode.UltraPermissions.storage.objects.Permission(
+            103, holder, "world_nether", null, "vault.nether", true, 0L));
+        group.own.add(new me.TechsCode.UltraPermissions.storage.objects.Permission(
+            104, holder, null, "survival", "vault.survival", true, 0L));
+        group.inherited.add(new me.TechsCode.UltraPermissions.storage.objects.Permission(
+            105, holder, null, null, "vault.inherited", true, 0L));
+
+        check(vault.groupHas("world", "fixture-group", "vault.global"),
+            "Vault groupHas evaluates a direct granted group permission");
+        check(vault.groupHas("world", "fixture-group", "vault.inherited"),
+            "Vault groupHas evaluates inherited group permissions");
+        check(!vault.groupHas("world", "fixture-group", "vault.missing"),
+            "Vault groupHas rejects an unknown permission");
+        check(!vault.groupHas("world", "fixture-group", "vault.denied"),
+            "Vault groupHas respects explicit group negation");
+        check(!vault.groupHas("world", "fixture-group", "vault.nether"),
+            "Vault groupHas does not leak permissions across worlds");
+        check(vault.groupHas("world_nether", "fixture-group", "vault.nether"),
+            "Vault groupHas grants a scoped permission in its designated world");
+        check(!vault.groupHas("world", "fixture-group", "vault.survival"),
+            "Vault groupHas does not read server-scoped permissions without that server");
+        plugin.currentServer = new me.TechsCode.UltraPermissions.base.networking.NServer(
+            "survival", "127.0.0.1", 25565, new ArrayList<>());
+        check(vault.groupHas("world", "fixture-group", "vault.survival"),
+            "Vault groupHas includes matching server-scoped permissions");
+        plugin.currentServer = new me.TechsCode.UltraPermissions.base.networking.NServer(
+            "lobby", "127.0.0.1", 25565, new ArrayList<>());
+        check(!vault.groupHas("world", "fixture-group", "vault.survival"),
+            "Vault groupHas excludes permissions from another server");
+
+        check(vault.groupHas((World)null, "fixture-group", "vault.global")
+                && vault.requestedWorld == null,
+            "Vault World overload supports a null global world");
+        check(!vault.groupHas((World)null, "fixture-group", "vault.nether"),
+            "Vault global-world lookup excludes specific-world permissions");
+        World nether = proxy(World.class, (method,args) ->
+            method.getName().equals("getName") ? "world_nether" : DEFAULT);
+        check(vault.groupHas(nether, "fixture-group", "vault.nether")
+                && "world_nether".equals(vault.requestedWorld),
+            "Vault World overload forwards the current world name");
+        check(!vault.groupHas("world", "fixture-group", null),
+            "Vault groupHas rejects a null permission without throwing");
+        vault.selected = Optional.empty();
+        check(!vault.groupHas("world", "missing-group", "vault.global"),
+            "Vault groupHas returns false for an unknown group");
+        throwsType(IllegalArgumentException.class,
+            () -> vault.groupHas("world", null, "vault.global"),
+            "Vault groupHas keeps null group-name validation");
+        check(group.own.size() == 4 && group.inherited.size() == 1,
+            "Vault groupHas never mutates stored group permission lists");
+        groups.add("Vault: groupHas grant/deny/inheritance, missing groups, world/server scoping and null world");
     }
 
     private static void compatibilityHooks() throws Exception {
@@ -831,6 +899,26 @@ public final class SecurityChecks {
         static int executed;
         public Map<String,Object> serialize(){return Map.of("fixture",true);}
         public static HostileAlias deserialize(Map<String,Object> map){executed++;return new HostileAlias();}
+    }
+    public static class VaultPermissionFixture extends VaultPermissionHook {
+        Optional<me.TechsCode.UltraPermissions.storage.objects.Group> selected = Optional.empty();
+        String requestedWorld;
+        public VaultPermissionFixture() { super(null); }
+        @Override public Optional<me.TechsCode.UltraPermissions.storage.objects.Group> group(
+            String world, String groupName) {
+            requestedWorld = world;
+            return selected;
+        }
+    }
+    public static class VaultGroupFixture extends me.TechsCode.UltraPermissions.storage.objects.Group {
+        PermissionList own = new PermissionList();
+        PermissionList inherited = new PermissionList();
+        public VaultGroupFixture() {
+            super("77", "fixture-group", null, null, 0, new HashSet<>(),
+                false, null, null, null, new HashMap<>());
+        }
+        @Override public PermissionList getPermissions() { return new PermissionList(own); }
+        @Override public PermissionList getInheritedPermissions() { return new PermissionList(inherited); }
     }
     public static class TestPlugin extends UltraPermissions {
         UserList users; TestScheduler scheduler; TestManager manager; SpigotMessagingService messaging; List<String> logs;
