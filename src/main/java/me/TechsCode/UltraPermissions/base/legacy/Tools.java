@@ -140,6 +140,20 @@ public class Tools {
       return count + " " + word.firstUpper();
    }
 
+   private static Phrase pluralTimeWord(long count, Phrase one, Phrase few, Phrase many) {
+      long lastTwo = count % 100L;
+      long last = count % 10L;
+      if (lastTwo >= 11L && lastTwo <= 14L) {
+         return many;
+      }
+
+      if (last == 1L) {
+         return one;
+      }
+
+      return last >= 2L && last <= 4L ? few : many;
+   }
+
    public static String getTimeString(long var0) {
       return getTimeString(var0, TimeUnit.SECONDS);
    }
@@ -163,22 +177,22 @@ public class Tools {
       long var10 = TimeUnit.SECONDS.toSeconds(var0);
       ArrayList var12 = new ArrayList();
       if (var4 != 0L) {
-         Phrase var13 = var4 == 1L ? Words.DAY : Words.DAYS;
+         Phrase var13 = pluralTimeWord(var4, Words.DAY, Words.DAYS_FEW, Words.DAYS);
          var12.add(var4 + " " + var13.firstUpper());
       }
 
       if (var6 != 0L) {
-         Phrase var18 = var6 == 1L ? Words.HOUR : Words.HOURS;
+         Phrase var18 = pluralTimeWord(var6, Words.HOUR, Words.HOURS_FEW, Words.HOURS);
          var12.add(var6 + " " + var18.firstUpper());
       }
 
       if (var8 != 0L) {
-         Phrase var19 = var8 == 1L ? Words.MINUTE : Words.MINUTES;
+         Phrase var19 = pluralTimeWord(var8, Words.MINUTE, Words.MINUTES_FEW, Words.MINUTES);
          var12.add(var8 + " " + var19.firstUpper());
       }
 
       if (var10 != 0L) {
-         Phrase var20 = var10 == 1L ? Words.SECOND : Words.SECONDS;
+         Phrase var20 = pluralTimeWord(var10, Words.SECOND, Words.SECONDS_FEW, Words.SECONDS);
          var12.add(var10 + " " + var20.firstUpper());
       }
 
