@@ -69,7 +69,7 @@ On its first run, the Wrapper downloads Gradle 8.14.5 and verifies its SHA-256. 
 
 GitHub Actions performs clean builds on **Ubuntu and Windows / JDK 21**. `verifyComponents` checks dependency hashes, JAR contents, exclusion of server APIs and test classes from the plugin, resources, version metadata, the Java target and **7085 API contracts**. `verifySecurityFixes` checks forged/replayed messages, SQL parameter binding, pool failure, GUI sessions, item codecs, TLS policy and administrative command branches. Network connections and OS process execution are blocked in the test JVM.
 
-A separate gate starts the plugin on **Paper 26.2 / Java 25** in Docker and runs **12 runtime assertions**. The plugin has no external network access. See the [test scope and reproduction steps](docs/COMPATIBILITY.md). Pushing a `v<version>` tag creates a stable release only after both OS builds and the runtime gate pass. Assets include the plugin JAR, sources JAR, complete Gradle project and SHA-256 checksums.
+A separate gate starts the plugin on **Paper 26.2 / Java 25** in Docker and runs **14 runtime assertions**. The plugin has no external network access. See the [test scope and reproduction steps](docs/COMPATIBILITY.md). Pushing a `v<version>` tag creates a stable release only after both OS builds and the runtime gate pass. Assets include the plugin JAR, sources JAR, complete Gradle project and SHA-256 checksums.
 
 ## Credits and licenses
 
