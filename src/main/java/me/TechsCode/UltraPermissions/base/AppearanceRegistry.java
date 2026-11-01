@@ -8,6 +8,7 @@ import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 public class AppearanceRegistry extends RegistryStorable {
    private String prefix;
    private boolean updaterEnabled;
+   private boolean updaterNotificationsEnabled;
    private final String defaultPrefix;
    private final int defaultGuiUpdateInterval;
    private int guiUpdateInterval;
@@ -16,6 +17,7 @@ public class AppearanceRegistry extends RegistryStorable {
       super("appearance");
       this.prefix = Colors.BLUE + String.join(" ", Tools.splitCamelCase(var1.getName())) + ">";
       this.updaterEnabled = true;
+      this.updaterNotificationsEnabled = true;
       this.defaultPrefix = this.prefix;
       this.guiUpdateInterval = 2;
       this.defaultGuiUpdateInterval = this.guiUpdateInterval;
@@ -29,6 +31,11 @@ public class AppearanceRegistry extends RegistryStorable {
       }
 
       this.updaterEnabled = var1.get("updaterEnabled").getAsBoolean();
+      // Legacy updaterEnabled was the master switch: preserve disabled installations.
+      if (!var1.has("updaterNotificationsEnabled") || var1.get("updaterNotificationsEnabled") == null) {
+         var1.addProperty("updaterNotificationsEnabled", this.updaterEnabled);
+      }
+      this.updaterNotificationsEnabled = var1.get("updaterNotificationsEnabled").getAsBoolean();
       if (var1.get("guiUpdateInterval") == null || !var1.has("guiUpdateInterval")) {
          var1.addProperty("guiUpdateInterval", this.guiUpdateInterval);
       }
@@ -41,6 +48,7 @@ public class AppearanceRegistry extends RegistryStorable {
       JsonObject var1 = new JsonObject();
       var1.addProperty("prefix", this.prefix.trim());
       var1.addProperty("updaterEnabled", this.updaterEnabled);
+      var1.addProperty("updaterNotificationsEnabled", this.updaterNotificationsEnabled);
       var1.addProperty("guiUpdateInterval", this.guiUpdateInterval);
       return var1;
    }
@@ -81,8 +89,18 @@ public class AppearanceRegistry extends RegistryStorable {
       this.sync();
    }
 
+   /** The existing updaterEnabled setting now controls automatic GitHub downloads only. */
    public boolean isUpdaterEnabled() {
       return this.updaterEnabled;
+   }
+
+   public void toggleUpdaterNotifications() {
+      this.updaterNotificationsEnabled = !this.updaterNotificationsEnabled;
+      this.sync();
+   }
+
+   public boolean isUpdaterNotificationsEnabled() {
+      return this.updaterNotificationsEnabled;
    }
 
    public boolean isGuiUpdateIntervalModified() {

@@ -65,7 +65,9 @@ Explicit ssl=false is allowed only for the exact hosts `localhost` and `127.0.0.
 
 ## Updates, GUI and legacy icons
 
-Install the editor/updates manually using a verified JAR. There is no automatic loadPlugin from a network response or restart/update through proxy messages, even with a valid signature. Local administrative GUI actions require a current superadmin role in every handler.
+Under Settings → Customisation, the TechsCode-style GUI has independent controls for chat update notices and verified automatic GitHub Release downloads. Only superadmins receive update notices. Turning off automatic downloads still permits chat-only update checks; turning off chat notices does not stop automatic downloads. Both switches are persisted. Existing installations inherit their former `updaterEnabled` setting for both switches until they are configured separately.
+
+When enabled, the automatic updater verifies a published stable Release JAR and stages it for the next **manual** server restart. It does not hot-load plugins, force a restart or accept restart/update commands from proxy messages, even with a valid signature. Local administrative GUI actions require a current superadmin role in every handler.
 
 Back up the plugin's runtime data/database before deployment. New icons use the UPI1 prefix and JSON format. Ordinary legacy Bukkit/Guava streams are read with limits on classes, aliases, depth, object references and arrays. An unknown format/component produces an explicit error rather than arbitrary class execution. Data is neither converted by an external tool nor erased in bulk. Test nonstandard legacy components on a data copy on a test server.
 

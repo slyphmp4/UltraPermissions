@@ -74,12 +74,12 @@ public class PluginEvents implements Listener {
 
    @EventHandler
    public void join(PlayerJoinEvent event) {
-      if (!this.plugin.getAppearanceRegistry().isUpdaterEnabled()) {
+      if (!this.plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) {
          return;
       }
       this.plugin.getScheduler().runTaskLater(() -> {
          Player player = event.getPlayer();
-         if (!player.isOnline() || !this.plugin.getAppearanceRegistry().isUpdaterEnabled()) {
+         if (!player.isOnline() || !this.plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) {
             return;
          }
          this.plugin.getUsers().uuid(player.getUniqueId())

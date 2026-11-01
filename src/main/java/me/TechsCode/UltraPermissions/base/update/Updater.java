@@ -34,6 +34,12 @@ public class Updater {
    private static final Phrase NO_UPDATE = Phrase.create(
       "Updater.noUpdate", "No plugin updates are **available** right now.", Colors.GRAY, Colors.GREEN
    );
+   private static final Phrase AVAILABLE_NOTICE = Phrase.create(
+      "Updater.available", "Plugin update **%version%** is available on GitHub Releases.", Colors.GRAY, Colors.YELLOW
+   );
+   private static final Phrase STAGED_NOTICE = Phrase.create(
+      "Updater.staged", "Update **%version%** downloaded. Restart the server to install it.", Colors.GRAY, Colors.GREEN
+   );
    private static final Phrase CHECK_FAILED = Phrase.create(
       "Updater.checkFailed", "Could not check **GitHub** for plugin updates.", Colors.GRAY, Colors.RED
    );
@@ -44,7 +50,7 @@ public class Updater {
       "Updater.stagingConflict", "Another update is already **staged**. Check the server console.", Colors.GRAY, Colors.RED
    );
 
-   private enum State { UP_TO_DATE, CHECK_FAILED, DOWNLOAD_FAILED, STAGING_CONFLICT, STAGED, ALREADY_STAGED, CANCELLED }
+   private enum State { UP_TO_DATE, AVAILABLE, CHECK_FAILED, DOWNLOAD_FAILED, STAGING_CONFLICT, STAGED, ALREADY_STAGED, CANCELLED }
 
    private static final class Status {
       private final State state;
@@ -62,10 +68,11 @@ public class Updater {
 
    /**
     * Compatibility entrypoint: the updater no longer opens a confirmation GUI.
-    * A joining superadmin receives only deduplicated no-update/error feedback.
+    * A joining superadmin receives deduplicated status feedback if chat notices are enabled.
     */
    public static void suggestUpdateIfAvailable(SpigotTechPlugin plugin, Player player, Callback<Player> onDecline, boolean force) {
-      if (!plugin.getAppearanceRegistry().isUpdaterEnabled()) return;
+      if (!plugin.getAppearanceRegistry().isUpdaterEnabled()
+         && !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) return;
       if (isSuperadmin(plugin, player)) notifyStatus(plugin, player, lastStatus, force);
       checkForUpdates(plugin);
    }
@@ -75,7 +82,8 @@ public class Updater {
     * verification and all file operations run on the asynchronous scheduler.
     */
    public static void checkForUpdates(SpigotTechPlugin plugin) {
-      if (!plugin.getAppearanceRegistry().isUpdaterEnabled()) return;
+      final boolean autoDownload = plugin.getAppearanceRegistry().isUpdaterEnabled();
+      if (!autoDownload && !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) return;
       long now = System.currentTimeMillis();
       if (now >= lastStarted && now - lastStarted < CHECK_GAP_MS) return;
       Object attempt = new Object();
@@ -101,6 +109,8 @@ public class Updater {
                   result = new Status(State.CHECK_FAILED, null, response.getStatusCode());
                } else if (response.isUpToDate()) {
                   result = new Status(State.UP_TO_DATE, installedVersion, 200);
+               } else if (!autoDownload) {
+                  result = new Status(State.AVAILABLE, response.getLatestVersion(), 200);
                } else if (response.getReleaseAsset() == null) {
                   result = new Status(State.DOWNLOAD_FAILED, response.getLatestVersion(), 200);
                } else {
@@ -127,7 +137,8 @@ public class Updater {
             Status completed = result;
             try {
                plugin.getScheduler().run(() -> {
-                  if (!permitted.getAsBoolean() || !plugin.getAppearanceRegistry().isUpdaterEnabled()) return;
+                  if (!permitted.getAsBoolean() || (!plugin.getAppearanceRegistry().isUpdaterEnabled()
+                     && !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled())) return;
                   Status previous = lastStatus;
                   lastStatus = completed;
                   if (previous == null || !previous.noticeKey().equals(completed.noticeKey())) {
@@ -159,16 +170,21 @@ public class Updater {
    }
 
    private static void notifyStatus(SpigotTechPlugin plugin, Player player, Status status, boolean force) {
-      if (status == null || !player.isOnline()) return;
+      if (status == null || !player.isOnline()
+         || !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) return;
       Phrase message = switch (status.state) {
          case UP_TO_DATE -> NO_UPDATE;
+         case AVAILABLE -> AVAILABLE_NOTICE;
+         case STAGED, ALREADY_STAGED -> STAGED_NOTICE;
          case CHECK_FAILED -> CHECK_FAILED;
          case DOWNLOAD_FAILED -> DOWNLOAD_FAILED;
          case STAGING_CONFLICT -> STAGING_CONFLICT;
-         default -> null; // Successful auto-download is silent for players.
+         default -> null;
       };
-      if (message != null && markNotified(player.getUniqueId(), status.noticeKey(), force))
-         player.sendMessage(plugin.getPrefix() + message.get());
+      if (message != null && markNotified(player.getUniqueId(), status.noticeKey(), force)) {
+         player.sendMessage(plugin.getPrefix() + message.get().replace("%version%", status.version == null ? "" : status.version));
+         if (status.state == State.AVAILABLE) player.sendMessage(Colors.YELLOW + UpdateServer.RELEASES_URL);
+      }
    }
 
    /** Retained for integrations using the older manual-update workflow. */
@@ -185,7 +201,7 @@ public class Updater {
       return force || !state.equals(previous);
    }
 
-   /** Called when the plugin is disabled or the updater setting is switched off. */
+   /** Called on shutdown or when either updater preference changes. */
    public static void clearNotifications() {
       generation.incrementAndGet(); // In-flight downloads must not stage a JAR after disable.
       notifiedVersions.clear();
