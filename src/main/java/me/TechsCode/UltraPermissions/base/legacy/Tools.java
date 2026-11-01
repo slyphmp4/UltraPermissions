@@ -178,22 +178,22 @@ public class Tools {
       ArrayList var12 = new ArrayList();
       if (var4 != 0L) {
          Phrase var13 = pluralTimeWord(var4, Words.DAY, Words.DAYS_FEW, Words.DAYS);
-         var12.add(var4 + " " + var13.firstUpper());
+         var12.add(var4 + " " + var13.get());
       }
 
       if (var6 != 0L) {
          Phrase var18 = pluralTimeWord(var6, Words.HOUR, Words.HOURS_FEW, Words.HOURS);
-         var12.add(var6 + " " + var18.firstUpper());
+         var12.add(var6 + " " + var18.get());
       }
 
       if (var8 != 0L) {
          Phrase var19 = pluralTimeWord(var8, Words.MINUTE, Words.MINUTES_FEW, Words.MINUTES);
-         var12.add(var8 + " " + var19.firstUpper());
+         var12.add(var8 + " " + var19.get());
       }
 
       if (var10 != 0L) {
          Phrase var20 = pluralTimeWord(var10, Words.SECOND, Words.SECONDS_FEW, Words.SECONDS);
-         var12.add(var10 + " " + var20.firstUpper());
+         var12.add(var10 + " " + var20.get());
       }
 
       if (var3 != 0) {
