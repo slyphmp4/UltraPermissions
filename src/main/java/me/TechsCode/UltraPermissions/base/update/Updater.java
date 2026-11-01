@@ -1,6 +1,6 @@
 package me.TechsCode.UltraPermissions.base.update;
 
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import me.TechsCode.UltraPermissions.base.SpigotTechPlugin;
@@ -12,7 +12,7 @@ import me.TechsCode.UltraPermissions.base.visual.Colors;
 import org.bukkit.entity.Player;
 
 public class Updater {
-   private static final Set<UUID> updateAskedPlayers = ConcurrentHashMap.newKeySet();
+   private static final Map<UUID, String> notifiedVersions = new ConcurrentHashMap<>();
    private static final Phrase MANUAL_INSTALL = Phrase.create(
       "Updater.manualInstall", "Download the verified update from **GitHub Releases**:", Colors.GRAY, Colors.YELLOW
    );
@@ -21,7 +21,7 @@ public class Updater {
    );
 
    public static void suggestUpdateIfAvailable(SpigotTechPlugin plugin, Player player, Callback<Player> onDecline, boolean force) {
-      if (!plugin.getAppearanceRegistry().isUpdaterEnabled() || (!force && updateAskedPlayers.contains(player.getUniqueId()))) {
+      if (!plugin.getAppearanceRegistry().isUpdaterEnabled()) {
          return;
       }
       // Never perform HTTP requests on the Minecraft server thread.
@@ -40,16 +40,15 @@ public class Updater {
             if (!player.isOnline() || !plugin.getAppearanceRegistry().isUpdaterEnabled()) {
                return;
             }
-            if (!force && !updateAskedPlayers.add(player.getUniqueId())) {
+            if (!markNotified(player.getUniqueId(), result.getLatestVersion(), force)) {
                return;
             }
-            updateAskedPlayers.add(player.getUniqueId());
             new UpdateView(player, plugin, plugin.getVersion(), result.getLatestVersion()) {
                @Override
                public void onResponse(boolean accepted) {
                   if (accepted) {
                      this.p.sendMessage(plugin.getPrefix() + MANUAL_INSTALL.get());
-                     this.p.sendMessage(Colors.YELLOW + UpdateServer.RELEASES_URL);
+                     this.p.sendMessage(Colors.YELLOW + (result.getReleaseUrl() == null ? UpdateServer.RELEASES_URL : result.getReleaseUrl()));
                      this.p.sendMessage(plugin.getPrefix() + RESTART_MANUALLY.get());
                   } else if (onDecline != null) {
                      onDecline.run(this.p);
@@ -58,6 +57,17 @@ public class Updater {
             };
          });
       });
+   }
+
+   private static boolean markNotified(UUID player, String release, boolean force) {
+      if (release == null || release.isEmpty()) return false;
+      String previous = notifiedVersions.put(player, release);
+      return force || !release.equals(previous);
+   }
+
+   /** Reset per-session notices on plugin disable or reload. */
+   public static void clearNotifications() {
+      notifiedVersions.clear();
    }
 
    public static String getOSSystem() {
