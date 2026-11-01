@@ -31,7 +31,12 @@ def compare(left: Path, right: Path) -> bool:
         differences = 0
         for name in sorted(i1.keys() & i2.keys()):
             if z1.read(name) != z2.read(name):
-                print(f"  Different entry bytes: {name} ({sha(z1.read(name))[:16]} vs {sha(z2.read(name))[:16]})", file=sys.stderr)
+                a_entry, b_entry = z1.read(name), z2.read(name)
+                print(f"  Different entry bytes: {name} ({sha(a_entry)[:16]} vs {sha(b_entry)[:16]}, sizes {len(a_entry)} vs {len(b_entry)})", file=sys.stderr)
+                index = next((i for i, (x, y) in enumerate(zip(a_entry, b_entry)) if x != y), min(len(a_entry), len(b_entry)))
+                start, stop = max(0, index - 32), index + 96
+                print(f"  First diff at offset {index}: left={a_entry[start:stop].hex(' ')}", file=sys.stderr)
+                print(f"  First diff at offset {index}: right={b_entry[start:stop].hex(' ')}", file=sys.stderr)
                 differences += 1
                 if differences >= 25:
                     break
