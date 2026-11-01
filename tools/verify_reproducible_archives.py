@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import difflib
+import subprocess
 import hashlib
 from pathlib import Path
 import sys
@@ -37,6 +39,23 @@ def compare(left: Path, right: Path) -> bool:
                 start, stop = max(0, index - 32), index + 96
                 print(f"  First diff at offset {index}: left={a_entry[start:stop].hex(' ')}", file=sys.stderr)
                 print(f"  First diff at offset {index}: right={b_entry[start:stop].hex(' ')}", file=sys.stderr)
+                if name.endswith(".class"):
+                    class_name = name[:-6].replace("/", ".")
+                    try:
+                        left_bytecode = subprocess.run(
+                            ["javap", "-p", "-c", "-classpath", str(left), class_name],
+                            text=True, capture_output=True, check=True, timeout=15,
+                        ).stdout.splitlines()
+                        right_bytecode = subprocess.run(
+                            ["javap", "-p", "-c", "-classpath", str(right), class_name],
+                            text=True, capture_output=True, check=True, timeout=15,
+                        ).stdout.splitlines()
+                        diff = list(difflib.unified_diff(left_bytecode, right_bytecode, fromfile="Linux", tofile="Windows"))
+                        print("  javap bytecode delta:", file=sys.stderr)
+                        for line in diff[:100]:
+                            print("  " + line, file=sys.stderr)
+                    except (OSError, subprocess.SubprocessError) as exc:
+                        print(f"  javap unavailable: {exc}", file=sys.stderr)
                 differences += 1
                 if differences >= 25:
                     break
