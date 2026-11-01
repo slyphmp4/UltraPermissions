@@ -36,12 +36,17 @@ public class PluginHookManager implements Listener {
    }
 
    public void tryHook(boolean var1, String var2) {
-      if (this.hooks.containsKey(var2)) {
-         if (var1 || Bukkit.getPluginManager().isPluginEnabled(var2)) {
-            this.hooks.get(var2).run();
-            this.hooks.remove(var2);
-            this.plugin.log("Hooked into " + var2);
-         }
+      Runnable hook = this.hooks.get(var2);
+      if (hook == null || (!var1 && !Bukkit.getPluginManager().isPluginEnabled(var2))) return;
+      try {
+         hook.run();
+         this.hooks.remove(var2);
+         this.plugin.log("Hooked into " + var2);
+      } catch (LinkageError | RuntimeException incompatible) {
+         // Third-party APIs are optional. A missing/changed method must not disable permissions.
+         // Keep the entry available for a possible plugin re-enable with a compatible provider.
+         this.plugin.log("Optional hook " + var2 + " unavailable ("
+            + incompatible.getClass().getSimpleName() + "); permissions continue without it.");
       }
    }
 
