@@ -150,6 +150,11 @@ def check_runtime_text_sinks(errors: list[str]) -> None:
             value = match.group(1)
             if path.name == "Overview.java" and value == "Ultra Permissions v":
                 continue  # Original TechsCode branding followed by the version.
+            # Minecraft formatting codes, list bullets and spacing are visual,
+            # not translatable words (e.g. "§7- §e" or "§f").
+            without_colors = re.sub(r'§[0-9a-fk-or]', "", value, flags=re.I)
+            if not re.search(r'[A-Za-zА-Яа-яЁёІіЇїЄєҐґ]', without_colors):
+                continue
             errors.append(f"{path}: untranslated literal passed to player-visible UI: {value}")
         if direct_mysql.search(content):
             errors.append(f"{path}: MySQL connection feedback must use translated Phrase values")
