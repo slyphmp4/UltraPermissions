@@ -51,6 +51,7 @@ import me.TechsCode.UltraPermissions.internal.Node;
 import me.TechsCode.UltraPermissions.internal.lookup.LookupCheck;
 import me.TechsCode.UltraPermissions.internal.lookup.LookupOutcome;
 import me.TechsCode.UltraPermissions.internal.lookup.PermissionLookup;
+import me.TechsCode.UltraPermissions.gui.PermissionLogViewer;
 import me.TechsCode.UltraPermissions.permissionlogger.PermissionLogger;
 import me.TechsCode.UltraPermissions.permissionlogger.LoggedPermission;
 import me.TechsCode.UltraPermissions.storage.collection.PermissionList;
@@ -90,6 +91,7 @@ public final class SecurityChecks {
         compatibilityHooks();
         vaultGroupPermissions();
         localizationTimeWords();
+        localizationPermissionSources();
         performanceHotpaths();
         messaging(report.resolve("config-fixture"));
         remoteCatalogue();
@@ -439,6 +441,54 @@ public final class SecurityChecks {
         plugin.scheduler.jobs.remove().run();
         check(plugin.scheduler.jobs.isEmpty(), "Vault follow-up refresh completes without repeated scheduling");
         groups.add("Performance: ordered wildcard lookup / O(1) bounded logging / 2048 LRU / coalesced Vault cache rebuild");
+    }
+
+    private static void localizationPermissionSources() throws Exception {
+        TranslationManager manager = allocate(TranslationManager.class);
+        String[] keys = {"attachment", "default", "defined", "operator", "unknown"};
+        String[][] values = {
+            {"Прикреплённое право", "Право по умолчанию", "Право «%permission%»",
+             "Права оператора", "Источник неизвестен"},
+            {"Прикріплене право", "Право за замовчуванням", "Право «%permission%»",
+             "Права оператора", "Невідоме джерело"}
+        };
+        String[] raw = {
+            "Allowed by Permission Attachment", "Default Permission",
+            "Through Permission 'sample.node'", "Operator Rights", null, "external-source"
+        };
+        Phrase[] sources = new Phrase[keys.length];
+        for (int i = 0; i < keys.length; i++) {
+            Field source = PermissionLogViewer.class.getDeclaredField(
+                switch (keys[i]) {
+                    case "attachment" -> "SOURCE_ATTACHMENT";
+                    case "default" -> "SOURCE_DEFAULT";
+                    case "defined" -> "SOURCE_DEFINED";
+                    case "operator" -> "SOURCE_OPERATOR";
+                    default -> "SOURCE_UNKNOWN";
+                }
+            );
+            source.setAccessible(true);
+            sources[i] = (Phrase)source.get(null);
+            sources[i].inject(manager);
+        }
+        try {
+            for (int language = 0; language < values.length; language++) {
+                Map<String, String> translated = new HashMap<>();
+                for (int i = 0; i < keys.length; i++)
+                    translated.put("permissionLogViewer.source." + keys[i], values[language][i]);
+                set(manager, "translationCache", translated);
+                for (int i = 0; i < raw.length; i++) {
+                    String expected = i == 5 ? "external-source"
+                        : i == 2 ? values[language][i].replace("%permission%", "sample.node") : values[language][i];
+                    check(expected.equals(PermissionLogViewer.localizedSource(raw[i])),
+                        "permission source is localized in " + (language == 0 ? "Russian" : "Ukrainian")
+                            + ": " + String.valueOf(raw[i]));
+                }
+            }
+        } finally {
+            for (Phrase source : sources) source.inject(null);
+        }
+        groups.add("Localization: permission log sources for both languages, raw permission nodes unchanged");
     }
 
     private static void localizationTimeWords() throws Exception {
