@@ -39,7 +39,9 @@ public class NametagEditHook implements Listener {
    }
 
    private boolean isEnabled() {
-      return this.plugin.getVisualRegistry().get().isEditingNametags();
+      // An optional provider may be disabled/reloaded after this listener was registered.
+      return Bukkit.getPluginManager().isPluginEnabled("NametagEdit")
+         && this.plugin.getVisualRegistry().get().isEditingNametags();
    }
 
    @EventHandler
@@ -48,6 +50,7 @@ public class NametagEditHook implements Listener {
          Optional var2 = this.plugin.getUserStorage().getUsers().uuid(var1.getPlayer().getUniqueId());
          if (var2.isPresent()) {
             this.plugin.getScheduler().runTaskLater(() -> {
+               if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
                NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3);
@@ -104,6 +107,7 @@ public class NametagEditHook implements Listener {
          Optional var2 = Optional.ofNullable(var1.getUser());
          if (var2.isPresent()) {
             this.plugin.getScheduler().runTaskLater(() -> {
+               if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
                NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3);
@@ -118,6 +122,7 @@ public class NametagEditHook implements Listener {
          Optional var2 = Optional.ofNullable(var1.getUser());
          if (var2.isPresent()) {
             this.plugin.getScheduler().runTaskLater(() -> {
+               if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
                NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3);
