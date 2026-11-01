@@ -139,7 +139,7 @@ def check_runtime_text_sinks(errors: list[str]) -> None:
     """
     visible = re.compile(
         r'\.(?:sendMessage|sendActionBar|setTitle|setSubTitle|setSubtitle|setDisplayName|'
-        r'appendLore|lore)\s*\(\s*"([^"]+)"'
+        r'appendLore|lore|name)\s*\(\s*"([^"]+)"'
     )
     direct_mysql = re.compile(r'new\s+ConnectionTestResult\(\s*(?:true|false)\s*,\s*"')
     native_name_in_lore = re.compile(r'\.(?:appendLore|lore|name)\s*\([^;]*?\.getHumanName\(\)', re.S)
