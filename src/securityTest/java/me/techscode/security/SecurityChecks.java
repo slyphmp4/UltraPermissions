@@ -680,6 +680,11 @@ public final class SecurityChecks {
     }
 
     private static void lifecycleAndTranslationReadiness() throws Exception {
+        try (InputStream bootstrapCode = me.TechsCode.UltraPermissions.base.loader.SpigotLoader.class
+            .getResourceAsStream("SpigotLoader.class")) {
+            check(bootstrapCode != null && !new String(bootstrapCode.readAllBytes(), StandardCharsets.ISO_8859_1)
+                .contains("premium.php"), "open-source loader has no remote premium/DRM startup gate");
+        }
         TestPlugin plugin = allocate(TestPlugin.class);
         LifecycleManager database = allocate(LifecycleManager.class);
         set(plugin, "mySQLManager", database);
