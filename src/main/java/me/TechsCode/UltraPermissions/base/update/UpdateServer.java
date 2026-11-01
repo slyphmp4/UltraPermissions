@@ -10,6 +10,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.security.BoundedInput;
@@ -21,6 +22,7 @@ import me.TechsCode.UltraPermissions.base.update.responses.IsUpToDateResponse;
 import me.TechsCode.UltraPermissions.base.update.responses.UpdateUpdateRequestResponse;
 import me.TechsCode.UltraPermissions.dependencies.gson.Gson;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonElement;
+import me.TechsCode.UltraPermissions.dependencies.gson.JsonArray;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 /** Read-only GitHub Releases metadata. Never downloads or executes an update JAR. */
@@ -31,6 +33,8 @@ public class UpdateServer {
       "^[vV]?[0-9]+(?:\\.[0-9]+){1,3}(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
    );
    private static final int MAX_RELEASE_BYTES = 512 * 1024;
+   private static final long MAX_ASSET_BYTES = 64L * 1024 * 1024;
+   private static final Pattern SHA256 = Pattern.compile("sha256:[0-9a-fA-F]{64}");
    private static final long SUCCESS_CACHE_MS = TimeUnit.MINUTES.toMillis(30);
    private static final long FAILURE_CACHE_MS = TimeUnit.MINUTES.toMillis(2);
    private static final long RATE_LIMIT_FALLBACK_MS = TimeUnit.HOURS.toMillis(1);
@@ -39,7 +43,7 @@ public class UpdateServer {
       .connectTimeout(Duration.ofSeconds(5))
       .followRedirects(HttpClient.Redirect.NEVER)
       .build();
-   private static volatile LatestRelease cached = new LatestRelease(503, null, null, 0L, 0L);
+   private static volatile LatestRelease cached = new LatestRelease(503, null, null, null, 0L, 0L);
 
    public IsAvailableResponse isAvailable() {
       return new IsAvailableResponse(this.latestRelease().status);
@@ -55,7 +59,7 @@ public class UpdateServer {
       }
       boolean newer = isNewerVersion(release.version, plugin.getVersion());
       String releasePage = RELEASES_URL + "/tag/" + release.tagName;
-      return new IsUpToDateResponse(200, !newer, release.version, "GitHub Releases", releasePage);
+      return new IsUpToDateResponse(200, !newer, release.version, "GitHub Releases", releasePage, release.asset);
    }
 
    private LatestRelease latestRelease() {
@@ -78,6 +82,7 @@ public class UpdateServer {
       int status = 503;
       String version = null;
       String tag = null;
+      ReleaseAsset asset = null;
       long ttl = FAILURE_CACHE_MS;
       try {
          HttpRequest request = HttpRequest.newBuilder(RELEASES_API)
@@ -94,10 +99,13 @@ public class UpdateServer {
                tag = publishedStableTag(body);
                if (tag != null) {
                   version = tag.replaceFirst("^[vV]", "");
+                  asset = publishedVerifiedAsset(body, tag);
                   ttl = SUCCESS_CACHE_MS;
                } else {
                   status = 502;
                }
+            } else if (status == 404) {
+               ttl = SUCCESS_CACHE_MS;
             } else if (status == 403 || status == 429) {
                ttl = retryDelayMillis(
                   response.headers().firstValue("Retry-After").orElse(null),
@@ -113,7 +121,7 @@ public class UpdateServer {
          status = 503;
       }
       long finishedAt = System.currentTimeMillis();
-      return new LatestRelease(status, version, tag, finishedAt, finishedAt + ttl);
+      return new LatestRelease(status, version, tag, asset, finishedAt, finishedAt + ttl);
    }
 
    /** Require a published, non-prerelease GitHub release and a plain numeric stable tag. */
@@ -136,6 +144,62 @@ public class UpdateServer {
       } catch (RuntimeException malformed) {
          return null;
       }
+   }
+
+
+   /** Accept exactly one published executable JAR, with GitHub's own SHA-256 digest. */
+   private static ReleaseAsset publishedVerifiedAsset(String body, String tag) {
+      if (tag == null || !validVersion(tag) || tag.contains("-")) return null;
+      try {
+         JsonObject data = new Gson().fromJson(body, JsonObject.class);
+         if (data == null || !data.has("assets") || !data.get("assets").isJsonArray()) return null;
+         JsonArray assets = data.getAsJsonArray("assets");
+         if (assets.size() > 100) return null;
+         ReleaseAsset selected = null;
+         String version = tag.replaceFirst("^[vV]", "");
+         for (JsonElement item : assets) {
+            if (!item.isJsonObject()) continue;
+            JsonObject asset = item.getAsJsonObject();
+            if (!asset.has("name") || !asset.has("digest") || !asset.has("size")
+               || !asset.has("browser_download_url") || !asset.has("state")) continue;
+            String name = asset.get("name").getAsString();
+            if (!name.equalsIgnoreCase("UltraPermissions.jar")
+               && !name.equalsIgnoreCase("UltraPermissions-" + version + ".jar")
+               && !name.equalsIgnoreCase("UltraPermissions-" + tag + ".jar")) continue;
+            if (!"uploaded".equals(asset.get("state").getAsString())) return null;
+            String digest = asset.get("digest").getAsString();
+            if (!SHA256.matcher(digest).matches()) return null;
+            long size = asset.get("size").getAsLong();
+            if (size < 1024 || size > MAX_ASSET_BYTES) return null;
+            URI uri = URI.create(asset.get("browser_download_url").getAsString());
+            if (!"https".equals(uri.getScheme()) || !"github.com".equalsIgnoreCase(uri.getHost())
+               || uri.getPort() != -1 || uri.getRawUserInfo() != null
+               || uri.getRawQuery() != null || uri.getRawFragment() != null
+               || !("/slyphmp4/UltraPermissions/releases/download/" + tag + "/" + name).equals(uri.getPath())) return null;
+            if (selected != null) return null;
+            selected = new ReleaseAsset(uri, digest.substring("sha256:".length()).toLowerCase(Locale.ROOT), size);
+         }
+         return selected;
+      } catch (RuntimeException malformed) {
+         return null;
+      }
+   }
+
+   /** Immutable, validated Release asset metadata; never derived from client input. */
+   public static final class ReleaseAsset {
+      private final URI downloadUri;
+      private final String sha256;
+      private final long size;
+
+      private ReleaseAsset(URI downloadUri, String sha256, long size) {
+         this.downloadUri = downloadUri;
+         this.sha256 = sha256;
+         this.size = size;
+      }
+
+      public URI getDownloadUri() { return downloadUri; }
+      public String getSha256() { return sha256; }
+      public long getSize() { return size; }
    }
 
    /** Never hammer the GitHub API following 403/429 or an explicit Retry-After. */
@@ -220,13 +284,15 @@ public class UpdateServer {
       private final int status;
       private final String version;
       private final String tagName;
+      private final ReleaseAsset asset;
       private final long checkedAt;
       private final long nextCheckAt;
 
-      private LatestRelease(int status, String version, String tagName, long checkedAt, long nextCheckAt) {
+      private LatestRelease(int status, String version, String tagName, ReleaseAsset asset, long checkedAt, long nextCheckAt) {
          this.status = status;
          this.version = version;
          this.tagName = tagName;
+         this.asset = asset;
          this.checkedAt = checkedAt;
          this.nextCheckAt = nextCheckAt;
       }
