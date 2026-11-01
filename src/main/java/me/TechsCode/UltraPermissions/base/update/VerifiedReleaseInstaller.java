@@ -111,7 +111,8 @@ final class VerifiedReleaseInstaller {
       if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
          if (Files.isSymbolicLink(target) || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))
             return Result.CONFLICT;
-         return asset.getSha256().equalsIgnoreCase(sha256(target)) ? Result.ALREADY_STAGED : Result.CONFLICT;
+         return Files.size(target) == asset.getSize() && asset.getSha256().equalsIgnoreCase(sha256(target))
+            ? Result.ALREADY_STAGED : Result.CONFLICT;
       }
 
       Path temp = Files.createTempFile(staging, ".ultrapermissions-download-", ".part");
@@ -168,10 +169,11 @@ final class VerifiedReleaseInstaller {
       if (Files.isSymbolicLink(backupRoot)) return false;
       Files.createDirectories(backupRoot);
       String cleanVersion = version.replaceAll("[^0-9A-Za-z.+-]", "_");
-      Path destination = backupRoot.resolve(original.getFileName().toString() + "." + cleanVersion + ".bak");
+      Path destination = backupRoot.resolve(original.getFileName().toString() + ".before-" + cleanVersion + ".bak");
       if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
          return !Files.isSymbolicLink(destination) && Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)
-            && Files.size(destination) > 0;
+            && Files.size(destination) == Files.size(original)
+            && sha256(destination).equals(sha256(original));
       Path temp = Files.createTempFile(backupRoot, ".ultrapermissions-backup-", ".part");
       try {
          Files.copy(original, temp, StandardCopyOption.REPLACE_EXISTING);
