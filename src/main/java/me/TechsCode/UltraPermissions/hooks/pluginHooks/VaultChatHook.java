@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.networking.NServer;
 import me.TechsCode.UltraPermissions.hooks.placeholders.PrefixPlaceholder;
@@ -16,6 +17,7 @@ import net.milkbowl.vault.permission.Permission;
 public class VaultChatHook extends Chat {
    private final UltraPermissions plugin;
    private volatile CacheSnapshot cache = new CacheSnapshot(Map.of(), Map.of());
+   private final AtomicBoolean refreshPending = new AtomicBoolean();
 
    private static final class CacheSnapshot {
       private final Map<String, String> prefixes;
@@ -42,7 +44,21 @@ public class VaultChatHook extends Chat {
    }
 
    public void clearCache() {
-      this.plugin.getScheduler().run(this.loadInCache());
+      // A bulk rank edit can send thousands of invalidations in one tick.
+      // Publish one complete snapshot on the primary thread instead of rebuilding for every change.
+      if (!refreshPending.compareAndSet(false, true)) return;
+      try {
+         this.plugin.getScheduler().run(() -> {
+            try {
+               this.loadInCache().run();
+            } finally {
+               refreshPending.set(false);
+            }
+         });
+      } catch (RuntimeException rejected) {
+         refreshPending.set(false);
+         throw rejected;
+      }
    }
 
    private Runnable loadInCache() {
@@ -50,10 +66,12 @@ public class VaultChatHook extends Chat {
          Map<String, String> prefixes = new HashMap<>();
          Map<String, String> suffixes = new HashMap<>();
          NServer var1 = this.plugin.getThisServer().orElse(null);
+         PrefixPlaceholder prefix = new PrefixPlaceholder();
+         SuffixPlaceholder suffix = new SuffixPlaceholder();
          this.plugin.getUsers().stream().filter(Objects::nonNull).forEach(var2 -> {
             String playerName = var2.getName() == null ? "UNDEFINED" : var2.getName();
-            prefixes.put(playerName, new PrefixPlaceholder().get(var2, var1));
-            suffixes.put(playerName, new SuffixPlaceholder().get(var2, var1));
+            prefixes.put(playerName, prefix.get(var2, var1));
+            suffixes.put(playerName, suffix.get(var2, var1));
          });
          this.cache = new CacheSnapshot(Map.copyOf(prefixes), Map.copyOf(suffixes));
       };
