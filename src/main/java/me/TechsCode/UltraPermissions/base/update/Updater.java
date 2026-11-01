@@ -38,10 +38,10 @@ public class Updater {
       "Updater.checkFailed", "Could not check **GitHub** for plugin updates.", Colors.GRAY, Colors.RED
    );
    private static final Phrase DOWNLOAD_FAILED = Phrase.create(
-      "Updater.downloadFailed", "Update download or verification failed. Check the server console.", Colors.GRAY, Colors.RED
+      "Updater.downloadFailed", "Update **download or verification** failed. Check the server console.", Colors.GRAY, Colors.RED
    );
    private static final Phrase STAGING_CONFLICT = Phrase.create(
-      "Updater.stagingConflict", "Another update is already staged. Check the server console.", Colors.GRAY, Colors.RED
+      "Updater.stagingConflict", "Another update is already **staged**. Check the server console.", Colors.GRAY, Colors.RED
    );
 
    private enum State { UP_TO_DATE, CHECK_FAILED, DOWNLOAD_FAILED, STAGING_CONFLICT, STAGED, ALREADY_STAGED, CANCELLED }
