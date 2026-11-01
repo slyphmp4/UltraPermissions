@@ -19,6 +19,8 @@ import me.TechsCode.UltraPermissions.base.legacy.task.UpdateTime;
 import me.TechsCode.UltraPermissions.base.networking.PublicIpResolver;
 import me.TechsCode.UltraPermissions.base.networking.SpigotNetworkManager;
 import me.TechsCode.UltraPermissions.hooks.pluginHooks.VaultChatHook;
+import me.TechsCode.UltraPermissions.hooks.pluginHooks.PlaceholderAPIHook;
+import me.TechsCode.UltraPermissions.hooks.PluginHookManager;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.dialog.Dialog;
 import me.TechsCode.UltraPermissions.base.gui.*;
@@ -71,6 +73,7 @@ public final class SecurityChecks {
         Path report = Path.of(args[0]); Files.createDirectories(report);
         setupBukkit();
         minecraftVersions();
+        compatibilityHooks();
         messaging(report.resolve("config-fixture"));
         remoteCatalogue();
         sqlAndPool();
@@ -260,6 +263,52 @@ public final class SecurityChecks {
 
         check(plugin.logs.stream().noneMatch(log -> log.contains("sensitive-value")), "failure logs exclude private JSON state");
         groups.add("Data integrity: atomic writes / corrupt data fail-closed / callbacks / durable state markers / create-delete rollback");
+    }
+
+    private static void compatibilityHooks() throws Exception {
+        // An optional dependency may be absent or have a changed binary API.
+        TestPlugin plugin = allocate(TestPlugin.class);
+        plugin.logs = new ArrayList<>();
+        PluginHookManager manager = allocate(PluginHookManager.class);
+        set(manager, "plugin", plugin);
+        Map<String, Runnable> registered = new HashMap<>();
+        AtomicInteger installed = new AtomicInteger();
+        registered.put("Working", installed::incrementAndGet);
+        registered.put("MissingClass", () -> { throw new NoClassDefFoundError("optional/Api"); });
+        registered.put("ChangedMethod", () -> { throw new NoSuchMethodError("removedMethod"); });
+        registered.put("BrokenProvider", () -> { throw new IllegalStateException("invalid provider"); });
+        set(manager, "hooks", registered);
+        manager.tryHook(true, "Working");
+        manager.tryHook(true, "Working");
+        check(installed.get() == 1 && !registered.containsKey("Working"), "valid optional hook activated exactly once");
+        for (String failed : List.of("MissingClass", "ChangedMethod", "BrokenProvider")) {
+            manager.tryHook(true, failed);
+            check(registered.containsKey(failed), "incompatible hook remains available for a later re-enable");
+            check(plugin.logs.stream().anyMatch(log -> log.contains(failed) && log.contains("unavailable")),
+                "incompatible optional hook logged without crashing the permissions core");
+        }
+        registered.put("MissingClass", installed::incrementAndGet);
+        manager.tryHook(true, "MissingClass");
+        check(installed.get() == 2 && !registered.containsKey("MissingClass"),
+            "optional hook can recover if a compatible provider is enabled later");
+        manager.tryHook(true, "Unknown");
+
+        check(PlaceholderAPIHook.onlineWorld(null).isEmpty(), "missing PlaceholderAPI player safe");
+        OfflinePlayer offline = proxy(OfflinePlayer.class, (m,a) -> DEFAULT);
+        check(PlaceholderAPIHook.onlineWorld(offline).isEmpty(), "offline PlaceholderAPI player has no world");
+        Player withoutWorld = proxy(Player.class, (m,a) -> DEFAULT);
+        OfflinePlayer unloaded = proxy(OfflinePlayer.class,
+            (m,a) -> m.getName().equals("getPlayer") ? withoutWorld : DEFAULT);
+        check(PlaceholderAPIHook.onlineWorld(unloaded).isEmpty(), "online player without loaded world safe");
+        World world = proxy(World.class,
+            (m,a) -> m.getName().equals("getName") ? "survival" : DEFAULT);
+        Player connected = proxy(Player.class,
+            (m,a) -> m.getName().equals("getWorld") ? world : DEFAULT);
+        OfflinePlayer online = proxy(OfflinePlayer.class,
+            (m,a) -> m.getName().equals("getPlayer") ? connected : DEFAULT);
+        check("survival".equals(PlaceholderAPIHook.onlineWorld(online).orElse(null)),
+            "online PlaceholderAPI player resolves world-scoped permissions");
+        groups.add("Compatibility: optional API linkage isolation / hook recovery / offline placeholders");
     }
 
     private static void minecraftVersions() {
