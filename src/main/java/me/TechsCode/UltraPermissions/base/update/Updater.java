@@ -31,7 +31,7 @@ public class Updater {
       "Updater.restartManually", "Replace the plugin JAR and **restart** your server", Colors.GRAY, Colors.YELLOW
    );
    private static final Phrase NO_UPDATE = Phrase.create(
-      "Updater.noUpdate", "UltraPermissions is already **up to date**.", Colors.GRAY, Colors.GREEN
+      "Updater.noUpdate", "No plugin updates are **available** right now.", Colors.GRAY, Colors.GREEN
    );
    private static final Phrase CHECK_FAILED = Phrase.create(
       "Updater.checkFailed", "Could not check **GitHub** for plugin updates.", Colors.GRAY, Colors.RED
@@ -94,7 +94,9 @@ public class Updater {
             UpdateServer server = new UpdateServer();
             try {
                IsUpToDateResponse response = server.isUpToDate(pluginName, installedVersion);
-               if (!response.isSuccessFull()) {
+               if (response.getStatusCode() == 404) {
+                  result = new Status(State.UP_TO_DATE, installedVersion, 200);
+               } else if (!response.isSuccessFull()) {
                   result = new Status(State.CHECK_FAILED, null, response.getStatusCode());
                } else if (response.isUpToDate()) {
                   result = new Status(State.UP_TO_DATE, installedVersion, 200);
