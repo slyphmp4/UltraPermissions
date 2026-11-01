@@ -9,12 +9,16 @@ public class Words {
    public static final Phrase SETTINGS = Phrase.create("settings", "settings");
    public static final Phrase DAY = Phrase.create("day", "day");
    public static final Phrase DAYS = Phrase.create("days", "days");
+   public static final Phrase DAYS_FEW = Phrase.create("daysFew", "days");
    public static final Phrase HOUR = Phrase.create("hour", "hour");
    public static final Phrase HOURS = Phrase.create("hours", "hours");
+   public static final Phrase HOURS_FEW = Phrase.create("hoursFew", "hours");
    public static final Phrase MINUTE = Phrase.create("minute", "minute");
    public static final Phrase MINUTES = Phrase.create("minutes", "minutes");
+   public static final Phrase MINUTES_FEW = Phrase.create("minutesFew", "minutes");
    public static final Phrase SECOND = Phrase.create("second", "second");
    public static final Phrase SECONDS = Phrase.create("seconds", "seconds");
+   public static final Phrase SECONDS_FEW = Phrase.create("secondsFew", "seconds");
    public static final Phrase NONE = Phrase.create("none", "none");
    public static final Phrase NOW = Phrase.create("now", "now");
    public static final Phrase PERMANENT = Phrase.create("permanent", "permanent");
