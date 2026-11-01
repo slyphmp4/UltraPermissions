@@ -48,6 +48,8 @@ final class PerformanceLoad {
     private final List<Double> heavyIntervals = new ArrayList<>();
     private final List<Double> moderateBatches = new ArrayList<>();
     private final List<Double> heavyBatches = new ArrayList<>();
+    private final List<Double> heavyTickWork = new ArrayList<>();
+    private final List<Double> mutationDurations = new ArrayList<>();
     private UltraPermissions permissions;
     private Group group;
     private BukkitTask task;
@@ -86,10 +88,15 @@ final class PerformanceLoad {
     }
 
     private void tickSafe() {
+        Phase before = phase;
+        long started = System.nanoTime();
         try {
             tick();
         } catch (Throwable failure) {
             finish(failure);
+        } finally {
+            if (before == Phase.HEAVY)
+                heavyTickWork.add((System.nanoTime() - started) / 1_000_000.0);
         }
     }
 
@@ -138,7 +145,9 @@ final class PerformanceLoad {
                 if (phaseTicks % 20 == 0) {
                     Profile target = profiles.get((phaseTicks / 20) % profiles.size());
                     String marker = "load-prefix-" + phaseTicks;
+                    long mutationStarted = System.nanoTime();
                     target.user().setPrefix(marker);
+                    mutationDurations.add((System.nanoTime() - mutationStarted) / 1_000_000.0);
                     require(marker.equals(target.user().getPrefix().orElse(null)), "prefix update lost during load");
                     mutations++;
                 }
@@ -256,6 +265,12 @@ final class PerformanceLoad {
               "heavy_tick_p95_ms": %.2f,
               "heavy_tick_p99_ms": %.2f,
               "heavy_tick_max_ms": %.2f,
+              "heavy_tick_over_100ms": %d,
+              "heavy_tick_over_200ms": %d,
+              "heavy_tick_work_p99_ms": %.2f,
+              "heavy_tick_work_max_ms": %.2f,
+              "mutation_p95_ms": %.2f,
+              "mutation_max_ms": %.2f,
               "moderate_batch_p95_ms": %.2f,
               "heavy_batch_p95_ms": %.2f,
               "storage_mutations": %d,
@@ -273,7 +288,10 @@ final class PerformanceLoad {
             profiles.size(), Bukkit.getOnlinePlayers().size(), checks, measuredChecks, checksPerSecond(),
             percentile(baselineIntervals, 95), percentile(moderateIntervals, 95),
             percentile(heavyIntervals, 50), percentile(heavyIntervals, 95), percentile(heavyIntervals, 99),
-            max(heavyIntervals), percentile(moderateBatches, 95), percentile(heavyBatches, 95),
+            max(heavyIntervals), countAbove(heavyIntervals, 100.0), countAbove(heavyIntervals, 200.0),
+            percentile(heavyTickWork, 99), max(heavyTickWork),
+            percentile(mutationDurations, 95), max(mutationDurations),
+            percentile(moderateBatches, 95), percentile(heavyBatches, 95),
             mutations, heapPeak / 1048576.0, gcCount() - gcCountBefore, gcTime() - gcMsBefore,
             cpuPercent, paperTps(), MAX_HEAVY_P95_MS, MAX_HEAVY_TICK_MS, MIN_CHECKS_PER_SECOND);
     }
@@ -296,6 +314,10 @@ final class PerformanceLoad {
         int index = Math.max(0, Math.min(sorted.size() - 1,
             (int) Math.ceil(percent * sorted.size() / 100.0) - 1));
         return sorted.get(index);
+    }
+
+    private static long countAbove(List<Double> values, double ms) {
+        return values.stream().filter(value -> value > ms).count();
     }
 
     private static double max(List<Double> values) {
