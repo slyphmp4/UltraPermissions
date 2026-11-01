@@ -77,8 +77,7 @@ jobs:
           set -euo pipefail
           version=$(sed -n "s/^version = '\([^']*\)'/\1/p" build.gradle)
           for name in "UltraPermissions-$version.jar" "UltraPermissions-$version-sources.jar"; do
-            cmp "build/compare/linux/libs/$name" "build/compare/windows/libs/$name"
-            sha256sum "build/compare/linux/libs/$name"
+            python3 tools/verify_reproducible_archives.py "build/compare/linux/libs/$name" "build/compare/windows/libs/$name"
           done
   compatibility:
     name: Paper 26.2 / Java 25 runtime
