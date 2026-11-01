@@ -222,7 +222,7 @@ RestartView.gui.restartServerConfiguration1: "Если сервер не зап�
 RestartView.gui.restartServerConfiguration2: "или запустите сервер **вручную**, чтобы обновить плагин"
 RestartView.gui.serverRestart: "Требуется ручная установка"
 RestartView.gui.serverRestart.lore.click: "**Нажмите**, чтобы открыть инструкцию по установке"
-RestartView.gui.serverRestart.lore.desc1: "Скачайте проверенный JAR из **GitHub Releases**"
+RestartView.gui.serverRestart.lore.desc1: "Скачайте проверенный JAR со страницы релизов **GitHub**"
 RestartView.gui.serverRestart.lore.desc2: "Замените JAR и перезапустите сервер вручную"
 RestartView.gui.serverRestart.lore.desc3: "(Плагин не изменяет файлы и серверы автоматически)"
 RestartView.gui.serverRestart.lore.desc4: "Остальные серверы не будут затронуты"
