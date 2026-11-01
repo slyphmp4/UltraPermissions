@@ -72,12 +72,6 @@
     "sha256": "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7"
   },
   {
-    "file": "libs/compile-only/snakeyaml-1.18.jar",
-    "url": "https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/1.18/snakeyaml-1.18.jar",
-    "bytes": 284338,
-    "sha256": "81bf4c29d0275dace75fadb5febf5384553422816256023efa83b2b15a9ced60"
-  },
-  {
     "file": "libs/compile-only/authlib-1.5.25.jar",
     "url": "https://libraries.minecraft.net/com/mojang/authlib/1.5.25/authlib-1.5.25.jar",
     "bytes": 65621,
