@@ -16,10 +16,10 @@ No dynamic/SNAPSHOT version resolution or public Maven repositories are used by 
 
 - `compileOnly`: local Spigot/Bungee, Vault, PlaceholderAPI and other integration API JARs under `libs/compile-only/`. They must **not** be packaged into the plugin.
 - `runtimeOnly`: `me.techscode.ultrapermissions:runtime-libraries:5.6.8` from the checked-in local Maven repository. Its contents are included in the production JAR, mostly relocated under `me/TechsCode/UltraPermissions/dependencies/`.
-- `config/dependencies.sha256` pins **all 21 checked-in JARs** (19 API and 2 runtime/compile API artifacts). `verifyBuildInputs` verifies every SHA-256 and rejects missing, extra or duplicate JARs **before `compileJava`**. A negative GitHub Actions test changes one checksum and requires the precompile guard to reject it for exactly the expected reason.
+- `config/dependencies.sha256` pins **all 20 checked-in JARs** (18 API and 2 runtime/compile API artifacts). `verifyBuildInputs` verifies every SHA-256 and rejects missing, extra or duplicate JARs **before `compileJava`**. A negative GitHub Actions test changes one checksum and requires the precompile guard to reject it for exactly the expected reason.
 - `ComponentChecks` independently validates the finished JAR's embedded library bytecode, provided API exclusions, Java target, plugin metadata, API contracts and resources.
 
-Some compatibility-only APIs are necessarily older. `libs/compile-only/snakeyaml-1.18.jar` is **not distributed** with the plugin; it should not be mistaken for a shipped runtime dependency. The actual server's API and dependencies still require separate compatibility/security testing.
+An unused, outdated `snakeyaml-1.18.jar` was removed from the compile-only inventory after confirming that both Linux and Windows builds succeed without it. It was never a runtime library. The server's own YAML implementation and the remaining compatibility-only APIs still need their own version-specific integration/security checks.
 
 ### Bundled HTTP client migration debt
 
