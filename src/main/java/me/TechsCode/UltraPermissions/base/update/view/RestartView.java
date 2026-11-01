@@ -66,18 +66,18 @@ public class RestartView extends GUI {
       Colors.GOLD,
       Colors.GOLD
    );
-   private static final Phrase RESTART_LATER_TITLE = Phrase.create("RestartView.gui.restartLater.title", "Restart Later");
+   private static final Phrase RESTART_LATER_TITLE = Phrase.create("RestartView.gui.restartLater.title", "Close Guide");
    private static final Phrase RESTART_LATER_LORE_CLICK = Phrase.create(
-      "RestartView.gui.restartLater.lore.click", "**Click** to restart later", Colors.GRAY, Colors.AQUA
+      "RestartView.gui.restartLater.lore.click", "**Click** to close this guide", Colors.GRAY, Colors.AQUA
    );
    private static final Phrase RESTART_LATER_LORE_DESC1 = Phrase.create(
-      "RestartView.gui.restartLater.lore.desc1", "When choosing **Restart Later** you will have to", Colors.GRAY, Colors.GOLD
+      "RestartView.gui.restartLater.lore.desc1", "You can install the updated JAR", Colors.GRAY, Colors.GOLD
    );
    private static final Phrase RESTART_LATER_LORE_DESC2 = Phrase.create(
-      "RestartView.gui.restartLater.lore.desc2", "restart the server manually to finish updating", Colors.GRAY
+      "RestartView.gui.restartLater.lore.desc2", "and restart the server whenever you are ready", Colors.GRAY
    );
    private static final Phrase RESTART_LATER_GUI_CLOSE_MESSAGE = Phrase.create(
-      "RestartView.gui.restartLater.guiCloseMessage", "You can restart the server **manually** to finish updating", Colors.GRAY, Colors.GOLD
+      "RestartView.gui.restartLater.guiCloseMessage", "No changes were made. Install the JAR and restart **manually**", Colors.GRAY, Colors.GOLD
    );
 
    public RestartView(Player var1, SpigotTechPlugin var2) {
