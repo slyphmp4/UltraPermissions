@@ -15,7 +15,6 @@ f3d7f57f67fd622f4d468dfdd692b3a5e3909246c28017ac3263405f0fe617ed  libs/compile-o
 766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7  libs/compile-only/jsr305-3.0.2.jar
 3488a4e9994c26596baaceebee58cad36a50e3bdaec5be72b5834d3c3b560306  libs/compile-only/lombok-1.18.42.jar
 086e3971ea63c0b5ad567881b2dfd955acbbffa24fe85ceac8abf54b114ce986  libs/compile-only/luckperms-api-5.4.jar
-81bf4c29d0275dace75fadb5febf5384553422816256023efa83b2b15a9ced60  libs/compile-only/snakeyaml-1.18.jar
 5d0f35511f69d82e3da6e5a24bc55846490f3f7708b49d835e88ba55ff167d15  libs/compile-only/spigot-api-1.21.11.jar
 38a3bc3827dd4139e5844e0701b9c23629f7f6726cdf07bd704f5c400af5e611  libs/repository/me/techscode/ultrapermissions/runtime-libraries/5.6.8/runtime-libraries-5.6.8-compile-api.jar
 26a74c9fc41e3ff991dfdf1dc9821e6040c6e88fbe3308f072a6f3a3539a60b8  libs/repository/me/techscode/ultrapermissions/runtime-libraries/5.6.8/runtime-libraries-5.6.8.jar
