@@ -319,7 +319,7 @@ public abstract class GroupView extends GUI {
          var1.item().appendLore(CHANGE_ICON_ACTION_SHIFT_RIGHT_CLICK.get());
       }
 
-      var1.item().appendLore("", ICON_ATTRIBUTE.get().replace("%icon%", this.group.getIcon().getHumanName()));
+      var1.item().appendLore("", ICON_ATTRIBUTE.get().replace("%icon%", this.group.getIcon().name()));
       if (XMaterial.isDamageable(this.group.getIcon().getBukkitMaterial().get())) {
          var1.item().appendLore(CHANGE_ICON_LORE_DAMAGE_VALUE.get().replace("%damageValue%", String.valueOf(this.group.getDamage())));
       }

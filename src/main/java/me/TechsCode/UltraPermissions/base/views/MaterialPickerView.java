@@ -33,7 +33,7 @@ public abstract class MaterialPickerView extends PageableGUI<XMaterial> {
          Optional var10;
          if (var9 == XMaterial.AIR) {
             var10 = Optional.of(XMaterial.BARRIER.parseItem());
-            ((ItemStack)var10.get()).getItemMeta().setDisplayName("Air");
+            // The displayed item label is localized in construct() through the AIR phrase.
          } else {
             try {
                var10 = var9.getAsItemStack();

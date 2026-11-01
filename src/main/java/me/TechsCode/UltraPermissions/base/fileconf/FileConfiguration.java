@@ -27,7 +27,7 @@ public class FileConfiguration implements Configuration {
       try {
          this.configuration = (Configuration)var4.getDeclaredConstructor(File.class).newInstance(var2);
       } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException var6) {
-         var6.printStackTrace();
+         throw new IllegalStateException("Could not load configuration " + var2 + "; refusing to overwrite existing data", var6);
       }
    }
 

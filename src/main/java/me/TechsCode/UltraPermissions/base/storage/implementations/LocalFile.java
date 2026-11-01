@@ -24,11 +24,7 @@ public class LocalFile extends StorageImplementation {
 
    @Override
    public void destroy(String var1, WriteCallback var2) {
-      synchronized (this.configuration) {
-         this.configuration.set(var1, null);
-         this.configuration.save();
-         var2.onSuccess();
-      }
+      this.saveChange(var1, null, var2);
    }
 
    @Override
@@ -38,31 +34,49 @@ public class LocalFile extends StorageImplementation {
 
    @Override
    public void update(String var1, JsonObject var2, WriteCallback var3) {
+      String encoded = Base64.encodeBase64String(var2.toString().getBytes(StandardCharsets.UTF_8));
+      this.saveChange(var1, encoded, var3);
+   }
+
+   private void saveChange(String key, String value, WriteCallback callback) {
       synchronized (this.configuration) {
-         String var5 = Base64.encodeBase64String(var2.toString().getBytes(StandardCharsets.UTF_8));
-         this.configuration.set(var1, var5);
-         this.configuration.save();
-         var3.onSuccess();
+         Object previous = this.configuration.get(key);
+         try {
+            this.configuration.set(key, value);
+            this.configuration.save();
+         } catch (RuntimeException failure) {
+            this.configuration.set(key, previous);
+            callback.onFailure(failure);
+            return;
+         }
+         callback.onSuccess();
       }
    }
 
    @Override
    public void read(String var1, ReadCallback var2) {
       synchronized (this.configuration) {
-         HashMap var4 = new HashMap();
-         JsonParser var5 = new JsonParser();
-
-         for (String var7 : this.configuration.getKeys(false)) {
-            String var8 = this.configuration.getString(var7);
-            if (Base64.isBase64(var8)) {
-               var8 = new String(Base64.decodeBase64(var8), StandardCharsets.UTF_8);
+         HashMap<String, JsonObject> rows = new HashMap<>();
+         JsonParser parser = new JsonParser();
+         try {
+            for (String key : this.configuration.getKeys(false)) {
+               String value = this.configuration.getString(key);
+               if (value == null) {
+                  throw new IllegalStateException("Missing value for key " + key);
+               }
+               if (Base64.isBase64(value)) {
+                  value = new String(Base64.decodeBase64(value), StandardCharsets.UTF_8);
+               }
+               var json = parser.parse(value);
+               if (json == null || !json.isJsonObject()) {
+                  throw new IllegalStateException("Invalid storage value for key " + key);
+               }
+               rows.put(key, json.getAsJsonObject());
             }
-
-            JsonObject var9 = (JsonObject)var5.parse(var8);
-            var4.put(var7, var9);
+         } catch (RuntimeException malformed) {
+            throw new IllegalStateException("Cannot load storage " + this.file + "; original data was not changed", malformed);
          }
-
-         var2.onSuccess(var4);
+         var2.onSuccess(rows);
       }
    }
 }

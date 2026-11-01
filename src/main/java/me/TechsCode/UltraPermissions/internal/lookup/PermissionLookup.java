@@ -1,7 +1,5 @@
 package me.TechsCode.UltraPermissions.internal.lookup;
 
-import java.util.Arrays;
-import java.util.Objects;
 import me.TechsCode.UltraPermissions.internal.Node;
 
 public abstract class PermissionLookup {
@@ -23,18 +21,21 @@ public abstract class PermissionLookup {
          return this.outcome;
       }
 
-      for (String var2 : this.permission.getSelfAndWildcards()) {
-         this.outcome = this.checkPermission(var2);
-         if (this.outcome != null) {
-            return this.outcome;
+      // Build the checks only once per lookup, not again for every wildcard candidate.
+      // Their priority and the original wildcard traversal order must not change.
+      LookupCheck[] checks = this.getChecks();
+      for (String candidate : this.permission.getSelfAndWildcards()) {
+         for (LookupCheck check : checks) {
+            LookupOutcome result = check.perform(candidate);
+            if (result != null) {
+               this.outcome = result;
+               return result;
+            }
          }
       }
 
+      // Keep negative results uncached: callers may reuse a lookup after permissions change.
       return new LookupOutcome(false, null);
-   }
-
-   private LookupOutcome checkPermission(String var1) {
-      return Arrays.stream(this.getChecks()).map(var1x -> var1x.perform(var1)).filter(Objects::nonNull).findFirst().orElse(null);
    }
 
    public abstract LookupCheck[] getChecks();

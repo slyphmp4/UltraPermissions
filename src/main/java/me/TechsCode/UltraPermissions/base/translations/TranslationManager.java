@@ -8,6 +8,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +26,8 @@ import me.TechsCode.UltraPermissions.dependencies.commons.io.FileUtils;
 public class TranslationManager {
    private final TranslationRegistry translationRegistry;
    private final Map<String, Phrase> phrases;
-   private List<TranslationFile> translationFiles;
-   private Map<String, String> translationCache;
+   private volatile List<TranslationFile> translationFiles;
+   private volatile Map<String, String> translationCache;
 
    public TranslationManager(TechPlugin<?> var1) {
       super();
@@ -48,10 +49,13 @@ public class TranslationManager {
                   var1xx -> var1xx.getValue().getName().startsWith("me.TechsCode." + var1.getName()) && !var1xx.getValue().getName().contains(".base")
                );
                installBundledTranslations(var1, var2);
-               this.translationFiles = Arrays.stream(Objects.requireNonNull(var2.listFiles()))
-                  .map(TranslationFile::new)
-                  .filter(TranslationFile::isValid)
-                  .collect(Collectors.toList());
+               File[] files = var2.listFiles();
+               this.translationFiles = files == null
+                  ? Collections.emptyList()
+                  : Arrays.stream(files)
+                     .map(TranslationFile::new)
+                     .filter(TranslationFile::isValid)
+                     .collect(Collectors.toList());
                var1.log("Translations successfully loaded & applied (" + this.translationFiles.size() + " Translation files found)");
             }
          );
@@ -67,10 +71,10 @@ public class TranslationManager {
    }
 
    public Map<String, String> getPhrases(String var1) {
-      return this.translationFiles == null
+      List<TranslationFile> files = this.translationFiles;
+      return files == null
          ? null
-         : this.translationFiles
-            .stream()
+         : files.stream()
             .filter(var1x -> var1x.getLanguage().equalsIgnoreCase(var1))
             .flatMap(var0 -> var0.getPhrases().entrySet().stream())
             .filter(var1x -> this.phrases.containsKey(var1x.getKey()))
@@ -162,6 +166,9 @@ public class TranslationManager {
    }
 
    public List<String> getAvailableLanguages() {
-      return this.translationFiles.stream().map(TranslationFile::getLanguage).distinct().collect(Collectors.toList());
+      List<TranslationFile> files = this.translationFiles;
+      return files == null
+         ? Collections.emptyList()
+         : files.stream().map(TranslationFile::getLanguage).distinct().collect(Collectors.toList());
    }
 }

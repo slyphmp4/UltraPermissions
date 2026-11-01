@@ -131,6 +131,38 @@ def check_entity_names(errors: list[str]) -> dict[str, Path]:
     return resources
 
 
+def check_runtime_text_sinks(errors: list[str]) -> None:
+    """Reject literal player-visible text that bypasses Phrase and locale resources.
+
+    Namespaced keys, command names, permission nodes, and the branded plugin title
+    are identifiers rather than sentences and intentionally stay unchanged.
+    """
+    visible = re.compile(
+        r'\.(?:sendMessage|sendActionBar|setTitle|setSubTitle|setSubtitle|setDisplayName|'
+        r'appendLore|lore|name)\s*\(\s*"([^"]+)"'
+    )
+    direct_mysql = re.compile(r'new\s+ConnectionTestResult\(\s*(?:true|false)\s*,\s*"')
+    native_name_in_lore = re.compile(r'\.(?:appendLore|lore|name)\s*\([^;]*?\.getHumanName\(\)', re.S)
+    for path in JAVA_ROOT.rglob("*.java"):
+        if "dependencies" in path.relative_to(JAVA_ROOT).parts:
+            continue
+        content = path.read_text(encoding="utf-8")
+        for match in visible.finditer(content):
+            value = match.group(1)
+            if path.name == "Overview.java" and value == "Ultra Permissions v":
+                continue  # Original TechsCode branding followed by the version.
+            # Minecraft formatting codes, list bullets and spacing are visual,
+            # not translatable words (e.g. "§7- §e" or "§f").
+            without_colors = re.sub(r'§[0-9a-fk-or]', "", value, flags=re.I)
+            if not re.search(r'[A-Za-zА-Яа-яЁёІіЇїЄєҐґ]', without_colors):
+                continue
+            errors.append(f"{path}: untranslated literal passed to player-visible UI: {value}")
+        if direct_mysql.search(content):
+            errors.append(f"{path}: MySQL connection feedback must use translated Phrase values")
+        if native_name_in_lore.search(content):
+            errors.append(f"{path}: unlocalized English XMaterial human name in player-visible GUI")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--jar", type=Path, help="Also inspect packaged JAR resources")
@@ -153,6 +185,7 @@ def main() -> int:
             check_translation(part, language, expected[part], values, errors)
 
     entity_resources = check_entity_names(errors)
+    check_runtime_text_sinks(errors)
     if args.jar:
         if not args.jar.is_file():
             errors.append(f"Missing plugin JAR: {args.jar}")

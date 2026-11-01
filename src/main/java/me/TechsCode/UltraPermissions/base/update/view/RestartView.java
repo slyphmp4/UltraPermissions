@@ -5,32 +5,33 @@ import me.TechsCode.UltraPermissions.base.gui.Button;
 import me.TechsCode.UltraPermissions.base.gui.GUI;
 import me.TechsCode.UltraPermissions.base.gui.Model;
 import me.TechsCode.UltraPermissions.base.item.XMaterial;
+import me.TechsCode.UltraPermissions.base.update.Updater;
+import me.TechsCode.UltraPermissions.base.update.UpdateServer;
 import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.base.visual.Animation;
 import me.TechsCode.UltraPermissions.base.visual.Colors;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 public class RestartView extends GUI {
    private final SpigotTechPlugin plugin;
-   private static final Phrase TITLE = Phrase.create("RestartView.gui.title", "Restart to Update");
-   private static final Phrase SERVER_RESTART_TITLE = Phrase.create("RestartView.gui.serverRestart.title", "Server Restart");
+   private static final Phrase TITLE = Phrase.create("RestartView.gui.title", "Manual Plugin Update");
+   private static final Phrase SERVER_RESTART_TITLE = Phrase.create("RestartView.gui.serverRestart.title", "Installation Guide");
    private static final Phrase SERVER_RESTART_LORE_CLICK = Phrase.create(
-      "RestartView.gui.serverRestart.lore.click", "**Click** to restart **this** server", Colors.GRAY, Colors.AQUA, Colors.GREEN
+      "RestartView.gui.serverRestart.lore.click", "**Click** for manual installation instructions", Colors.GRAY, Colors.AQUA, Colors.GREEN
    );
    private static final Phrase SERVER_RESTART_LORE_DESC1 = Phrase.create(
-      "RestartView.gui.serverRestart.lore.desc1", "When choosing **Server Restart** this server will", Colors.GRAY, Colors.GOLD
+      "RestartView.gui.serverRestart.lore.desc1", "Download the verified JAR from **GitHub Releases**", Colors.GRAY, Colors.GOLD
    );
    private static final Phrase SERVER_RESTART_LORE_DESC2 = Phrase.create(
-      "RestartView.gui.serverRestart.lore.desc2", "restart right now to finish updating", Colors.GRAY
+      "RestartView.gui.serverRestart.lore.desc2", "Replace the JAR and restart the server manually", Colors.GRAY
    );
    private static final Phrase SERVER_RESTART_LORE_DESC3 = Phrase.create(
-      "RestartView.gui.serverRestart.lore.desc3", "(All other Servers in your Network", Colors.GRAY
+      "RestartView.gui.serverRestart.lore.desc3", "(No files or servers are changed automatically)", Colors.GRAY
    );
    private static final Phrase SERVER_RESTART_LORE_DESC4 = Phrase.create(
-      "RestartView.gui.serverRestart.lore.desc4", "will **not** be affected)", Colors.GRAY, Colors.RED
+      "RestartView.gui.serverRestart.lore.desc4", "Your other servers are not affected", Colors.GRAY, Colors.RED
    );
-   private static final Phrase SERVER_RESTART = Phrase.create("RestartView.gui.serverRestart", "Restarting Server...", Colors.GRAY);
+   private static final Phrase SERVER_RESTART = Phrase.create("RestartView.gui.serverRestart", "Manual installation is required", Colors.GRAY);
    private static final Phrase RESTART_SERVER_CONFIGURATION2 = Phrase.create(
       "RestartView.gui.restartServerConfiguration2", "or start up your server **manually** again to update the plugin", Colors.GRAY, Colors.WHITE
    );
@@ -40,17 +41,17 @@ public class RestartView extends GUI {
       Colors.GRAY,
       Colors.GOLD
    );
-   private static final Phrase NETWORK_RESTART_TITLE = Phrase.create("RestartView.gui.networkRestart.title", "Network Restart");
+   private static final Phrase NETWORK_RESTART_TITLE = Phrase.create("RestartView.gui.networkRestart.title", "Manual Network Update");
    private static final Phrase NETWORK_RESTART_LORE_CLICK = Phrase.create(
-      "RestartView.gui.networkRestart.lore.click", "**Click** to restart **all** servers", Colors.GRAY, Colors.AQUA, Colors.GREEN
+      "RestartView.gui.networkRestart.lore.click", "**Click** for manual network update instructions", Colors.GRAY, Colors.AQUA, Colors.GREEN
    );
    private static final Phrase NETWORK_RESTART_LORE_DESC1 = Phrase.create(
-      "RestartView.gui.networkRestart.lore.desc1", "When choosing **Network Restart** all servers will", Colors.GRAY, Colors.GOLD
+      "RestartView.gui.networkRestart.lore.desc1", "Replace each server's plugin JAR manually", Colors.GRAY, Colors.GOLD
    );
    private static final Phrase NETWORK_RESTART_LORE_DESC2 = Phrase.create(
-      "RestartView.gui.networkRestart.lore.desc2", "restart right now to finish updating", Colors.GRAY
+      "RestartView.gui.networkRestart.lore.desc2", "Replace the JAR and restart the server manually", Colors.GRAY
    );
-   private static final Phrase RESTART_NETWORK = Phrase.create("RestartView.gui.restartNetwork", "Restarting Network...", Colors.GRAY);
+   private static final Phrase RESTART_NETWORK = Phrase.create("RestartView.gui.restartNetwork", "Manual network installation is required", Colors.GRAY);
    private static final Phrase RESTART_NETWORK_CONFIGURATION1 = Phrase.create(
       "RestartView.gui.restartNetworkConfiguration1",
       "If your Network don't start up automatically, check your **servers restart configuration** (e.g Spigot.yml)",
@@ -65,18 +66,18 @@ public class RestartView extends GUI {
       Colors.GOLD,
       Colors.GOLD
    );
-   private static final Phrase RESTART_LATER_TITLE = Phrase.create("RestartView.gui.restartLater.title", "Restart Later");
+   private static final Phrase RESTART_LATER_TITLE = Phrase.create("RestartView.gui.restartLater.title", "Close Guide");
    private static final Phrase RESTART_LATER_LORE_CLICK = Phrase.create(
-      "RestartView.gui.restartLater.lore.click", "**Click** to restart later", Colors.GRAY, Colors.AQUA
+      "RestartView.gui.restartLater.lore.click", "**Click** to close this guide", Colors.GRAY, Colors.AQUA
    );
    private static final Phrase RESTART_LATER_LORE_DESC1 = Phrase.create(
-      "RestartView.gui.restartLater.lore.desc1", "When choosing **Restart Later** you will have to", Colors.GRAY, Colors.GOLD
+      "RestartView.gui.restartLater.lore.desc1", "You can install the updated JAR", Colors.GRAY, Colors.GOLD
    );
    private static final Phrase RESTART_LATER_LORE_DESC2 = Phrase.create(
-      "RestartView.gui.restartLater.lore.desc2", "restart the server manually to finish updating", Colors.GRAY
+      "RestartView.gui.restartLater.lore.desc2", "and restart the server whenever you are ready", Colors.GRAY
    );
    private static final Phrase RESTART_LATER_GUI_CLOSE_MESSAGE = Phrase.create(
-      "RestartView.gui.restartLater.guiCloseMessage", "You can restart the server **manually** to finish updating", Colors.GRAY, Colors.GOLD
+      "RestartView.gui.restartLater.guiCloseMessage", "No changes were made. Install the JAR and restart **manually**", Colors.GRAY, Colors.GOLD
    );
 
    public RestartView(Player var1, SpigotTechPlugin var2) {
@@ -107,10 +108,7 @@ public class RestartView extends GUI {
          );
       var1.action(var1x -> {
          this.p.closeInventory();
-         this.p.sendMessage(this.plugin.getPrefix() + SERVER_RESTART.get());
-         this.p.sendMessage(this.plugin.getPrefix() + RESTART_SERVER_CONFIGURATION1.get());
-         this.p.sendMessage(this.plugin.getPrefix() + RESTART_SERVER_CONFIGURATION2.get());
-         this.plugin.getScheduler().runTaskLater(() -> Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), "restart"), 60L);
+         Updater.sendManualInstallInstructions(this.plugin, this.p, UpdateServer.RELEASES_URL);
       });
    }
 
@@ -120,10 +118,7 @@ public class RestartView extends GUI {
          .lore(NETWORK_RESTART_LORE_CLICK.get(), "", NETWORK_RESTART_LORE_DESC1.get(), NETWORK_RESTART_LORE_DESC2.get(), this.plugin.getPrefix());
       var1.action(var1x -> {
          this.p.closeInventory();
-         this.p.sendMessage(this.plugin.getPrefix() + RESTART_NETWORK.get());
-         this.p.sendMessage(this.plugin.getPrefix() + RESTART_NETWORK_CONFIGURATION1.get());
-         this.p.sendMessage(this.plugin.getPrefix() + RESTART_NETWORK_CONFIGURATION2.get());
-         this.plugin.getScheduler().runTaskLater(() -> this.plugin.getUpdateAgent().sendRestartRequestToBungee(), 60L);
+         Updater.sendManualInstallInstructions(this.plugin, this.p, UpdateServer.RELEASES_URL);
       });
    }
 

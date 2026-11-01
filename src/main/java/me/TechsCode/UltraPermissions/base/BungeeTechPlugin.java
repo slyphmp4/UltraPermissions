@@ -40,6 +40,9 @@ public abstract class BungeeTechPlugin extends TechPlugin<Plugin> {
 
    @Override
    protected void onPlatformDisable() {
+      if (this.getBootstrap() != null) {
+         ProxyServer.getInstance().getScheduler().cancel(this.getBootstrap());
+      }
    }
 
    @Override

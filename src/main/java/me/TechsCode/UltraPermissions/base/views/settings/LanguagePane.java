@@ -1,7 +1,6 @@
 package me.TechsCode.UltraPermissions.base.views.settings;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -55,9 +54,18 @@ public class LanguagePane extends SettingsPane {
    public void construct(Model var1) {
       int[] var2 = this.getInnerContainerSlots();
       TranslationManager var3 = this.plugin.getTranslationManager();
-      List var4 = var3.getAvailableLanguages().stream().filter(var1x -> !var3.getPhrases(var1x).isEmpty()).collect(Collectors.toList());
-      Map var5 = var3.getAvailableLanguages().stream().collect(Collectors.toMap(var0 -> (String)var0, var1x -> var3.getPhrases(var1x).size()));
-      int var6 = Collections.<Integer>max(var5.values());
+      Map<String, Integer> var5 = var3.getAvailableLanguages().stream().collect(Collectors.toMap(
+         language -> language,
+         language -> {
+            Map<String, String> phrases = var3.getPhrases(language);
+            return phrases == null ? 0 : phrases.size();
+         }
+      ));
+      List<String> var4 = var5.entrySet().stream()
+         .filter(entry -> entry.getValue() > 0)
+         .map(Map.Entry::getKey)
+         .collect(Collectors.toList());
+      int var6 = var5.values().stream().mapToInt(Integer::intValue).max().orElse(1);
       int var7 = Math.min(var4.size(), this.page * 14);
       int var8 = Math.min(var4.size(), var7 + 14);
       Iterator var9 = new ArrayList(var4).subList(var7, var8).iterator();

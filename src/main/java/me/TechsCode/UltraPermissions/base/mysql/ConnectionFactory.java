@@ -3,10 +3,19 @@ package me.TechsCode.UltraPermissions.base.mysql;
 import java.sql.Connection;
 import java.sql.SQLException;
 import me.TechsCode.UltraPermissions.base.debug.Debugger;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
 import me.TechsCode.UltraPermissions.dependencies.hikari.HikariConfig;
 import me.TechsCode.UltraPermissions.dependencies.hikari.HikariDataSource;
 
 public class ConnectionFactory {
+   private static final Phrase INITIALIZATION_FAILED = Phrase.create(
+      "mysql.connection.error.initialization",
+      "MySQL initialization failed: %reason%. Remote databases require ssl=true, a trusted certificate and a driver supporting VERIFY_IDENTITY."
+   );
+   private static final Phrase NO_CONNECTION = Phrase.create("mysql.connection.error.missing", "No MySQL connection");
+   private static final Phrase CONNECTION_TIMEOUT = Phrase.create("mysql.connection.error.timeout", "MySQL connection timed out");
+   private static final Phrase CONNECTION_FAILED = Phrase.create("mysql.connection.error.failed", "MySQL connection failed");
+   private static final Phrase CONNECTION_VALID = Phrase.create("mysql.connection.success", "Connection is valid");
    private HikariDataSource dataSource;
    private String error;
 
@@ -31,8 +40,7 @@ public class ConnectionFactory {
          config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
          this.dataSource = new HikariDataSource(config);
       } catch (Exception failure) {
-         this.error = "MySQL initialization failed: " + failure.getClass().getSimpleName()
-            + ". Remote databases require ssl=true, a trusted certificate and a driver supporting VERIFY_IDENTITY.";
+         this.error = INITIALIZATION_FAILED.get().replace("%reason%", failure.getClass().getSimpleName());
          Debugger.debug("MySQL", this.error);
       }
 
@@ -50,11 +58,11 @@ public class ConnectionFactory {
 
       long started = System.currentTimeMillis();
       try (Connection connection = this.newConnection()) {
-         if (connection == null) return new ConnectionTestResult(false, "No MySQL connection");
-         if (System.currentTimeMillis() - started > 5000L) return new ConnectionTestResult(false, "MySQL connection timed out");
-         return new ConnectionTestResult(true, "Connection is valid");
+         if (connection == null) return new ConnectionTestResult(false, NO_CONNECTION.get());
+         if (System.currentTimeMillis() - started > 5000L) return new ConnectionTestResult(false, CONNECTION_TIMEOUT.get());
+         return new ConnectionTestResult(true, CONNECTION_VALID.get());
       } catch (SQLException failure) {
-         return new ConnectionTestResult(false, "MySQL connection failed");
+         return new ConnectionTestResult(false, CONNECTION_FAILED.get());
       }
    }
 

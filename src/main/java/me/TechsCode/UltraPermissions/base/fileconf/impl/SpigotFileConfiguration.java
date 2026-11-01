@@ -2,8 +2,11 @@ package me.TechsCode.UltraPermissions.base.fileconf.impl;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Set;
+import me.TechsCode.UltraPermissions.base.fileconf.AtomicFileSave;
 import me.TechsCode.UltraPermissions.base.fileconf.Configuration;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 public class SpigotFileConfiguration implements Configuration {
@@ -13,7 +16,14 @@ public class SpigotFileConfiguration implements Configuration {
    public SpigotFileConfiguration(File var1) {
       super();
       this.file = var1;
-      this.cfg = YamlConfiguration.loadConfiguration(var1);
+      this.cfg = new YamlConfiguration();
+      if (var1.exists()) {
+         try {
+            this.cfg.load(var1);
+         } catch (IOException | InvalidConfigurationException failure) {
+            throw new IllegalStateException("Invalid configuration " + var1 + "; refusing to overwrite existing data", failure);
+         }
+      }
    }
 
    @Override
@@ -54,9 +64,9 @@ public class SpigotFileConfiguration implements Configuration {
    @Override
    public void save() {
       try {
-         this.cfg.save(this.file);
-      } catch (IOException var2) {
-         var2.printStackTrace();
+         AtomicFileSave.save(this.file, this.cfg::save);
+      } catch (IOException failure) {
+         throw new UncheckedIOException("Could not save configuration " + this.file, failure);
       }
    }
 }

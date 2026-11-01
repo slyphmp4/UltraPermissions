@@ -14,14 +14,18 @@ public class Loader {
          try {
             this.techPlugin = (TechPlugin<?>)((Class)var4.get()).getDeclaredConstructors()[0].newInstance(var1);
          } catch (InstantiationException | IllegalAccessException | InvocationTargetException var6) {
-            var6.printStackTrace();
+            throw new IllegalStateException("Could not initialize plugin implementation", var6);
          }
+      } else {
+         throw new IllegalStateException("No plugin implementation found for " + var2.getName());
       }
    }
 
    public void unload() {
-      if (this.techPlugin != null) {
-         this.techPlugin.disable();
+      TechPlugin<?> plugin = this.techPlugin;
+      this.techPlugin = null;
+      if (plugin != null) {
+         plugin.disable();
       }
    }
 }

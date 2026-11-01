@@ -1,36 +1,23 @@
 package me.TechsCode.UltraPermissions.base.networking;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.base.SpigotTechPlugin;
 
 public class SpigotNetworkManager {
    private SpigotTechPlugin plugin;
-   private NetworkData networkData;
-   private String ownIpAddress;
+   private volatile NetworkData networkData;
+   private volatile String ownIpAddress;
 
    public SpigotNetworkManager(SpigotTechPlugin var1) {
       super();
       this.plugin = var1;
-      this.ownIpAddress = this.retrieveOwnIpAddress();
+      var1.getScheduler().runAsync(() -> this.ownIpAddress = PublicIpResolver.resolve());
       var1.getMessagingService().register(var1x -> {
          if (var1x.getKey().equals("networking")) {
             this.networkData = NetworkData.fromJsonObject(var1x.getData());
          }
       });
-   }
-
-   private String retrieveOwnIpAddress() {
-      try {
-         return new BufferedReader(new InputStreamReader(new URL("http://checkip.amazonaws.com").openStream())).readLine();
-      } catch (IOException var2) {
-         var2.printStackTrace();
-         return null;
-      }
    }
 
    public Optional<NetworkData> getData() {

@@ -84,10 +84,12 @@ public class PlaceholderAPIHook {
                               new DefinedPermissionCheck() {
                                  @Override
                                  public List<Permission> getDefinedPermissions() {
-                                    Optional var1xx = PlaceholderAPIHook.this.user(var1x.getName());
-                                    return var1xx.isPresent()
-                                       ? PlaceholderAPIHook.this.permissionProvider
-                                          .retrieve(((User)var1xx.get()).getUuid(), var1x.getPlayer().getLocation().getWorld().getName())
+                                    // PlaceholderAPI can request offline players; getPlayer() is nullable.
+                                    Optional<String> world = PlaceholderAPIHook.onlineWorld(var1x);
+                                    if (!world.isPresent()) return Collections.emptyList();
+                                    Optional<User> stored = var1.getUsers().uuid(var1x.getUniqueId());
+                                    return stored.isPresent()
+                                       ? PlaceholderAPIHook.this.permissionProvider.retrieve(stored.get().getUuid(), world.get())
                                        : Collections.emptyList();
                                  }
                               }
@@ -198,6 +200,14 @@ public class PlaceholderAPIHook {
             }
          })
          .register();
+   }
+
+   /** World-scoped permissions cannot be inferred for an offline player. */
+   public static Optional<String> onlineWorld(OfflinePlayer player) {
+      if (player == null) return Optional.empty();
+      org.bukkit.entity.Player online = player.getPlayer();
+      return online == null || online.getWorld() == null
+         ? Optional.empty() : Optional.of(online.getWorld().getName());
    }
 
    public String replace(OfflinePlayer var1, String var2) {

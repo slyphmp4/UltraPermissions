@@ -1,10 +1,14 @@
 package me.TechsCode.UltraPermissions.base.update.responses;
 
+import me.TechsCode.UltraPermissions.base.update.UpdateServer.ReleaseAsset;
+
 public class IsUpToDateResponse {
    private int statusCode;
    private boolean isUpToDate;
    private String latestVersion;
    private String message;
+   private String releaseUrl;
+   private ReleaseAsset releaseAsset;
 
    public IsUpToDateResponse(int var1, boolean var2, String var3, String var4) {
       super();
@@ -12,6 +16,16 @@ public class IsUpToDateResponse {
       this.isUpToDate = var2;
       this.latestVersion = var3;
       this.message = var4;
+   }
+
+   public IsUpToDateResponse(int code, boolean upToDate, String version, String message, String releaseUrl) {
+      this(code, upToDate, version, message);
+      this.releaseUrl = releaseUrl;
+   }
+
+   public IsUpToDateResponse(int code, boolean upToDate, String version, String message, String releaseUrl, ReleaseAsset asset) {
+      this(code, upToDate, version, message, releaseUrl);
+      this.releaseAsset = asset;
    }
 
    public IsUpToDateResponse(int var1) {
@@ -29,6 +43,14 @@ public class IsUpToDateResponse {
 
    public String getLatestVersion() {
       return this.latestVersion;
+   }
+
+   public ReleaseAsset getReleaseAsset() {
+      return this.releaseAsset;
+   }
+
+   public String getReleaseUrl() {
+      return this.releaseUrl;
    }
 
    public String getMessage() {

@@ -30,6 +30,7 @@ public abstract class TechPlugin<BOOTSTRAP> {
    private TranslationManager translationManager;
    private DebugRegistery debugRegistery;
    private List<Runnable> disableHooks;
+   private boolean disabled;
    public static boolean isDebugging;
    private static TechPlugin instance;
 
@@ -92,23 +93,43 @@ public abstract class TechPlugin<BOOTSTRAP> {
             );
          }
 
-         this.onInitialization();
-         boolean var6 = this.onGlobalEnable();
-         if (!var6) {
-            this.disablePlugin();
-         } else {
-            this.onPlatformEnable();
-            this.onEnable();
-            long var7 = System.currentTimeMillis() - var2;
-            this.log("Successfully loaded in " + var7 + " ms");
+         try {
+            this.onInitialization();
+            boolean var6 = this.onGlobalEnable();
+            if (!var6) {
+               this.disablePlugin();
+            } else {
+               this.onPlatformEnable();
+               this.onEnable();
+               long var7 = System.currentTimeMillis() - var2;
+               this.log("Successfully loaded in " + var7 + " ms");
+            }
+         } catch (RuntimeException | Error failure) {
+            try {
+               this.disable();
+            } catch (RuntimeException | Error cleanupFailure) {
+               failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
          }
       }
    }
 
    public void disable() {
-      this.onDisable();
-      this.onPlatformDisable();
-      this.onGlobalDisable();
+      if (this.disabled) {
+         return;
+      }
+
+      this.disabled = true;
+      try {
+         this.onDisable();
+      } finally {
+         try {
+            this.onPlatformDisable();
+         } finally {
+            this.onGlobalDisable();
+         }
+      }
    }
 
    private boolean onGlobalEnable() {
@@ -122,7 +143,27 @@ public abstract class TechPlugin<BOOTSTRAP> {
    }
 
    private void onGlobalDisable() {
-      this.disableHooks.forEach(Runnable::run);
+      try {
+         if (this.disableHooks != null) {
+            for (Runnable hook : this.disableHooks) {
+               try {
+                  hook.run();
+               } catch (RuntimeException exception) {
+                  this.log("Disable hook failed: " + exception.getMessage());
+               }
+            }
+         }
+      } finally {
+         try {
+            if (this.mySQLManager != null) {
+               this.mySQLManager.close();
+            }
+         } finally {
+            if (instance == this) {
+               instance = null;
+            }
+         }
+      }
    }
 
    protected abstract void onEnable();
@@ -192,6 +233,9 @@ public abstract class TechPlugin<BOOTSTRAP> {
    }
 
    public void addDisableHook(Runnable var1) {
+      if (this.disableHooks == null) {
+         this.disableHooks = new ArrayList<>();
+      }
       this.disableHooks.add(var1);
    }
 

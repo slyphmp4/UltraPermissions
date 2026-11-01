@@ -1,9 +1,10 @@
 package me.TechsCode.UltraPermissions.permissionlogger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Objects;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -12,59 +13,49 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
+/** Bounded, latest-per-player permission log; writes are O(1) in the hot permission path. */
 public class PermissionLogger implements Listener {
-   private ArrayList<LoggedPermission> list = new ArrayList<>();
+   private static final int MAX_ENTRIES = 500;
+   private final LinkedHashMap<LogKey, LoggedPermission> entries = new LinkedHashMap<>();
 
-   public PermissionLogger(UltraPermissions var1) {
-      super();
-      Bukkit.getPluginManager().registerEvents(this, (Plugin)var1.getBootstrap());
+   private record LogKey(UUID player, String permission) {}
+
+   public PermissionLogger(UltraPermissions plugin) {
+      Bukkit.getPluginManager().registerEvents(this, (Plugin)plugin.getBootstrap());
    }
 
-   public void log(Player var1, String var2, boolean var3, String var4) {
-      LoggedPermission var5 = new LoggedPermission(var1, var2, var3, System.currentTimeMillis(), var4);
-
-      try {
-         new ArrayList<>(this.list).stream().filter(var0 -> var0 != null).forEach(var2x -> {
-            if (var2x.getPermission().equals(var5.getPermission()) && var2x.getPlayer().equals(var5.getPlayer())) {
-               this.list.remove(var2x);
-            }
-         });
-         if (this.list.size() > 500) {
-            this.list.remove(0);
-         }
-
-         this.list.add(var5);
-      } catch (Exception var7) {
+   public synchronized void log(Player player, String permission, boolean granted, String source) {
+      if (player == null || permission == null) return;
+      LogKey key = new LogKey(player.getUniqueId(), permission);
+      // A repeated check replaces the previous entry and becomes the most recent.
+      entries.remove(key);
+      entries.put(key, new LoggedPermission(player, permission, granted, System.currentTimeMillis(), source));
+      if (entries.size() > MAX_ENTRIES) {
+         Iterator<LogKey> oldest = entries.keySet().iterator();
+         oldest.next();
+         oldest.remove();
       }
    }
 
-   public LoggedPermission[] getLoggedPermissions() {
-      return Arrays.stream(this.list.toArray(new LoggedPermission[this.list.size()]))
-         .filter(Objects::nonNull)
-         .sorted(Comparator.comparing(LoggedPermission::getTime, Comparator.reverseOrder()).thenComparing(LoggedPermission::getPermission))
+   public synchronized LoggedPermission[] getLoggedPermissions() {
+      return entries.values().stream()
+         .sorted(Comparator.comparing(LoggedPermission::getTime, Comparator.reverseOrder())
+            .thenComparing(LoggedPermission::getPermission))
          .toArray(LoggedPermission[]::new);
    }
 
    @EventHandler
-   public void clear(PlayerQuitEvent var1) {
-      try {
-         for (LoggedPermission var3 : new ArrayList<>(this.list)) {
-            if (var3 != null && var3.getPlayer() != null && var3.getPlayer().equals(var1.getPlayer())) {
-               this.list.remove(var3);
-            }
-         }
-      } catch (Exception var4) {
-      }
+   public void clear(PlayerQuitEvent event) {
+      if (event != null && event.getPlayer() != null) clearPlayer(event.getPlayer().getUniqueId());
    }
 
-   public void clearManually(Player var1, String var2) {
-      try {
-         for (LoggedPermission var4 : new ArrayList<>(this.list)) {
-            if (var4 != null && var4.getPlayer() != null && var4.getPermission().contains(var2) && var4.getPlayer().equals(var1.getPlayer())) {
-               this.list.remove(var4);
-            }
-         }
-      } catch (Exception var5) {
-      }
+   public synchronized void clearPlayer(UUID playerId) {
+      if (playerId != null) entries.keySet().removeIf(key -> key.player().equals(playerId));
+   }
+
+   public synchronized void clearManually(Player player, String search) {
+      if (player == null || search == null) return;
+      UUID id = player.getUniqueId();
+      entries.keySet().removeIf(key -> key.player().equals(id) && key.permission().contains(search));
    }
 }

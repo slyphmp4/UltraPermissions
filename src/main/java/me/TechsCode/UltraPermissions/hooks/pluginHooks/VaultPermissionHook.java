@@ -147,27 +147,38 @@ public class VaultPermissionHook extends Permission {
       return this.playerRemove(var1.getWorld().getName(), var1.getName(), var2);
    }
 
-   public boolean groupHas(String var1, String var2, String var3) {
-      Preconditions.checkArgument(var2 != null, "Group Name has to be defined");
-      final Optional var4 = this.group(var1, var2);
-      PermissionLookup var5 = new PermissionLookup(var3) {
+   public boolean groupHas(String world, String groupName, String permission) {
+      Preconditions.checkArgument(groupName != null, "Group Name has to be defined");
+      if (permission == null) {
+         return false;
+      }
+
+      Optional<Group> group = this.group(world, groupName);
+      if (group.isEmpty()) {
+         return false;
+      }
+
+      PermissionLookup lookup = new PermissionLookup(permission) {
          @Override
          public LookupCheck[] getChecks() {
-            return new LookupCheck[]{var4.isPresent() ? new DefinedPermissionCheck() {
+            return new LookupCheck[]{new DefinedPermissionCheck() {
                @Override
                public List<me.TechsCode.UltraPermissions.storage.objects.Permission> getDefinedPermissions() {
-                  PermissionList var1x = ((Group)var4.get()).getPermissions();
-                  var1x.addAll(((Group)var4.get()).getInheritedPermissions());
-                  return var1x;
+                  // These are fresh lists; do not change the group's stored permissions.
+                  PermissionList defined = group.get().getPermissions();
+                  defined.addAll(group.get().getInheritedPermissions());
+                  return defined
+                     .servers(true, VaultPermissionHook.this.plugin.getThisServer().map(NServer::getName).orElse(null))
+                     .worlds(true, world);
                }
-            } : new BlankCheck()};
+            }};
          }
       };
-      return var5.getOutcome() == null ? false : var5.getOutcome().getResult();
+      return lookup.perform().getResult();
    }
 
-   public boolean groupHas(World var1, String var2, String var3) {
-      return this.groupHas(var1.getName(), var2, var3);
+   public boolean groupHas(World world, String groupName, String permission) {
+      return this.groupHas(world == null ? null : world.getName(), groupName, permission);
    }
 
    public boolean groupAdd(String var1, String var2, String var3) {

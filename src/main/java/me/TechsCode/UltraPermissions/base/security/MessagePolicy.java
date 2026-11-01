@@ -11,8 +11,18 @@ public final class MessagePolicy {
         return key != null && (key.equals("*") || key.matches("[A-Za-z0-9_.:-]{1,64}"));
     }
 
+    // Storage.getModelName() uses Class.getName(), not the SQL table alias (e.g. "Users").
+    // Keep a closed allowlist: authenticated peers may refresh only known permission stores.
+    private static final java.util.Set<String> SYNC_MODELS = java.util.Set.of(
+        "me.TechsCode.UltraPermissions.storage.objects.User",
+        "me.TechsCode.UltraPermissions.storage.objects.Group",
+        "me.TechsCode.UltraPermissions.storage.objects.Permission",
+        "me.TechsCode.UltraPermissions.storage.objects.GroupPath",
+        "me.TechsCode.UltraPermissions.base.registry.RegistryStorageEntry"
+    );
+
     public static boolean model(String model) {
-        return model != null && model.matches("[A-Za-z][A-Za-z0-9_]{0,47}");
+        return model != null && SYNC_MODELS.contains(model);
     }
 
     public static boolean allowed(Message message, String direction) {
@@ -31,7 +41,7 @@ public final class MessagePolicy {
             for (var serverElement : data.getAsJsonArray("serverList")) {
                 JsonObject server = serverElement.getAsJsonObject();
                 if (server.size() != 4 || !server.get("name").getAsString().matches("[A-Za-z0-9_.-]{1,64}")
-                        || server.get("ip").getAsString().length() > 253 || server.get("port").getAsInt() < 1
+                        || !server.get("ip").getAsString().matches("[A-Za-z0-9._:%-]{1,253}") || server.get("port").getAsInt() < 1
                         || server.get("port").getAsInt() > 65535 || server.getAsJsonArray("players").size() > 4096) return false;
                 for (var playerElement : server.getAsJsonArray("players")) {
                     JsonObject player = playerElement.getAsJsonObject();

@@ -37,10 +37,40 @@ public abstract class PermissionLogViewer extends PageableGUI<LoggedPermission> 
    private static final Phrase SOURCE_ATTRIBUTE = Phrase.create(
       "permissionLogViewer.item.sourceAttribute", "Allowed by **%source%**", Colors.GRAY, Colors.YELLOW
    );
+   private static final Phrase SOURCE_OPERATOR = Phrase.create(
+      "permissionLogViewer.source.operator", "Operator Rights"
+   );
+   private static final Phrase SOURCE_DEFAULT = Phrase.create(
+      "permissionLogViewer.source.default", "Default Permission"
+   );
+   private static final Phrase SOURCE_ATTACHMENT = Phrase.create(
+      "permissionLogViewer.source.attachment", "Permission Attachment"
+   );
+   private static final Phrase SOURCE_DEFINED = Phrase.create(
+      "permissionLogViewer.source.defined", "Permission '%permission%'"
+   );
+   private static final Phrase SOURCE_UNKNOWN = Phrase.create(
+      "permissionLogViewer.source.unknown", "Unknown source"
+   );
    private static final Phrase FILTER_TOGGLE_BUTTON = Phrase.create(
       "permissionLogViewer.filter.toggle", "**Left Click** to toggle Plugins", Colors.GRAY, Colors.AQUA
    );
    private static final Phrase FILTER_TOGGLE_LORE = Phrase.create("permissionLogViewer.filter.lore", "Toggled Plugins:", Colors.GRAY);
+   public static String localizedSource(String source) {
+      if (source == null || source.isBlank()) {
+         return SOURCE_UNKNOWN.get();
+      }
+
+      return switch (source) {
+         case "Operator Rights" -> SOURCE_OPERATOR.get();
+         case "Default Permission" -> SOURCE_DEFAULT.get();
+         case "Allowed by Permission Attachment" -> SOURCE_ATTACHMENT.get();
+         default -> source.startsWith("Through Permission '") && source.endsWith("'")
+            ? SOURCE_DEFINED.get().replace("%permission%", source.substring("Through Permission '".length(), source.length() - 1))
+            : source;
+      };
+   }
+
    private final Player p;
    private final UltraPermissions plugin;
 
@@ -60,7 +90,7 @@ public abstract class PermissionLogViewer extends PageableGUI<LoggedPermission> 
          .name(Animation.wave(var2.getPermission(), var2.getOutcome() ? Colors.GREEN : Colors.RED, Colors.WHITE))
          .lore(ITEM_ACTION.get(), "", (var2.getOutcome() ? RESULT_RESULT_ATTRIBUTE_PASSED : RESULT_RESULT_ATTRIBUTE_FAILED).get());
       if (var2.getOutcome()) {
-         var1.item().appendLore("", SOURCE_ATTRIBUTE.get().replace("%source%", var2.getSource()));
+         var1.item().appendLore("", SOURCE_ATTRIBUTE.get().replace("%source%", localizedSource(var2.getSource())));
       }
 
       PermissionInfo var3 = this.plugin.getPermissionDatabase().getInfo(var2.getPermission());

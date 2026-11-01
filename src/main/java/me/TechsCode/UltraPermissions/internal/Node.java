@@ -19,7 +19,7 @@ public class Node {
       StringBuilder var2 = new StringBuilder();
 
       for (String var6 : this.permission.split("\\.")) {
-         if (!var2.toString().equals("")) {
+         if (var2.length() != 0) {
             var2.append(".");
          }
 

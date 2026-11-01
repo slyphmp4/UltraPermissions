@@ -1,7 +1,7 @@
 plugins { id 'java'; id 'idea' }
 
 group = 'me.TechsCode'
-version = '5.6.11'
+version = '5.6.12'
 
 repositories { maven { url = uri('libs/repository') } }
 java {
@@ -13,6 +13,53 @@ dependencies {
     runtimeOnly 'me.techscode.ultrapermissions:runtime-libraries:5.6.8'
     compileOnly fileTree(dir: 'libs/compile-only', include: '*.jar')
 }
+// Verify every checked-in library before javac loads it; CI also checks the Wrapper before execution.
+tasks.register('verifyBuildInputs') {
+    group = 'verification'
+    description = 'Reject missing, altered, extra or unpinned vendored JARs before compilation.'
+    inputs.file('config/dependencies.sha256')
+    inputs.files(fileTree('libs') { include '**/*.jar' })
+    doLast {
+        Map<String, String> expected = [:]
+        File vendorRoot = file('libs').canonicalFile
+        file('config/dependencies.sha256').eachLine('UTF-8') { line ->
+            if (!line.isBlank()) {
+                def match = line =~ /^([0-9a-f]{64})  (libs\/[A-Za-z0-9_.\/-]+\.jar)$/
+                if (!match.matches()) {
+                    throw new GradleException("Invalid vendored dependency checksum entry: " + line)
+                }
+                String relative = match.group(2)
+                File dependency = file(relative).canonicalFile
+                if (!dependency.toPath().startsWith(vendorRoot.toPath()) || !dependency.isFile()) {
+                    throw new GradleException("Missing or unsafe dependency path: " + relative)
+                }
+                if (expected.put(relative, match.group(1)) != null) {
+                    throw new GradleException("Duplicate vendored dependency: " + relative)
+                }
+                def checksum = java.security.MessageDigest.getInstance('SHA-256')
+                dependency.withInputStream { input ->
+                    byte[] buffer = new byte[65536]
+                    int count
+                    while ((count = input.read(buffer)) != -1) {
+                        checksum.update(buffer, 0, count)
+                    }
+                }
+                if (checksum.digest().encodeHex().toString() != expected[relative]) {
+                    throw new GradleException("Vendored dependency checksum mismatch: " + relative)
+                }
+            }
+        }
+        Set<String> found = fileTree('libs') { include '**/*.jar' }.files.collect {
+            projectDir.toPath().relativize(it.toPath()).toString().replace('\\', '/')
+        } as Set
+        if (found != expected.keySet()) {
+            throw new GradleException("Vendored JAR inventory differs from config/dependencies.sha256: "
+                + "unlisted=" + (found - expected.keySet()) + ", missing=" + (expected.keySet() - found))
+        }
+        logger.lifecycle("Verified {} pinned vendored JARs before compilation.", expected.size())
+    }
+}
+tasks.named('compileJava') { dependsOn tasks.named('verifyBuildInputs') }
 sourceSets {
     verification { java.srcDir 'src/verification/java' }
     securityTest {
@@ -29,6 +76,13 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17
     options.compilerArgs += ['-proc:none']
+}
+// javac can synthesize different generic bridge methods if inherited types are
+// compiled in a different filesystem traversal order on Linux versus Windows.
+tasks.named('compileJava', JavaCompile) {
+    source = files(sourceSets.main.allJava.files.sort { a, b ->
+        a.path.replace('\\', '/') <=> b.path.replace('\\', '/')
+    })
 }
 tasks.withType(AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false

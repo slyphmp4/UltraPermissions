@@ -92,18 +92,21 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
          }
       };
       LookupOutcome var3 = var2.perform();
-      if (!this.plugin.getToggledPluginsRegistry().isEmpty()) {
-         for (String var5 : this.plugin.getToggledPluginsRegistry()) {
-            if (!var1.contains(var5)) {
-               this.permissionLogger.log(this.p, var1, var3.getResult(), var3.getSource());
+      // Keep the existing plugin-filter decision, but record each check at most once.
+      // This path runs for every hasPermission() invocation.
+      boolean shouldLog = this.plugin.getToggledPluginsRegistry().isEmpty();
+      if (!shouldLog) {
+         for (String excluded : this.plugin.getToggledPluginsRegistry()) {
+            if (!var1.contains(excluded)) {
+               shouldLog = true;
+               break;
             }
          }
-
-         return var3.getResult();
-      } else {
-         this.permissionLogger.log(this.p, var1, var3.getResult(), var3.getSource());
-         return var3.getResult();
       }
+      if (shouldLog) {
+         this.permissionLogger.log(this.p, var1, var3.getResult(), var3.getSource());
+      }
+      return var3.getResult();
    }
 
    public PermissionAttachment addAttachment(Plugin var1) {

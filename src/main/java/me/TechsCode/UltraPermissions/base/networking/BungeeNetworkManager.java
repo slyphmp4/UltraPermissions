@@ -1,11 +1,7 @@
 package me.TechsCode.UltraPermissions.base.networking;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -19,22 +15,13 @@ import net.md_5.bungee.api.config.ServerInfo;
 public class BungeeNetworkManager {
    private static List<String> LOCALHOST_IPS = Arrays.asList("localhost", "127.0.0.1", "0.0.0.0", "172.17.0.1", "172.18.0.1");
    private BungeeTechPlugin plugin;
-   private String ownIpAddress;
+   private volatile String ownIpAddress;
 
    public BungeeNetworkManager(BungeeTechPlugin var1) {
       super();
       this.plugin = var1;
-      this.ownIpAddress = this.retrieveOwnIpAddress();
+      var1.getScheduler().runAsync(() -> this.ownIpAddress = PublicIpResolver.resolve());
       var1.getScheduler().runTaskTimer(this::SendServerListInfoTask, 10L, 100L);
-   }
-
-   private String retrieveOwnIpAddress() {
-      try {
-         return new BufferedReader(new InputStreamReader(new URL("http://checkip.amazonaws.com").openStream())).readLine();
-      } catch (IOException var2) {
-         var2.printStackTrace();
-         return null;
-      }
    }
 
    private void SendServerListInfoTask() {
@@ -63,7 +50,7 @@ public class BungeeNetworkManager {
                }
 
                String var5 = var4.getHostAddress();
-               if (LOCALHOST_IPS.contains(var5) || var5.startsWith("192.168")) {
+               if ((LOCALHOST_IPS.contains(var5) || var5.startsWith("192.168")) && this.ownIpAddress != null) {
                   var5 = this.ownIpAddress;
                }
 
