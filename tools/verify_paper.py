@@ -87,8 +87,8 @@ def main():
             output_name = "performance-verification.json" if args.performance else f"boot-{boot}-verification.json"
             (reports / output_name).write_text(json.dumps(result, indent=2) + "\n", encoding="utf8")
             if args.performance:
-                if (result.get("status") != "passed" or result.get("synthetic_profiles") != 128
-                        or result.get("measured_permission_checks", 0) < 112000
+                if (result.get("status") != "passed" or result.get("synthetic_profiles") != 512
+                        or result.get("measured_permission_checks", 0) < 400000
                         or result.get("connected_players") != 0
                         or result.get("server") != "26.2.build.135-stable"):
                     raise RuntimeError(f"Paper performance test failed: {result}")
