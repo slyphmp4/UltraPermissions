@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import me.TechsCode.UltraPermissions.UltraPermissions;
@@ -20,7 +20,7 @@ import org.bukkit.entity.Player;
 
 public class Updater {
    private static final Map<UUID, String> notifiedVersions = new ConcurrentHashMap<>();
-   private static final AtomicBoolean checking = new AtomicBoolean();
+   private static final AtomicReference<Object> checking = new AtomicReference<>();
    private static final AtomicLong generation = new AtomicLong();
    private static volatile long lastStarted;
    private static volatile Status lastStatus;
@@ -78,7 +78,8 @@ public class Updater {
       if (!plugin.getAppearanceRegistry().isUpdaterEnabled()) return;
       long now = System.currentTimeMillis();
       if (now >= lastStarted && now - lastStarted < CHECK_GAP_MS) return;
-      if (!checking.compareAndSet(false, true)) return;
+      Object attempt = new Object();
+      if (!checking.compareAndSet(null, attempt)) return;
       lastStarted = now;
       long token = generation.get();
       final String pluginName = plugin.getName();
@@ -120,7 +121,7 @@ public class Updater {
                result = new Status(State.CHECK_FAILED, null, 503);
             } finally {
                server.destroy();
-               checking.set(false);
+               checking.compareAndSet(attempt, null);
             }
             if (!permitted.getAsBoolean()) return;
             Status completed = result;
@@ -148,7 +149,7 @@ public class Updater {
             }
          });
       } catch (RuntimeException schedulingFailed) {
-         checking.set(false);
+         checking.compareAndSet(attempt, null);
       }
    }
 
@@ -190,7 +191,7 @@ public class Updater {
       notifiedVersions.clear();
       lastStatus = null;
       lastStarted = 0L;
-      checking.set(false);
+      checking.set(null);
    }
 
    public static String getOSSystem() {
