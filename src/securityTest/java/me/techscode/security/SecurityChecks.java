@@ -481,7 +481,7 @@ public final class SecurityChecks {
                         int number = unit == 1 ? maxHours[index] : counts[index];
                         int expectedForm = unit == 1 ? hourForms[index] : forms[index];
                         String value = translations[language][unit][expectedForm];
-                        String expected = number + " " + value.substring(0, 1).toUpperCase() + value.substring(1);
+                        String expected = number + " " + value;
                         String actual = Tools.getTimeString(unitTypes[unit].toSeconds(number));
                         check(expected.equals(actual),
                             "localized duration " + keys[unit][0] + " " + number + " in " + (language == 0 ? "Russian" : "Ukrainian")
