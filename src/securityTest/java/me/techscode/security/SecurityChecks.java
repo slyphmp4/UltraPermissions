@@ -33,6 +33,8 @@ import me.TechsCode.UltraPermissions.hooks.pluginHooks.VaultPermissionHook;
 import me.TechsCode.UltraPermissions.hooks.pluginHooks.PlaceholderAPIHook;
 import me.TechsCode.UltraPermissions.hooks.PluginHookManager;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
+import me.TechsCode.UltraPermissions.base.AppearanceRegistry;
+import me.TechsCode.UltraPermissions.base.registry.RegistryStorageEntry;
 import me.TechsCode.UltraPermissions.base.dialog.Dialog;
 import me.TechsCode.UltraPermissions.base.gui.*;
 import me.TechsCode.UltraPermissions.base.messaging.*;
@@ -1083,6 +1085,37 @@ public final class SecurityChecks {
     }
 
     private static void updaterChecks() throws Exception {
+        AppearanceRegistry preferences = new AppearanceRegistry(allocate(TestPlugin.class));
+        JsonObject previousDisabled = preferences.getState();
+        previousDisabled.remove("updaterNotificationsEnabled");
+        previousDisabled.addProperty("updaterEnabled", false);
+        preferences.setState(previousDisabled);
+        check(!preferences.isUpdaterEnabled() && !preferences.isUpdaterNotificationsEnabled(),
+            "legacy disabled updater migrates with both independent switches off");
+        JsonObject previousEnabled = preferences.getState();
+        previousEnabled.remove("updaterNotificationsEnabled");
+        previousEnabled.addProperty("updaterEnabled", true);
+        preferences.setState(previousEnabled);
+        check(preferences.isUpdaterEnabled() && preferences.isUpdaterNotificationsEnabled(),
+            "legacy enabled updater migrates with both switches on");
+
+        preferences.setStorageEntry(new RegistryStorageEntry("appearance", preferences.getState()) {
+            @Override public void sync() {} // Do not access an actual database from the fixture.
+        });
+        preferences.toggleUpdater();
+        check(!preferences.isUpdaterEnabled() && preferences.isUpdaterNotificationsEnabled(),
+            "disabling auto-download leaves administrator chat notices active");
+        preferences.toggleUpdaterNotifications();
+        check(!preferences.isUpdaterEnabled() && !preferences.isUpdaterNotificationsEnabled(),
+            "chat notices can be disabled independently");
+        preferences.toggleUpdater();
+        check(preferences.isUpdaterEnabled() && !preferences.isUpdaterNotificationsEnabled(),
+            "automatic GitHub downloads stay on while chat notices are suppressed");
+        JsonObject saved = preferences.getState();
+        AppearanceRegistry reloaded = new AppearanceRegistry(allocate(TestPlugin.class));
+        reloaded.setState(saved);
+        check(reloaded.isUpdaterEnabled() && !reloaded.isUpdaterNotificationsEnabled(),
+            "independent update preferences survive persisted registry roundtrip");
         check(UpdateServer.isNewerVersion("v5.6.12", "5.6.11"), "stable tagged release is newer");
         check(!UpdateServer.isNewerVersion("5.6.12+ci.7", "v5.6.12+ci.6"), "SemVer build metadata does not indicate an update");
         check(UpdateServer.isNewerVersion("5.6.12", "5.6.12-rc.3"), "stable release succeeds its prerelease");
