@@ -93,6 +93,13 @@ public class PluginEvents implements Listener {
 
    @EventHandler
    public void updateData(UpdateEvent var1) {
+      if (var1.getUpdateTime() == UpdateTime.QUARTER_HOUR && this.plugin.getAppearanceRegistry().isUpdaterEnabled()) {
+         // TaskManager dispatches UpdateEvent synchronously: Bukkit player APIs stay on the server thread.
+         for (Player player : Bukkit.getOnlinePlayers()) {
+            this.plugin.getUsers().uuid(player.getUniqueId()).filter(User::isSuperadmin)
+               .ifPresent(user -> Updater.suggestUpdateIfAvailable(this.plugin, player, ignored -> {}, false));
+         }
+      }
       if (var1.getUpdateTime() == UpdateTime.SEC) {
          this.plugin.getScheduler().run(() -> {
             GroupList var1x = this.plugin.getGroups();
