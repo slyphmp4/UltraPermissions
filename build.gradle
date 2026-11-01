@@ -77,6 +77,13 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 17
     options.compilerArgs += ['-proc:none']
 }
+// javac can synthesize different generic bridge methods if inherited types are
+// compiled in a different filesystem traversal order on Linux versus Windows.
+tasks.named('compileJava', JavaCompile) {
+    source = files(sourceSets.main.allJava.files.sort { a, b ->
+        a.path.replace('\\', '/') <=> b.path.replace('\\', '/')
+    })
+}
 tasks.withType(AbstractArchiveTask).configureEach {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
