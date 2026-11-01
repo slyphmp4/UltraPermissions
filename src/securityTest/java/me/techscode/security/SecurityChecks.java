@@ -10,9 +10,11 @@ import java.security.Permission;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.atomic.*;
+import java.util.concurrent.*;
 import java.util.function.BiFunction;
 import java.util.logging.Logger;
 import me.TechsCode.UltraPermissions.UltraPermissions;
+import me.TechsCode.UltraPermissions.CachedPlayerPermissionProvider;
 import me.TechsCode.UltraPermissions.PluginEvents;
 import me.TechsCode.UltraPermissions.base.legacy.task.UpdateEvent;
 import me.TechsCode.UltraPermissions.base.legacy.task.UpdateTime;
@@ -40,6 +42,9 @@ import me.TechsCode.UltraPermissions.base.update.networkUpdate.*;
 import me.TechsCode.UltraPermissions.dependencies.gson.*;
 import me.TechsCode.UltraPermissions.storage.collection.UserList;
 import me.TechsCode.UltraPermissions.permissionDatabase.PermissionDatabase;
+import me.TechsCode.UltraPermissions.permissionlogger.PermissionLogger;
+import me.TechsCode.UltraPermissions.permissionlogger.LoggedPermission;
+import me.TechsCode.UltraPermissions.storage.collection.PermissionList;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 import me.TechsCode.UltraPermissions.migration.InsaneEditorDownload;
 import org.bukkit.*;
@@ -74,6 +79,7 @@ public final class SecurityChecks {
         setupBukkit();
         minecraftVersions();
         compatibilityHooks();
+        performanceHotpaths();
         messaging(report.resolve("config-fixture"));
         remoteCatalogue();
         sqlAndPool();
@@ -263,6 +269,96 @@ public final class SecurityChecks {
 
         check(plugin.logs.stream().noneMatch(log -> log.contains("sensitive-value")), "failure logs exclude private JSON state");
         groups.add("Data integrity: atomic writes / corrupt data fail-closed / callbacks / durable state markers / create-delete rollback");
+    }
+
+    private static void performanceHotpaths() throws Exception {
+        // This runs the real logger with thousands of permission decisions, not a mock.
+        PermissionLogger logger = allocate(PermissionLogger.class);
+        set(logger, "entries", new LinkedHashMap<>());
+        UUID firstId = UUID.randomUUID(), secondId = UUID.randomUUID();
+        Player first = proxy(Player.class, (m,a) -> m.getName().equals("getUniqueId") ? firstId : DEFAULT);
+        Player second = proxy(Player.class, (m,a) -> m.getName().equals("getUniqueId") ? secondId : DEFAULT);
+        long started = System.nanoTime();
+        for (int i = 0; i < 5000; i++) logger.log(first, "node." + i, true, "fixture");
+        long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+        LoggedPermission[] recent = logger.getLoggedPermissions();
+        check(recent.length == 500, "permission log retains only the latest 500 distinct checks");
+        check(Arrays.stream(recent).noneMatch(e -> e.getPermission().equals("node.0")),
+            "oldest permission log evicted");
+        check(Arrays.stream(recent).anyMatch(e -> e.getPermission().equals("node.4999")),
+            "latest permission log retained");
+        logger.log(first, "node.4999", false, "newer decision");
+        recent = logger.getLoggedPermissions();
+        check(recent.length == 500 && Arrays.stream(recent).anyMatch(e ->
+            e.getPermission().equals("node.4999") && !e.getOutcome() && e.getSource().equals("newer decision")),
+            "duplicate permission log updates outcome without adding an entry");
+        logger.log(second, "independent.node", true, "fixture");
+        logger.clearManually(first, "node.4999");
+        check(Arrays.stream(logger.getLoggedPermissions()).noneMatch(e -> e.getPermission().equals("node.4999")),
+            "manual permission log removal filters matching node");
+        logger.clearPlayer(firstId);
+        check(logger.getLoggedPermissions().length == 1
+            && logger.getLoggedPermissions()[0].getPlayer() == second,
+            "quit cleanup releases only the leaving player's entries");
+        ExecutorService workers = Executors.newFixedThreadPool(4);
+        try {
+            List<Future<?>> writes = new ArrayList<>();
+            for (int worker = 0; worker < 4; worker++) {
+                final int thread = worker;
+                writes.add(workers.submit(() -> {
+                    for (int i = 0; i < 1000; i++)
+                        logger.log(first, "parallel." + thread + "." + i, true, "worker");
+                }));
+            }
+            for (Future<?> write : writes) write.get();
+        } finally {
+            workers.shutdownNow();
+        }
+        check(logger.getLoggedPermissions().length == 500, "concurrent permission log writers stay bounded");
+        System.out.println("PermissionLogger: 5000 sequential writes took " + elapsed + " ms (informational, no timing threshold).");
+
+        TestPlugin plugin = allocate(TestPlugin.class);
+        plugin.users = new UserList();
+        plugin.scheduler = new TestScheduler();
+        CachedPlayerPermissionProvider provider = new CachedPlayerPermissionProvider(plugin);
+        @SuppressWarnings("unchecked")
+        Map<UUID, CachedPlayerPermissionProvider.CacheEntry> cache =
+            (Map<UUID, CachedPlayerPermissionProvider.CacheEntry>)get(provider, "cache");
+        for (int i = 1; i <= 2100; i++) {
+            cache.put(new UUID(0L, i), provider.new CacheEntry(new PermissionList(), "world"));
+        }
+        check(cache.size() == 2048 && !cache.containsKey(new UUID(0L, 1))
+                && cache.containsKey(new UUID(0L, 2100)),
+            "shared Vault/PlaceholderAPI permission cache evicts least-recently-used player");
+        cache.get(new UUID(0L, 2000));
+        for (int i = 2101; i <= 2120; i++)
+            cache.put(new UUID(0L, i), provider.new CacheEntry(new PermissionList(), "world"));
+        check(cache.containsKey(new UUID(0L, 2000)), "recently accessed permission cache entry survives eviction");
+        provider.clearCache();
+        check(cache.isEmpty(), "permission cache invalidation clears all retained snapshots");
+        UUID cachedId = UUID.randomUUID();
+        PermissionList nullableWorld = new PermissionList();
+        cache.put(cachedId, provider.new CacheEntry(nullableWorld, null));
+        check(provider.retrieve(cachedId, null) == nullableWorld, "world-less cache hit is null safe");
+        plugin.currentServer = new me.TechsCode.UltraPermissions.base.networking.NServer(
+            "survival", "127.0.0.1", 25565, new ArrayList<>());
+        check(provider.retrieve(cachedId, null) != nullableWorld && cache.isEmpty(),
+            "late network identity flushes stale permission snapshots");
+        check(!Modifier.isStatic(field(provider, "thisServer").getModifiers()),
+            "server scope is per permission provider, not a global static cache");
+
+        VaultChatHook vault = allocate(VaultChatHook.class);
+        set(vault, "plugin", plugin);
+        set(vault, "refreshPending", new AtomicBoolean());
+        for (int i = 0; i < 1000; i++) vault.clearCache();
+        check(plugin.scheduler.syncCalls == 1 && plugin.scheduler.jobs.size() == 1,
+            "1000 Vault invalidations coalesce into one main-thread rebuild");
+        plugin.scheduler.jobs.remove().run();
+        check(vault.getPlayerPrefix("world", "missing") == null,
+            "empty Vault cache refresh safely publishes a readable snapshot");
+        vault.clearCache();
+        check(plugin.scheduler.syncCalls == 2, "Vault cache may schedule a new rebuild after the previous one completes");
+        groups.add("Performance: O(1) bounded permission logging / 2048 LRU snapshots / coalesced Vault cache rebuild");
     }
 
     private static void compatibilityHooks() throws Exception {
