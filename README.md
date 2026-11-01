@@ -38,7 +38,7 @@ These are application-security fixes. The review did not establish the presence 
 3. To start administration, run **from the console** `upc AddSuperAdmin YourName` after that player has joined and has a registered user record, then open `/uperms`.
 4. For a network or MySQL, follow the [configuration guide](docs/CONFIGURATION.md). Every node must use this security version.
 
-**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 passes isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. Version 5.6.12 is the next community maintenance release; check GitHub Releases for the latest published stable version.
+**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 passes isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. This source tree targets version 5.6.12; check GitHub Releases for the latest published stable version.
 
 ## Commands and permissions
 
