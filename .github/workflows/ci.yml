@@ -133,7 +133,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   performance:
-    name: Paper synthetic load — 128 profiles, permissions, tick latency and heap
+    name: Paper high-load — 512 profiles, 400k permissions, tick latency and heap
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -145,7 +145,7 @@ jobs:
         with:
           name: UltraPermissions-Linux
           path: build/performance-input
-      - name: Stress real Paper plugin with 128 synthetic profiles and 112k measured permission checks
+      - name: Stress real Paper plugin with 512 synthetic profiles and 400k measured permission checks
         shell: bash
         run: |
           version=$(sed -n "s/^version = '\\([^']*\\)'/\\1/p" build.gradle)
