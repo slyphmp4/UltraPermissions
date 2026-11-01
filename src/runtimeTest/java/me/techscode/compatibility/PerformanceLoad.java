@@ -25,17 +25,17 @@ import org.bukkit.scheduler.BukkitTask;
  * and permission lookup on Paper's primary thread; it does NOT create network players.
  */
 final class PerformanceLoad {
-    private static final int PROFILES = 128;
+    private static final int PROFILES = 512;
     private static final int USERS_PER_TICK = 8;
     private static final int WARMUP_TICKS = 60;
     private static final int BASELINE_TICKS = 80;
     private static final int MODERATE_TICKS = 160;
     private static final int HEAVY_TICKS = 160;
-    private static final int MODERATE_CHECKS = 200;
-    private static final int HEAVY_CHECKS = 500;
+    private static final int MODERATE_CHECKS = 500;
+    private static final int HEAVY_CHECKS = 2000;
     private static final double MAX_HEAVY_P95_MS = 250.0;
     private static final double MAX_HEAVY_TICK_MS = 1200.0;
-    private static final double MIN_CHECKS_PER_SECOND = 1200.0;
+    private static final double MIN_CHECKS_PER_SECOND = 5000.0;
     private static final long MAX_HEAP_BYTES = 1200L * 1024 * 1024;
 
     private enum Phase { SEED, WARMUP, BASELINE, MODERATE, HEAVY }
@@ -142,8 +142,8 @@ final class PerformanceLoad {
             }
             case HEAVY -> {
                 loadBatch(HEAVY_CHECKS, heavyBatches);
-                if (phaseTicks % 20 == 0) {
-                    Profile target = profiles.get((phaseTicks / 20) % profiles.size());
+                if (phaseTicks % 10 == 0) {
+                    Profile target = profiles.get((phaseTicks / 10) % profiles.size());
                     String marker = "load-prefix-" + phaseTicks;
                     long mutationStarted = System.nanoTime();
                     target.user().setPrefix(marker);
@@ -214,7 +214,7 @@ final class PerformanceLoad {
                 require(profiles.size() == PROFILES, "not all synthetic profiles were created");
                 require(checks >= (long) MODERATE_TICKS * MODERATE_CHECKS
                     + (long) HEAVY_TICKS * HEAVY_CHECKS, "load completed too few permission lookups");
-                require(mutations >= 8, "storage mutation phase not exercised");
+                require(mutations >= 16, "storage mutation phase not exercised");
                 require(baselineIntervals.size() >= BASELINE_TICKS - 1, "baseline tick sample missing");
                 require(moderateIntervals.size() >= MODERATE_TICKS - 1, "moderate tick sample missing");
                 require(heavyIntervals.size() >= HEAVY_TICKS - 1, "heavy tick sample missing");
