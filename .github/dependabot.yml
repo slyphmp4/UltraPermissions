@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # Keep pinned GitHub Actions commit SHAs fresh through separately reviewed PRs.
+  # Checked-in Maven and compile-only JARs are managed by config/dependencies.sha256,
+  # not by live Gradle dependency resolution.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
