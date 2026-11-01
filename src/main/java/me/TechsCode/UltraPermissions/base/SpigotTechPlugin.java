@@ -13,6 +13,7 @@ import me.TechsCode.UltraPermissions.base.scheduler.SpigotScheduler;
 import me.TechsCode.UltraPermissions.base.source.Maven;
 import me.TechsCode.UltraPermissions.base.storage.syncing.SpigotSyncingAgent;
 import me.TechsCode.UltraPermissions.base.storage.syncing.SyncingAgent;
+import me.TechsCode.UltraPermissions.base.update.Updater;
 import me.TechsCode.UltraPermissions.base.update.networkUpdate.SpigotUpdateAgent;
 import me.TechsCode.UltraPermissions.dependencies.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
@@ -47,6 +48,7 @@ public abstract class SpigotTechPlugin extends TechPlugin<JavaPlugin> {
 
    @Override
    protected void onPlatformDisable() {
+      Updater.clearNotifications();
       this.messagingService.onDisable();
    }
 
