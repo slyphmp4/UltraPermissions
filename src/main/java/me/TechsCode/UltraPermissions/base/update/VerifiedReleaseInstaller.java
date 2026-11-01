@@ -9,7 +9,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -137,11 +136,8 @@ final class VerifiedReleaseInstaller {
          if (!backupOriginal(source, backupFolder, version)) return Result.FAILED;
          if (!permitted.getAsBoolean()) return Result.CANCELLED;
          if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return Result.CONFLICT;
-         try {
-            Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE);
-         } catch (AtomicMoveNotSupportedException unsupported) {
-            Files.move(temp, target);
-         }
+         // Rename only a complete, verified temp JAR; never replace another staged file.
+         Files.move(temp, target);
          return Result.STAGED;
       } finally {
          Files.deleteIfExists(temp);
@@ -177,11 +173,7 @@ final class VerifiedReleaseInstaller {
       Path temp = Files.createTempFile(backupRoot, ".ultrapermissions-backup-", ".part");
       try {
          Files.copy(original, temp, StandardCopyOption.REPLACE_EXISTING);
-         try {
-            Files.move(temp, destination, StandardCopyOption.ATOMIC_MOVE);
-         } catch (AtomicMoveNotSupportedException unsupported) {
-            Files.move(temp, destination);
-         }
+         Files.move(temp, destination);
          return true;
       } finally {
          Files.deleteIfExists(temp);
