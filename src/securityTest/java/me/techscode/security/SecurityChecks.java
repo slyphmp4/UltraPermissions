@@ -16,6 +16,10 @@ import java.util.logging.Logger;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.CachedPlayerPermissionProvider;
 import me.TechsCode.UltraPermissions.PluginEvents;
+import me.TechsCode.UltraPermissions.base.legacy.Tools;
+import me.TechsCode.UltraPermissions.base.translations.Phrase;
+import me.TechsCode.UltraPermissions.base.translations.TranslationManager;
+import me.TechsCode.UltraPermissions.base.translations.Words;
 import me.TechsCode.UltraPermissions.base.legacy.task.UpdateEvent;
 import me.TechsCode.UltraPermissions.base.legacy.task.UpdateTime;
 import me.TechsCode.UltraPermissions.base.networking.PublicIpResolver;
@@ -85,6 +89,7 @@ public final class SecurityChecks {
         minecraftVersions();
         compatibilityHooks();
         vaultGroupPermissions();
+        localizationTimeWords();
         performanceHotpaths();
         messaging(report.resolve("config-fixture"));
         remoteCatalogue();
@@ -434,6 +439,62 @@ public final class SecurityChecks {
         plugin.scheduler.jobs.remove().run();
         check(plugin.scheduler.jobs.isEmpty(), "Vault follow-up refresh completes without repeated scheduling");
         groups.add("Performance: ordered wildcard lookup / O(1) bounded logging / 2048 LRU / coalesced Vault cache rebuild");
+    }
+
+    private static void localizationTimeWords() throws Exception {
+        TranslationManager manager = allocate(TranslationManager.class);
+        Phrase[][] units = {
+            {Words.DAY, Words.DAYS_FEW, Words.DAYS},
+            {Words.HOUR, Words.HOURS_FEW, Words.HOURS},
+            {Words.MINUTE, Words.MINUTES_FEW, Words.MINUTES},
+            {Words.SECOND, Words.SECONDS_FEW, Words.SECONDS}
+        };
+        String[][] keys = {
+            {"day", "daysFew", "days"},
+            {"hour", "hoursFew", "hours"},
+            {"minute", "minutesFew", "minutes"},
+            {"second", "secondsFew", "seconds"}
+        };
+        String[][][] translations = {
+            {{"день", "дня", "дней"}, {"час", "часа", "часов"},
+             {"минута", "минуты", "минут"}, {"секунда", "секунды", "секунд"}},
+            {{"день", "дні", "днів"}, {"година", "години", "годин"},
+             {"хвилина", "хвилини", "хвилин"}, {"секунда", "секунди", "секунд"}}
+        };
+        int[] counts = {1, 2, 5, 11, 21, 24};
+        int[] forms = {0, 1, 2, 2, 0, 1};
+        int[] maxHours = {1, 2, 5, 11, 21, 23};
+        int[] hourForms = {0, 1, 2, 2, 0, 1};
+        TimeUnit[] unitTypes = {TimeUnit.DAYS, TimeUnit.HOURS, TimeUnit.MINUTES, TimeUnit.SECONDS};
+        try {
+            for (int language = 0; language < translations.length; language++) {
+                Map<String, String> phrases = new HashMap<>();
+                for (int unit = 0; unit < units.length; unit++) {
+                    for (int form = 0; form < 3; form++) {
+                        phrases.put(keys[unit][form], translations[language][unit][form]);
+                        units[unit][form].inject(manager);
+                    }
+                }
+                set(manager, "translationCache", phrases);
+                for (int unit = 0; unit < units.length; unit++) {
+                    for (int index = 0; index < counts.length; index++) {
+                        int number = unit == 1 ? maxHours[index] : counts[index];
+                        int expectedForm = unit == 1 ? hourForms[index] : forms[index];
+                        String value = translations[language][unit][expectedForm];
+                        String expected = number + " " + value.substring(0, 1).toUpperCase() + value.substring(1);
+                        String actual = Tools.getTimeString(unitTypes[unit].toSeconds(number));
+                        check(expected.equals(actual),
+                            "localized duration " + keys[unit][0] + " " + number + " in " + (language == 0 ? "Russian" : "Ukrainian")
+                                + ": expected " + expected + ", got " + actual);
+                    }
+                }
+            }
+        } finally {
+            for (Phrase[] unit : units) {
+                for (Phrase word : unit) word.inject(null);
+            }
+        }
+        groups.add("Localization: Russian/Ukrainian plural forms for 1/2/5/11/21/24 days, hours, minutes, seconds");
     }
 
     private static void vaultGroupPermissions() throws Exception {
