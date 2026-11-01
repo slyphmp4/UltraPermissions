@@ -50,14 +50,18 @@ public class UpdateServer {
    }
 
    public IsUpToDateResponse isUpToDate(TechPlugin<?> plugin) {
-      if (!"UltraPermissions".equalsIgnoreCase(plugin.getName())) {
+      return this.isUpToDate(plugin.getName(), plugin.getVersion());
+   }
+
+   public IsUpToDateResponse isUpToDate(String pluginName, String installedVersion) {
+      if (!"UltraPermissions".equalsIgnoreCase(pluginName)) {
          return new IsUpToDateResponse(404, false, null, "Unknown plugin");
       }
       LatestRelease release = this.latestRelease();
       if (release.status != 200 || release.version == null) {
          return new IsUpToDateResponse(release.status, false, null, "GitHub Releases unavailable");
       }
-      boolean newer = isNewerVersion(release.version, plugin.getVersion());
+      boolean newer = isNewerVersion(release.version, installedVersion);
       String releasePage = RELEASES_URL + "/tag/" + release.tagName;
       return new IsUpToDateResponse(200, !newer, release.version, "GitHub Releases", releasePage, release.asset);
    }
