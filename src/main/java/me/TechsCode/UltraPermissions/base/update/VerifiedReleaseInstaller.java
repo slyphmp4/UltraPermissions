@@ -47,6 +47,21 @@ final class VerifiedReleaseInstaller {
    ) {
       if (asset == null || installedJar == null || updateFolder == null || dataFolder == null || !permitted.getAsBoolean())
          return Result.FAILED;
+      try {
+         Path original = installedJar.toPath().toAbsolutePath().normalize();
+         Path folder = updateFolder.toPath().toAbsolutePath().normalize();
+         if (Files.isSymbolicLink(original) || !Files.isRegularFile(original, LinkOption.NOFOLLOW_LINKS)
+            || folder.getParent() == null || !folder.getParent().toRealPath().equals(original.getParent().toRealPath())
+            || Files.isSymbolicLink(folder)) return Result.FAILED;
+         Path target = folder.resolve(original.getFileName());
+         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+            return Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(target)
+               && Files.size(target) == asset.getSize() && asset.getSha256().equalsIgnoreCase(sha256(target))
+               ? Result.ALREADY_STAGED : Result.CONFLICT;
+         }
+      } catch (IOException | RuntimeException invalidDirectory) {
+         return Result.FAILED;
+      }
       try (InputStream download = openVerifiedSource(asset.getDownloadUri())) {
          return stageFromStream(download, asset, version, installedJar.toPath(), updateFolder.toPath(),
             dataFolder.toPath().resolve("auto-update-backups"), permitted);
