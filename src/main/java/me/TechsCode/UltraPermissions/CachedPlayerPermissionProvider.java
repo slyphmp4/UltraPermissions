@@ -1,8 +1,9 @@
 package me.TechsCode.UltraPermissions;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import me.TechsCode.UltraPermissions.base.networking.NServer;
@@ -12,62 +13,60 @@ import me.TechsCode.UltraPermissions.storage.objects.Holder;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 
 public class CachedPlayerPermissionProvider {
-   private static Optional<NServer> thisServer;
-   private UltraPermissions plugin;
-   private Map<UUID, CachedPlayerPermissionProvider.CacheEntry> cache;
+   // Vault and PlaceholderAPI can query arbitrarily many offline players.
+   // Keep only the 2048 most recently used users to avoid indefinite retention.
+   private static final int MAX_ENTRIES = 2048;
+   private Optional<NServer> thisServer;
+   private final UltraPermissions plugin;
+   private final Map<UUID, CacheEntry> cache = new LinkedHashMap<>(64, 0.75f, true) {
+      @Override
+      protected boolean removeEldestEntry(Map.Entry<UUID, CacheEntry> oldest) {
+         return size() > MAX_ENTRIES;
+      }
+   };
 
-   public CachedPlayerPermissionProvider(UltraPermissions var1) {
-      super();
-      thisServer = var1.getThisServer();
-      this.plugin = var1;
-      this.cache = new HashMap<>();
+   public CachedPlayerPermissionProvider(UltraPermissions plugin) {
+      this.plugin = plugin;
+      this.thisServer = plugin.getThisServer();
    }
 
-   public PermissionList retrieve(UUID var1, String var2) {
-      if ((thisServer == null || !thisServer.isPresent()) && this.plugin.getThisServer().isPresent()) {
-         thisServer = this.plugin.getThisServer();
-         this.cache.clear();
-      }
-
-      if (this.cache.containsKey(var1)) {
-         CachedPlayerPermissionProvider.CacheEntry var3 = this.cache.get(var1);
-         if (var3.world.equals(var2)) {
-            return var3.list;
+   public synchronized PermissionList retrieve(UUID uuid, String world) {
+      if (!thisServer.isPresent()) {
+         Optional<NServer> detected = this.plugin.getThisServer();
+         if (detected.isPresent()) {
+            thisServer = detected;
+            cache.clear();
          }
       }
 
-      Optional var8 = this.plugin.getUsers().uuid(var1);
-      if (!var8.isPresent()) {
-         return new PermissionList();
-      }
+      CacheEntry existing = cache.get(uuid);
+      if (existing != null && Objects.equals(existing.world, world)) return existing.list;
 
-      String var4 = thisServer.map(NServer::getName).orElse(null);
-      GroupList var5 = ((User)var8.get())
-         .getActiveGroups()
-         .servers(true, var4)
-         .worlds(true, var2)
-         .getWithRecursiveInherits()
-         .servers(true, var4)
-         .worlds(true, var2);
-      ArrayList var6 = new ArrayList<>(var5.holders());
-      var6.add(Holder.fromUser((User)var8.get()));
-      PermissionList var7 = this.plugin.getPermissions().holder(var6).servers(true, var4).worlds(true, var2);
-      this.cache.put(var1, new CachedPlayerPermissionProvider.CacheEntry(var7, var2));
-      return var7;
+      Optional<User> found = this.plugin.getUsers().uuid(uuid);
+      if (!found.isPresent()) return new PermissionList();
+
+      String server = thisServer.map(NServer::getName).orElse(null);
+      GroupList groups = found.get().getActiveGroups()
+         .servers(true, server).worlds(true, world)
+         .getWithRecursiveInherits().servers(true, server).worlds(true, world);
+      ArrayList<Holder> holders = new ArrayList<>(groups.holders());
+      holders.add(Holder.fromUser(found.get()));
+      PermissionList resolved = this.plugin.getPermissions().holder(holders).servers(true, server).worlds(true, world);
+      cache.put(uuid, new CacheEntry(resolved, world));
+      return resolved;
    }
 
-   public void clearCache() {
-      this.cache = new HashMap<>();
+   public synchronized void clearCache() {
+      cache.clear();
    }
 
    public class CacheEntry {
       final PermissionList list;
       final String world;
 
-      public CacheEntry(PermissionList var2, String var3) {
-         super();
-         this.list = var2;
-         this.world = var3;
+      public CacheEntry(PermissionList list, String world) {
+         this.list = list;
+         this.world = world;
       }
    }
 }
