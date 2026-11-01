@@ -142,6 +142,7 @@ public final class SecurityChecks {
         VaultChatHook vault = allocate(VaultChatHook.class);
         set(vault, "plugin", plugin);
         set(vault, "refreshPending", new AtomicBoolean());
+        set(vault, "refreshDirty", new AtomicBoolean());
         vault.clearCache();
         check(scheduler.syncCalls == 2 && scheduler.jobs.size() == 1, "Vault cache rebuild dispatched to main thread");
         scheduler.jobs.clear();
@@ -351,6 +352,7 @@ public final class SecurityChecks {
         VaultChatHook vault = allocate(VaultChatHook.class);
         set(vault, "plugin", plugin);
         set(vault, "refreshPending", new AtomicBoolean());
+        set(vault, "refreshDirty", new AtomicBoolean());
         for (int i = 0; i < 1000; i++) vault.clearCache();
         check(plugin.scheduler.syncCalls == 1 && plugin.scheduler.jobs.size() == 1,
             "1000 Vault invalidations coalesce into one main-thread rebuild");
@@ -359,6 +361,19 @@ public final class SecurityChecks {
             "empty Vault cache refresh safely publishes a readable snapshot");
         vault.clearCache();
         check(plugin.scheduler.syncCalls == 2, "Vault cache may schedule a new rebuild after the previous one completes");
+        // Simulate a modification arriving in the middle of rebuilding the snapshot.
+        AtomicBoolean duringRefresh = new AtomicBoolean(true);
+        plugin.users = new UserList() {
+            @Override public java.util.stream.Stream<User> stream() {
+                if (duringRefresh.getAndSet(false)) vault.clearCache();
+                return super.stream();
+            }
+        };
+        plugin.scheduler.jobs.remove().run();
+        check(plugin.scheduler.syncCalls == 3 && plugin.scheduler.jobs.size() == 1,
+            "Vault invalidation during rebuild schedules one follow-up, not stale state");
+        plugin.scheduler.jobs.remove().run();
+        check(plugin.scheduler.jobs.isEmpty(), "Vault follow-up refresh completes without repeated scheduling");
         groups.add("Performance: O(1) bounded permission logging / 2048 LRU snapshots / coalesced Vault cache rebuild");
     }
 
