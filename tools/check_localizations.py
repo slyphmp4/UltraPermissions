@@ -142,6 +142,7 @@ def check_runtime_text_sinks(errors: list[str]) -> None:
         r'appendLore|lore)\s*\(\s*"([^"]+)"'
     )
     direct_mysql = re.compile(r'new\s+ConnectionTestResult\(\s*(?:true|false)\s*,\s*"')
+    native_name_in_lore = re.compile(r'\.(?:appendLore|lore|name)\s*\([^;]*?\.getHumanName\(\)', re.S)
     for path in JAVA_ROOT.rglob("*.java"):
         if "dependencies" in path.relative_to(JAVA_ROOT).parts:
             continue
@@ -158,6 +159,8 @@ def check_runtime_text_sinks(errors: list[str]) -> None:
             errors.append(f"{path}: untranslated literal passed to player-visible UI: {value}")
         if direct_mysql.search(content):
             errors.append(f"{path}: MySQL connection feedback must use translated Phrase values")
+        if native_name_in_lore.search(content):
+            errors.append(f"{path}: unlocalized English XMaterial human name in player-visible GUI")
 
 
 def main() -> int:
