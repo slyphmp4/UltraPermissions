@@ -18,6 +18,7 @@ public class VaultChatHook extends Chat {
    private final UltraPermissions plugin;
    private volatile CacheSnapshot cache = new CacheSnapshot(Map.of(), Map.of());
    private final AtomicBoolean refreshPending = new AtomicBoolean();
+   private final AtomicBoolean refreshDirty = new AtomicBoolean();
 
    private static final class CacheSnapshot {
       private final Map<String, String> prefixes;
@@ -44,15 +45,17 @@ public class VaultChatHook extends Chat {
    }
 
    public void clearCache() {
-      // A bulk rank edit can send thousands of invalidations in one tick.
-      // Publish one complete snapshot on the primary thread instead of rebuilding for every change.
+      // Bulk edits coalesce, while a change arriving DURING a rebuild queues one more pass.
+      refreshDirty.set(true);
       if (!refreshPending.compareAndSet(false, true)) return;
       try {
          this.plugin.getScheduler().run(() -> {
             try {
+               refreshDirty.set(false);
                this.loadInCache().run();
             } finally {
                refreshPending.set(false);
+               if (refreshDirty.get()) this.clearCache();
             }
          });
       } catch (RuntimeException rejected) {
