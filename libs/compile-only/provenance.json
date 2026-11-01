@@ -85,13 +85,13 @@
   },
   {
     "file": "libs/compile-only/Vault-1.7.3.jar",
-    "origin": "Existing local server dependency: C:\\Users\\Admin\\Desktop\\main\\basic servers for tests\\proxy servers (1.20.1)\\serv\\plugins\\Vault.jar",
+    "origin": "Locally provided compile-only plugin API; exact JAR pinned by SHA-256. Not distributed with UltraPermissions.",
     "bytes": 272259,
     "sha256": "a6b5ed97f43a5cf5bbaf00a7c8cd23c5afc9bd003f849875af8b36e6cf77d01d"
   },
   {
     "file": "libs/compile-only/PlaceholderAPI-2.12.3.jar",
-    "origin": "Existing local server dependency: C:\\Users\\Admin\\Desktop\\main\\basic servers for tests\\server mods\\plugins\\PlaceholderAPI-2.12.3 (1).jar",
+    "origin": "Locally provided compile-only plugin API; exact JAR pinned by SHA-256. Not distributed with UltraPermissions.",
     "bytes": 1160690,
     "sha256": "fde03259f5af6938f3c33eeb4d814000a1adabf1d2304ce14970be81f609a437"
   },
