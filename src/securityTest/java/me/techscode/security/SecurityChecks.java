@@ -42,6 +42,10 @@ import me.TechsCode.UltraPermissions.base.update.networkUpdate.*;
 import me.TechsCode.UltraPermissions.dependencies.gson.*;
 import me.TechsCode.UltraPermissions.storage.collection.UserList;
 import me.TechsCode.UltraPermissions.permissionDatabase.PermissionDatabase;
+import me.TechsCode.UltraPermissions.internal.Node;
+import me.TechsCode.UltraPermissions.internal.lookup.LookupCheck;
+import me.TechsCode.UltraPermissions.internal.lookup.LookupOutcome;
+import me.TechsCode.UltraPermissions.internal.lookup.PermissionLookup;
 import me.TechsCode.UltraPermissions.permissionlogger.PermissionLogger;
 import me.TechsCode.UltraPermissions.permissionlogger.LoggedPermission;
 import me.TechsCode.UltraPermissions.storage.collection.PermissionList;
@@ -274,6 +278,59 @@ public final class SecurityChecks {
     }
 
     private static void performanceHotpaths() throws Exception {
+        check(new Node("example.deep.node").getSelfAndWildcards().equals(List.of(
+            "example.deep.node", "*", "example.*", "example.deep.*", "example.deep.node.*")),
+            "permission lookup preserves exact original wildcard ordering");
+
+        AtomicInteger checkSets = new AtomicInteger();
+        AtomicInteger firstChecks = new AtomicInteger();
+        AtomicInteger secondChecks = new AtomicInteger();
+        PermissionLookup wildcardLookup = new PermissionLookup("example.deep.node") {
+            @Override public LookupCheck[] getChecks() {
+                checkSets.incrementAndGet();
+                return new LookupCheck[]{
+                    candidate -> { firstChecks.incrementAndGet(); return null; },
+                    candidate -> {
+                        secondChecks.incrementAndGet();
+                        return "example.*".equals(candidate) ? new LookupOutcome(true, "wildcard") : null;
+                    }
+                };
+            }
+        };
+        LookupOutcome wildcard = wildcardLookup.perform();
+        check(wildcard.getResult() && "wildcard".equals(wildcard.getSource()),
+            "wildcard lookup returns the first matching decision and its source");
+        check(checkSets.get() == 1 && firstChecks.get() == 3 && secondChecks.get() == 3,
+            "permission checks constructed once and visited in wildcard/check priority order");
+        check(wildcardLookup.perform() == wildcard && checkSets.get() == 1,
+            "successful lookups continue caching their original result");
+
+        PermissionLookup denied = new PermissionLookup("denied") {
+            @Override public LookupCheck[] getChecks() {
+                return new LookupCheck[]{
+                    candidate -> "denied".equals(candidate) ? new LookupOutcome(false, "explicit-deny") : null,
+                    candidate -> new LookupOutcome(true, "later-allow")
+                };
+            }
+        };
+        check(!denied.perform().getResult() && "explicit-deny".equals(denied.getOutcome().getSource()),
+            "explicit deny keeps priority over a later grant");
+
+        AtomicBoolean laterGranted = new AtomicBoolean();
+        AtomicInteger negativeBuilds = new AtomicInteger();
+        PermissionLookup mutableLookup = new PermissionLookup("mutable") {
+            @Override public LookupCheck[] getChecks() {
+                negativeBuilds.incrementAndGet();
+                return new LookupCheck[]{candidate ->
+                    laterGranted.get() && "mutable".equals(candidate) ? new LookupOutcome(true, "updated") : null};
+            }
+        };
+        check(!mutableLookup.perform().getResult() && mutableLookup.getOutcome() == null,
+            "unsuccessful lookups retain original uncached semantics");
+        laterGranted.set(true);
+        check(mutableLookup.perform().getResult() && negativeBuilds.get() == 2,
+            "reused negative lookup observes later permission changes");
+
         // This runs the real logger with thousands of permission decisions, not a mock.
         PermissionLogger logger = allocate(PermissionLogger.class);
         set(logger, "entries", new LinkedHashMap<>());
@@ -374,7 +431,7 @@ public final class SecurityChecks {
             "Vault invalidation during rebuild schedules one follow-up, not stale state");
         plugin.scheduler.jobs.remove().run();
         check(plugin.scheduler.jobs.isEmpty(), "Vault follow-up refresh completes without repeated scheduling");
-        groups.add("Performance: O(1) bounded permission logging / 2048 LRU snapshots / coalesced Vault cache rebuild");
+        groups.add("Performance: ordered wildcard lookup / O(1) bounded logging / 2048 LRU / coalesced Vault cache rebuild");
     }
 
     private static void compatibilityHooks() throws Exception {
