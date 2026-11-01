@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
+import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.SpigotTechPlugin;
 import me.TechsCode.UltraPermissions.base.loader.SpigotLoader;
 import me.TechsCode.UltraPermissions.base.misc.Callback;
@@ -65,8 +66,7 @@ public class Updater {
     */
    public static void suggestUpdateIfAvailable(SpigotTechPlugin plugin, Player player, Callback<Player> onDecline, boolean force) {
       if (!plugin.getAppearanceRegistry().isUpdaterEnabled()) return;
-      plugin.getUsers().uuid(player.getUniqueId()).filter(User::isSuperadmin)
-         .ifPresent(user -> notifyStatus(plugin, player, lastStatus, force));
+      if (isSuperadmin(plugin, player)) notifyStatus(plugin, player, lastStatus, force);
       checkForUpdates(plugin);
    }
 
@@ -140,8 +140,7 @@ public class Updater {
                      }
                   }
                   for (Player online : Bukkit.getOnlinePlayers()) {
-                     plugin.getUsers().uuid(online.getUniqueId()).filter(User::isSuperadmin)
-                        .ifPresent(user -> notifyStatus(plugin, online, completed, false));
+                     if (isSuperadmin(plugin, online)) notifyStatus(plugin, online, completed, false);
                   }
                });
             } catch (RuntimeException disabled) {
@@ -151,6 +150,11 @@ public class Updater {
       } catch (RuntimeException schedulingFailed) {
          checking.set(false);
       }
+   }
+
+   private static boolean isSuperadmin(SpigotTechPlugin plugin, Player player) {
+      return plugin instanceof UltraPermissions permissions
+         && permissions.getUsers().uuid(player.getUniqueId()).filter(User::isSuperadmin).isPresent();
    }
 
    private static void notifyStatus(SpigotTechPlugin plugin, Player player, Status status, boolean force) {
