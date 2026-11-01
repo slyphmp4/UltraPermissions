@@ -47,9 +47,7 @@ public class Updater {
                @Override
                public void onResponse(boolean accepted) {
                   if (accepted) {
-                     this.p.sendMessage(plugin.getPrefix() + MANUAL_INSTALL.get());
-                     this.p.sendMessage(Colors.YELLOW + (result.getReleaseUrl() == null ? UpdateServer.RELEASES_URL : result.getReleaseUrl()));
-                     this.p.sendMessage(plugin.getPrefix() + RESTART_MANUALLY.get());
+                     sendManualInstallInstructions(plugin, this.p, result.getReleaseUrl());
                   } else if (onDecline != null) {
                      onDecline.run(this.p);
                   }
@@ -57,6 +55,14 @@ public class Updater {
             };
          });
       });
+   }
+
+   /** Manual installation only: never download, replace a JAR or restart on the player's behalf. */
+   public static void sendManualInstallInstructions(SpigotTechPlugin plugin, Player player, String releaseUrl) {
+      player.sendMessage(plugin.getPrefix() + MANUAL_INSTALL.get());
+      player.sendMessage(Colors.YELLOW + (releaseUrl == null || !releaseUrl.startsWith(UpdateServer.RELEASES_URL)
+         ? UpdateServer.RELEASES_URL : releaseUrl));
+      player.sendMessage(plugin.getPrefix() + RESTART_MANUALLY.get());
    }
 
    private static boolean markNotified(UUID player, String release, boolean force) {
