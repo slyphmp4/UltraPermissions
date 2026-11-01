@@ -2,11 +2,15 @@ package me.techscode.security;
 
 import java.io.*;
 import java.net.URL;
+import java.net.URI;
 import java.net.URLConnection;
 import java.lang.reflect.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.Permission;
+import java.security.MessageDigest;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.atomic.*;
@@ -104,6 +108,7 @@ public final class SecurityChecks {
         serializedItems();
         removedCapabilities();
         updaterChecks();
+        automaticUpdateChecks(report.resolve("updater-fixture"));
         commandReference(report);
         JsonObject result = new JsonObject();
         result.addProperty("status", "passed"); result.addProperty("assertions", assertions);
@@ -921,6 +926,107 @@ public final class SecurityChecks {
         groups.add("M-04 JSON round-trip / legacy migration / class and alias whitelist / allocation bounds");
     }
 
+
+
+    private static byte[] pluginJarFixture(String version) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (JarOutputStream jar = new JarOutputStream(bytes)) {
+            jar.putNextEntry(new JarEntry("plugin.yml"));
+            jar.write(("name: UltraPermissions\nversion: " + version
+                + "\nmain: me.TechsCode.UltraPermissions.base.loader.SpigotLoader\n").getBytes(StandardCharsets.UTF_8));
+            jar.closeEntry();
+            jar.putNextEntry(new JarEntry("fixture.bin"));
+            byte[] filler = new byte[4096]; new Random(345671).nextBytes(filler);
+            jar.write(filler); jar.closeEntry();
+        }
+        return bytes.toByteArray();
+    }
+
+    private static void automaticUpdateChecks(Path fixture) throws Exception {
+        Files.createDirectories(fixture);
+        byte[] oldJar = pluginJarFixture("5.6.11");
+        byte[] nextJar = pluginJarFixture("5.6.12");
+        String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(nextJar));
+
+        JsonObject metadata = new JsonObject();
+        JsonObject assetData = new JsonObject();
+        assetData.addProperty("name", "UltraPermissions-5.6.12.jar");
+        assetData.addProperty("state", "uploaded");
+        assetData.addProperty("size", nextJar.length);
+        assetData.addProperty("digest", "sha256:" + sha);
+        assetData.addProperty("browser_download_url",
+            "https://github.com/slyphmp4/UltraPermissions/releases/download/v5.6.12/UltraPermissions-5.6.12.jar");
+        JsonArray assets = new JsonArray(); assets.add(assetData); metadata.add("assets", assets);
+        Method parseAsset = UpdateServer.class.getDeclaredMethod("publishedVerifiedAsset", String.class, String.class);
+        parseAsset.setAccessible(true);
+        Object verified = parseAsset.invoke(null, metadata.toString(), "v5.6.12");
+        check(verified != null, "published Release with matching JAR SHA-256 accepted");
+        check(parseAsset.invoke(null, metadata.toString().replace("github.com", "evil.example"), "v5.6.12") == null,
+            "release asset cannot redirect initial download to arbitrary host");
+        check(parseAsset.invoke(null, metadata.toString().replace("sha256:", "md5:"), "v5.6.12") == null,
+            "missing/unsupported Release digest is rejected");
+        check(parseAsset.invoke(null, metadata.toString().replace("UltraPermissions-5.6.12.jar", "UltraPermissions-5.6.12-sources.jar"), "v5.6.12") == null,
+            "source JARs cannot be mistaken for installable plugin binaries");
+        check(parseAsset.invoke(null, metadata.toString().replace("\"uploaded\"", "\"pending\""), "v5.6.12") == null,
+            "unfinished GitHub assets cannot be staged");
+        check(parseAsset.invoke(null, metadata.toString().replace("\"assets\":[", "\"assets\":[" + assetData + ","), "v5.6.12") == null,
+            "ambiguous duplicate release assets fail closed");
+
+        Path plugins = Files.createDirectories(fixture.resolve("plugins"));
+        Path live = plugins.resolve("ultra permissions-5.6.11.jar");
+        Files.write(live, oldJar);
+        Path update = plugins.resolve("update");
+        Path backup = fixture.resolve("backups");
+        Class<?> installer = Class.forName("me.TechsCode.UltraPermissions.base.update.VerifiedReleaseInstaller");
+        Method stage = installer.getDeclaredMethod("stageFromStream", InputStream.class,
+            UpdateServer.ReleaseAsset.class, String.class, Path.class, Path.class, Path.class,
+            java.util.function.BooleanSupplier.class);
+        stage.setAccessible(true);
+        java.util.function.BooleanSupplier allowed = () -> true;
+        Object done = stage.invoke(null, new ByteArrayInputStream(nextJar), verified, "5.6.12",
+            live, update, backup, allowed);
+        check("STAGED".equals(done.toString()), "verified release is staged successfully");
+        Path staged = update.resolve(live.getFileName());
+        check(Arrays.equals(Files.readAllBytes(staged), nextJar),
+            "Bukkit stage file matches original loaded plugin JAR filename and expected SHA");
+        check(Arrays.equals(Files.readAllBytes(live), oldJar), "running plugin binary remains untouched before restart");
+        check(Arrays.equals(Files.readAllBytes(backup.resolve(live.getFileName() + ".before-5.6.12.bak")), oldJar),
+            "recovery backup preserves prior plugin JAR");
+
+        Object again = stage.invoke(null, new ByteArrayInputStream(nextJar), verified, "5.6.12",
+            live, update, backup, allowed);
+        check("ALREADY_STAGED".equals(again.toString()), "same verified release is not repeatedly downloaded over itself");
+        Files.write(staged, new byte[] {1, 2, 3});
+        Object conflict = stage.invoke(null, new ByteArrayInputStream(nextJar), verified, "5.6.12",
+            live, update, backup, allowed);
+        check("CONFLICT".equals(conflict.toString()) && Files.size(staged) == 3,
+            "existing unrelated update file cannot be overwritten");
+
+        Path secondPlugins = Files.createDirectories(fixture.resolve("other-plugins"));
+        Path second = secondPlugins.resolve("UltraPermissions.jar");
+        Files.write(second, oldJar);
+        Path secondUpdate = secondPlugins.resolve("update");
+        Path secondBackup = fixture.resolve("other-backups");
+        Object cancelled = stage.invoke(null, new ByteArrayInputStream(nextJar), verified, "5.6.12",
+            second, secondUpdate, secondBackup, (java.util.function.BooleanSupplier) () -> false);
+        check("CANCELLED".equals(cancelled.toString()) && !Files.exists(secondUpdate),
+            "disabled updater never writes a staged JAR");
+        Object wrongVersion = stage.invoke(null, new ByteArrayInputStream(nextJar), verified, "5.6.13",
+            second, secondUpdate, secondBackup, allowed);
+        check("FAILED".equals(wrongVersion.toString()) && !Files.exists(secondUpdate.resolve("UltraPermissions.jar")),
+            "plugin.yml version mismatch blocks installation");
+        byte[] tampered = nextJar.clone();
+        tampered[tampered.length - 15] ^= 0x01;
+        Object badHash = stage.invoke(null, new ByteArrayInputStream(tampered), verified, "5.6.12",
+            second, secondUpdate, secondBackup, allowed);
+        check("FAILED".equals(badHash.toString()) && !Files.exists(secondUpdate.resolve("UltraPermissions.jar")),
+            "tampered JAR is rejected before staging");
+        Object wrongFolder = stage.invoke(null, new ByteArrayInputStream(nextJar), verified, "5.6.12",
+            second, fixture.resolve("outside-update"), secondBackup, allowed);
+        check("FAILED".equals(wrongFolder.toString()),
+            "installer refuses update directories outside the native Bukkit plugin location");
+        groups.add("Automatic GitHub updater: authenticated asset metadata / SHA-256 / backup / native Bukkit stage / no overwrite");
+    }
 
     private static void updaterChecks() throws Exception {
         check(UpdateServer.isNewerVersion("v5.6.12", "5.6.11"), "stable tagged release is newer");
