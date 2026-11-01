@@ -86,6 +86,9 @@ public class UltraPermissionsBungee extends BungeeTechPlugin implements Listener
 
    @Override
    protected void onDisable() {
+      if (api == this) {
+         api = null;
+      }
    }
 
    @EventHandler

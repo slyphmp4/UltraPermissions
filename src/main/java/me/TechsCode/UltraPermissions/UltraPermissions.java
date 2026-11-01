@@ -145,6 +145,9 @@ public class UltraPermissions extends SpigotTechPlugin implements UltraPermissio
 
    @Override
    protected void onDisable() {
+      if (api == this) {
+         api = null;
+      }
    }
 
    @Override
