@@ -274,7 +274,7 @@ final class PerformanceLoad {
             percentile(heavyIntervals, 50), percentile(heavyIntervals, 95), percentile(heavyIntervals, 99),
             max(heavyIntervals), percentile(moderateBatches, 95), percentile(heavyBatches, 95),
             mutations, heapPeak / 1048576.0, gcCount() - gcCountBefore, gcTime() - gcMsBefore,
-            cpuPercent, Bukkit.getTPS()[0], MAX_HEAVY_P95_MS, MAX_HEAVY_TICK_MS, MIN_CHECKS_PER_SECOND);
+            cpuPercent, paperTps(), MAX_HEAVY_P95_MS, MAX_HEAVY_TICK_MS, MIN_CHECKS_PER_SECOND);
     }
 
     private double checksPerSecond() {
@@ -318,6 +318,18 @@ final class PerformanceLoad {
     private static long cpuTime() {
         java.lang.management.OperatingSystemMXBean bean = ManagementFactory.getOperatingSystemMXBean();
         return bean instanceof com.sun.management.OperatingSystemMXBean b ? b.getProcessCpuTime() : -1L;
+    }
+
+    private static double paperTps() {
+        // The production project compiles against Spigot's API; Paper exposes
+        // this optional metric at runtime without changing production dependencies.
+        try {
+            Object value = Bukkit.getServer().getClass().getMethod("getTPS").invoke(Bukkit.getServer());
+            if (value instanceof double[] tps && tps.length > 0) return tps[0];
+        } catch (ReflectiveOperationException | SecurityException ignored) {
+            // Tick interval samples remain available on other Bukkit implementations.
+        }
+        return -1.0;
     }
 
     private static void require(boolean condition, String message) {
