@@ -221,7 +221,7 @@ groupUserListView.wipe.title: "Очищення списку користува�
 groupView.changeIcon.action: "**ЛКМ**, щоб **змінити** іконку"
 groupView.changeIcon.action.rightClick: "**ПКМ**, щоб **змінити** значення пошкодження"
 groupView.changeIcon.action.shiftRightClick: "**Shift + ПКМ**, щоб **змінити** дані моделі"
-groupView.changeIcon.attribute: "Іконка: **%icon%**"
+groupView.changeIcon.attribute: "ID іконки: **%icon%**"
 groupView.changeIcon.input.customModelId.title.main: "ID моделі"
 groupView.changeIcon.input.customModelId.title.sub: "Введіть ID моделі"
 groupView.changeIcon.input.damageValue.title.main: "Міцність"
