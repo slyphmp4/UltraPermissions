@@ -61,32 +61,57 @@ def main():
         b"view-distance=2\nsimulation-distance=2\ngenerate-structures=false\nmax-tick-time=60000\n"
         b"level-type=minecraft:flat\ngenerator-settings={\"layers\":[{\"block\":\"minecraft:bedrock\",\"height\":1}],\"biome\":\"minecraft:plains\"}\n"
         b"pause-when-empty-seconds=-1\n")
-    name = "ultrapermissions-probe-" + uuid.uuid4().hex[:12]
-    print("Starting plugin with network disabled; no host ports are published...", flush=True)
-    try:
-        command("docker", "run", "--detach", "--name", name, "--network", "none", *base,
-                IMAGE, "java", "-Xms512M", "-Xmx1536M", "-jar", "paper.jar", "--nogui")
-        deadline = time.monotonic() + 150
-        while time.monotonic() < deadline:
-            state = json.loads(command("docker", "inspect", "--format", "{{json .State}}", name, capture=True))
-            if not state["Running"]:
-                if state["ExitCode"] != 0 or state["OOMKilled"]:
-                    raise RuntimeError(f"Server exited unsuccessfully: {state}")
-                break
-            time.sleep(2)
-        else:
-            raise TimeoutError("Runtime probe exceeded 150 seconds")
-        result = json.loads((work / "plugins/RuntimeProbe/verification.json").read_text(encoding="utf8"))
-        if result["status"] != "passed" or result["assertions"] < 12 or result["server"] != "26.2.build.135-stable":
-            raise RuntimeError(f"Runtime probe failed: {result}")
-        result.update(paper_sha256=PAPER_SHA, plugin_sha256=hashlib.sha256(plugin.read_bytes()).hexdigest(),
-                      container_image=IMAGE, network="none", connected_player_test=False)
-        (reports / "verification.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf8")
-        print(json.dumps(result, indent=2), flush=True)
-    finally:
-        log = subprocess.run(["docker", "logs", name], capture_output=True, text=True)
-        (reports / "server.log").write_text(log.stdout + log.stderr, encoding="utf8")
-        subprocess.run(["docker", "rm", "--force", name], check=False, stdout=subprocess.DEVNULL)
+    def run_boot(boot):
+        name = "ultrapermissions-probe-" + uuid.uuid4().hex[:12]
+        print(f"Boot {boot}/2: starting real Paper with UltraPermissions; no published host ports or network...", flush=True)
+        try:
+            command("docker", "run", "--detach", "--name", name, "--network", "none", *base,
+                    IMAGE, "java", "-Xms512M", "-Xmx1536M", "-jar", "paper.jar", "--nogui")
+            deadline = time.monotonic() + 150
+            while time.monotonic() < deadline:
+                state = json.loads(command("docker", "inspect", "--format", "{{json .State}}", name, capture=True))
+                if not state["Running"]:
+                    if state["ExitCode"] != 0 or state["OOMKilled"]:
+                        raise RuntimeError(f"Boot {boot}: Paper exited unsuccessfully: {state}")
+                    break
+                time.sleep(2)
+            else:
+                raise TimeoutError(f"Boot {boot}: Runtime probe exceeded 150 seconds")
+            result_path = work / "plugins/RuntimeProbe/verification.json"
+            result = json.loads(result_path.read_text(encoding="utf8"))
+            min_checks = 15 if boot == 1 else 10
+            if (result.get("status") != "passed" or result.get("boot") != boot
+                    or result.get("assertions", 0) < min_checks
+                    or result.get("server") != "26.2.build.135-stable"):
+                raise RuntimeError(f"Boot {boot} failed or did not run expected checks: {result}")
+            (reports / f"boot-{boot}-verification.json").write_text(
+                json.dumps(result, indent=2) + "\n", encoding="utf8")
+            return result
+        finally:
+            logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True)
+            (reports / f"server-boot-{boot}.log").write_text(logs.stdout + logs.stderr, encoding="utf8")
+            subprocess.run(["docker", "rm", "--force", name], check=False, stdout=subprocess.DEVNULL)
+
+    first = run_boot(1)
+    if not (work / "plugins/RuntimeProbe/phase-one.marker").exists():
+        raise RuntimeError("Boot 1 did not leave an authenticated completion marker")
+    second = run_boot(2)
+    result = {
+        "status": "passed",
+        "assertions": first["assertions"] + second["assertions"],
+        "boots": 2,
+        "boot_assertions": [first["assertions"], second["assertions"]],
+        "server": first["server"],
+        "java": second["java"],
+        "paper_sha256": PAPER_SHA,
+        "plugin_sha256": hashlib.sha256(plugin.read_bytes()).hexdigest(),
+        "container_image": IMAGE,
+        "network": "none",
+        "connected_player_test": False,
+        "persistence_across_restart": True,
+    }
+    (reports / "verification.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf8")
+    print(json.dumps(result, indent=2), flush=True)
 
 
 if __name__ == "__main__":
