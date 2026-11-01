@@ -28,6 +28,10 @@ public final class RuntimeProbe extends JavaPlugin {
     private boolean failed;
 
     @Override public void onEnable() {
+        if (Boolean.getBoolean("ultrapermissions.performanceProbe")) {
+            new PerformanceLoad(this).start();
+            return;
+        }
         boolean secondBoot = Files.exists(getDataFolder().toPath().resolve("phase-one.marker"));
         Bukkit.getScheduler().runTaskLater(this, () -> run(() -> {
             permissions = (UltraPermissions) TechPlugin.getInstance();
