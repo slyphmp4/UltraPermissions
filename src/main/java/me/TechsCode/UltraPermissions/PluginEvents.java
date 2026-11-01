@@ -38,6 +38,8 @@ public class PluginEvents implements Listener {
       this.permissibleHashMap = new HashMap<>();
       Bukkit.getOnlinePlayers().forEach(this::login);
       Bukkit.getPluginManager().registerEvents(this, (Plugin)var1.getBootstrap());
+      // Initial check also runs without any admin online; never block startup on HTTP.
+      this.plugin.getScheduler().runTaskLater(() -> Updater.checkForUpdates(this.plugin), 40L);
    }
 
    public void login(Player var1) {
@@ -93,12 +95,9 @@ public class PluginEvents implements Listener {
 
    @EventHandler
    public void updateData(UpdateEvent var1) {
-      if (var1.getUpdateTime() == UpdateTime.QUARTER_HOUR && this.plugin.getAppearanceRegistry().isUpdaterEnabled()) {
-         // TaskManager dispatches UpdateEvent synchronously: Bukkit player APIs stay on the server thread.
-         for (Player player : Bukkit.getOnlinePlayers()) {
-            this.plugin.getUsers().uuid(player.getUniqueId()).filter(User::isSuperadmin)
-               .ifPresent(user -> Updater.suggestUpdateIfAvailable(this.plugin, player, ignored -> {}, false));
-         }
+      if (var1.getUpdateTime() == UpdateTime.QUARTER_HOUR) {
+         // Server-wide automatic checks do not depend on online superadmins.
+         Updater.checkForUpdates(this.plugin);
       }
       if (var1.getUpdateTime() == UpdateTime.SEC) {
          this.plugin.getScheduler().run(() -> {
