@@ -17,6 +17,7 @@ public class MySQL extends StorageImplementation {
    private static final int QUERY_TIMEOUT_SECONDS = 5;
    private static final int MAX_VALUE_BYTES = 4194304;
    private static final int MAX_ROWS = 100000;
+   private static final long MAX_TOTAL_VALUE_BYTES = 64L * 1024 * 1024;
 
    public MySQL(TechPlugin plugin, String model) {
       super(plugin, model, true);
@@ -78,14 +79,20 @@ public class MySQL extends StorageImplementation {
       boolean all = key.equals("*");
       String sql = "SELECT `key`,`value` FROM " + table() + (all ? "" : " WHERE `key`=?") + " LIMIT " + (MAX_ROWS + 1);
       // Hikari owns the bounded connection wait. Never spin, poll or spawn per-request threads.
-      try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+      try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement(
+            sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
          statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+         // Connector/J otherwise buffers the complete result set before our limits run.
+         statement.setFetchSize(Integer.MIN_VALUE);
          if (!all) statement.setString(1, key);
          try (ResultSet result = statement.executeQuery()) {
+            long totalBytes = 0;
             while (result.next()) {
                if (rows.size() >= MAX_ROWS) throw new SQLException("Storage row limit exceeded");
                byte[] value = result.getBytes("value");
                if (value == null || value.length > MAX_VALUE_BYTES) throw new SQLException("Storage value limit exceeded");
+               totalBytes += value.length;
+               if (totalBytes > MAX_TOTAL_VALUE_BYTES) throw new SQLException("Storage aggregate byte limit exceeded (64 MiB)");
                String text = new String(value, StandardCharsets.UTF_8);
                if (Base64.isBase64(text)) text = new String(Base64.decodeBase64(text), StandardCharsets.UTF_8);
                if (REGEX_PATTERN.matcher(text).matches()) text = new String(Hex.decodeHex(text.toCharArray()), StandardCharsets.UTF_8);

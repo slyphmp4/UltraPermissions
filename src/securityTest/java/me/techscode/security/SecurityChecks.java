@@ -92,6 +92,7 @@ public final class SecurityChecks {
             @Override public void checkExec(String command) { throw new SecurityException("Test JVM forbids OS execution"); }
         });
         Path report = Path.of(args[0]); Files.createDirectories(report);
+        Path fixtures = Files.createTempDirectory(report, "fixtures-");
         setupBukkit();
         minecraftVersions();
         compatibilityHooks();
@@ -99,20 +100,22 @@ public final class SecurityChecks {
         localizationTimeWords();
         localizationPermissionSources();
         performanceHotpaths();
-        messaging(report.resolve("config-fixture"));
+        messaging(fixtures.resolve("config-fixture"));
         remoteCatalogue();
         sqlAndPool();
         lifecycleAndTranslationReadiness();
         boundedSync();
         tlsPolicy();
         threadingAndNetwork();
-        persistenceFailureRecovery(report.resolve("persistence-fixture"));
+        persistenceFailureRecovery(fixtures.resolve("persistence-fixture"));
         uiRevocation();
         serializedItems();
         removedCapabilities();
         updaterChecks();
-        automaticUpdateChecks(report.resolve("updater-fixture"));
+        automaticUpdateChecks(fixtures.resolve("updater-fixture"));
         commandReference(report);
+        assertions += AuditRegressionChecks.run();
+        groups.add("5.6.15 audit regressions: ranks / case persistence / login lifecycle / MySQL fail-closed");
         JsonObject result = new JsonObject();
         result.addProperty("status", "passed"); result.addProperty("assertions", assertions);
         result.addProperty("network_access", "blocked by test JVM"); result.addProperty("server_started", false);
@@ -1223,7 +1226,7 @@ public final class SecurityChecks {
         AtomicInteger notices=new AtomicInteger(); set(installer,"player",proxy(Player.class,(m,a)-> { if(m.getName().equals("sendMessage")) { notices.incrementAndGet(); return null; } return DEFAULT; }));
         method=InsaneEditorDownload.class.getDeclaredMethod("installJar",String.class); method.setAccessible(true); method.invoke(installer,"not-a-url");
         check(notices.get()==1,"installer gives manual-install instruction without fetching/executing code");
-        groups.add("H-02 no credential transfer; H-01 no remote console; M-01 no executable network installation");
+        groups.add("H-02 no credential transfer; H-01 no remote console; M-01 no legacy editor/hot-load installation");
     }
 
     private static void setupBukkit() {

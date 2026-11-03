@@ -22,7 +22,7 @@ public final class ComponentChecks {
             require(sha(Files.readAllBytes(file)).equals(values[0]), "Dependency checksum mismatch: " + values[1]);
         }
         int libraries = 0, resources = 0, application = 0, contracts = 0;
-        Path library = root.resolve("libs/repository/me/techscode/ultrapermissions/runtime-libraries/5.6.8/runtime-libraries-5.6.8.jar");
+        Path library = root.resolve("libs/repository/me/techscode/ultrapermissions/runtime-libraries/5.6.15/runtime-libraries-5.6.15.jar");
         try (ZipFile jar = new ZipFile(artifact.toFile()); ZipFile dependencies = new ZipFile(library.toFile())) {
             Set<String> vendor = new HashSet<>(), entries = new HashSet<>();
             for (ZipEntry entry : Collections.list(dependencies.entries())) {
@@ -41,6 +41,15 @@ public final class ComponentChecks {
                 if (name.endsWith(".class") && !vendor.contains(name)) {
                     require(metadata(read(jar, name)).major <= 61, "Class exceeds Java 17 target: " + name);
                     application++;
+                }
+            }
+            require(!entries.contains("META-INF/49a015d074c141c8"), "Personal purchaser metadata leaked into release");
+            for (String name : entries) {
+                if (!name.startsWith("META-INF/services/") || name.endsWith("/")) continue;
+                for (String line : new String(read(jar, name), StandardCharsets.UTF_8).split("\\R")) {
+                    String provider = line.split("#", 2)[0].trim();
+                    if (!provider.isEmpty()) require(entries.contains(provider.replace('.', '/') + ".class"),
+                        "Unresolved bundled service provider: " + provider);
                 }
             }
             Path mainResources = root.resolve("src/main/resources");

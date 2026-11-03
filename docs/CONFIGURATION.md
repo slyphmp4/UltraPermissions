@@ -1,6 +1,10 @@
 [English](CONFIGURATION.md) · [Українська](CONFIGURATION.uk.md) · [Русский](CONFIGURATION.ru.md)
 
-# Configure UltraPermissions 5.6.9
+# Configure UltraPermissions 5.6.15
+
+**Storage startup safety (5.6.15):** if configured MySQL or the initial permissions store cannot be opened, the server/proxy stops. Check the console, credentials, database access and TLS/driver, restore damaged data from backup, then restart. Local files are never selected automatically as a fallback. An unconfigured standalone server still uses local files.
+
+MySQL result reads stream rows and permit up to 64 MiB of encoded values per read. Writes remain acknowledged after completion and can block on a slow database/disk.
 
 ## Single server
 

@@ -57,9 +57,10 @@ public class LocalFile extends StorageImplementation {
    public void read(String var1, ReadCallback var2) {
       synchronized (this.configuration) {
          HashMap<String, JsonObject> rows = new HashMap<>();
-         JsonParser parser = new JsonParser();
          try {
-            for (String key : this.configuration.getKeys(false)) {
+            java.util.Set<String> keys = "*".equals(var1) ? this.configuration.getKeys(false)
+               : this.configuration.get(var1) == null ? java.util.Set.of() : java.util.Set.of(var1);
+            for (String key : keys) {
                String value = this.configuration.getString(key);
                if (value == null) {
                   throw new IllegalStateException("Missing value for key " + key);
@@ -67,7 +68,7 @@ public class LocalFile extends StorageImplementation {
                if (Base64.isBase64(value)) {
                   value = new String(Base64.decodeBase64(value), StandardCharsets.UTF_8);
                }
-               var json = parser.parse(value);
+               var json = JsonParser.parseString(value);
                if (json == null || !json.isJsonObject()) {
                   throw new IllegalStateException("Invalid storage value for key " + key);
                }

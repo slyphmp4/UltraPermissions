@@ -38,9 +38,9 @@ public class MySQLManager {
          );
          ConnectionTestResult var1 = this.factory.testConnection();
          if (!var1.isValid()) {
-            this.factory = null;
-            this.plugin.log("Could not contact MySQL Server:");
-            this.plugin.log(var1.getError());
+            this.close();
+            throw new me.TechsCode.UltraPermissions.base.storage.StorageStartupException(
+               "Configured MySQL is unavailable. Local permission files will NOT be used. " + var1.getError());
          }
 
          Debugger.debug("MySQL", "ConnectionFactory created");

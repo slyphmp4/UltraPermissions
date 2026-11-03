@@ -11,11 +11,11 @@
 
 # UltraPermissions
 
-Manage Minecraft permissions, groups and ranks through commands and a graphical editor. **5.6.14** adds more precise update diagnostics, bounded retries and safe handling of remapped plugin-loader paths, retaining the nine stages of stability, security and compatibility work and full Russian/Ukrainian interface coverage.
+Manage Minecraft permissions, groups and ranks through commands and the original TechsCode graphical editor. **5.6.15** fixes rank-path isolation, case-sensitive persistence, rejected-login retention and unsafe MySQL fallback, and refreshes pinned dependencies. See the [release notes](docs/releases/5.6.15.md).
 
-The original TechsCode-style settings now offer independent chat update notices and verified automatic GitHub downloads.\n\nWe prepared a standalone Gradle project, retained the core permission-management features, reworked unsafe network and SQL paths, and added negative security tests. This version addresses eight previously identified HIGH/MEDIUM findings and further strengthens authorization for administrative commands.
+A configured but unavailable permissions store now stops server/proxy startup with recovery instructions instead of loading old local rights. Independent chat update notices and verified GitHub downloads remain available.
 
-These are application-security fixes. The review did not establish the presence of viruses or an intentional malicious implant, so we make no claim of “virus removal” or absolute security.
+These are application-security and reliability fixes; no claim of absolute safety or virus removal is made.
 
 ## Features
 
@@ -29,7 +29,7 @@ These are application-security fixes. The review did not establish the presence 
 - Local JSON storage or MySQL, with signed synchronization between trusted nodes.
 - Vault, PlaceholderAPI, MVdWPlaceholderAPI and NametagEdit integrations.
 - Migration from LuckPerms/PermissionsEx, group copying, account transfers and File/MySQL storage transfers.
-- Bundled offline Russian and Ukrainian interfaces (805 translated strings and 159 entity names each), a permission-node reference database and a permission-check logger.
+- Bundled offline Russian and Ukrainian interfaces (835 translated strings and 159 entity names each), a permission-node reference database and a permission-check logger.
 
 ## Download and install
 
@@ -38,7 +38,7 @@ These are application-security fixes. The review did not establish the presence 
 3. To start administration, run **from the console** `upc AddSuperAdmin YourName` after that player has joined and has a registered user record, then open `/uperms`.
 4. For a network or MySQL, follow the [configuration guide](docs/CONFIGURATION.md). Every node must use this security version.
 
-**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 passes isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. This source tree targets version 5.6.14; check GitHub Releases for the latest published stable version.
+**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 passes isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. This source tree targets version 5.6.15; check GitHub Releases for the latest published stable version.
 
 ## Commands and permissions
 
@@ -63,13 +63,13 @@ Linux/macOS:
 bash ./gradlew clean build --offline
 ```
 
-On its first run, the Wrapper downloads Gradle 8.14.5 and verifies its SHA-256. Plugin dependencies are pinned in `libs`; after the Wrapper distribution has been downloaded, building requires no external Maven repository. The resulting JARs are in `build/libs`.
+On its first run, the Wrapper downloads Gradle 8.14.6 and verifies its SHA-256. Plugin dependencies are pinned in `libs`; after the Wrapper distribution has been downloaded, building requires no external Maven repository. The resulting JARs are in `build/libs`.
 
 ## CI and component verification
 
 GitHub Actions performs clean builds on **Ubuntu and Windows / JDK 21**. `verifyComponents` checks dependency hashes, JAR contents, exclusion of server APIs and test classes from the plugin, resources, version metadata, the Java target and **7085 API contracts**. `verifySecurityFixes` checks forged/replayed messages, SQL parameter binding, pool failure, GUI sessions, item codecs, TLS policy and administrative command branches. Network connections and OS process execution are blocked in the test JVM.
 
-A separate gate starts the plugin on **Paper 26.2 / Java 25** in Docker and runs **29 runtime assertions**. The CI sandbox blocks external network access; the deployed updater connects only to the configured GitHub Releases endpoint. See the [test scope and reproduction steps](docs/COMPATIBILITY.md). A published `v<version>` tag triggers release CI; verified binary assets are attached only after all checks pass. Assets include the plugin JAR, sources JAR, complete Gradle project and SHA-256 checksums.
+A separate gate starts the plugin on **Paper 26.2 / Java 25** in Docker and runs **38 runtime assertions**. The CI sandbox blocks external network access; the deployed updater connects only to the configured GitHub Releases endpoint. See the [test scope and reproduction steps](docs/COMPATIBILITY.md). A published `v<version>` tag triggers release CI; verified binary assets are attached only after all checks pass. Assets include the plugin JAR, sources JAR, complete Gradle project and SHA-256 checksums.
 
 ## Credits and licenses
 

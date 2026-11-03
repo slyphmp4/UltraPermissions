@@ -76,7 +76,7 @@ public class SkinTexture {
       String var2 = getResponse(var1);
 
       try {
-         String var3 = new JsonParser().parse(var2).getAsJsonObject().get("id").getAsString();
+         String var3 = JsonParser.parseString(var2).getAsJsonObject().get("id").getAsString();
          String var4 = new StringBuffer(var3).insert(8, "-").insert(13, "-").insert(18, "-").insert(23, "-").toString();
          return fromMojangAPI(UUID.fromString(var4));
       } catch (Exception var5) {
@@ -89,7 +89,7 @@ public class SkinTexture {
       String var2 = getResponse(var1);
 
       try {
-         JsonObject var3 = new JsonParser().parse(var2).getAsJsonObject().get("properties").getAsJsonArray().get(0).getAsJsonObject();
+         JsonObject var3 = JsonParser.parseString(var2).getAsJsonObject().get("properties").getAsJsonArray().get(0).getAsJsonObject();
          String var4 = var3.get("value").getAsString();
          return new SkinTexture(base64ToUrl(var4), System.currentTimeMillis());
       } catch (Exception var5) {
@@ -120,7 +120,7 @@ public class SkinTexture {
             var0 = new String(Base64.decodeBase64(var0.getBytes()));
          }
 
-         JsonObject var1 = (JsonObject)new JsonParser().parse(var0.trim());
+         JsonObject var1 = (JsonObject)JsonParser.parseString(var0.trim());
          JsonObject var2 = var1.getAsJsonObject("textures").getAsJsonObject("SKIN");
          return var2 == null ? null : var2.get("url").getAsString();
       } catch (Exception var3) {

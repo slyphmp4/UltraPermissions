@@ -35,8 +35,7 @@ public abstract class Storage<STORABLE extends Storable> {
       try {
          this.implementation = (StorageImplementation)var4.getConstructor(TechPlugin.class, String.class).newInstance(var1, var2);
       } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException var7) {
-         var7.printStackTrace();
-         return;
+         throw new StorageStartupException("Cannot initialize storage " + var2, var7);
       }
 
       this.syncingAgent = this.implementation.hasMultiServerSupport() && var5 ? var1.getSyncingAgent() : new SyncingAgent.EmptyAgent();
@@ -44,18 +43,27 @@ public abstract class Storage<STORABLE extends Storable> {
       this.observers = new ArrayList<>();
       this.instances = new java.util.concurrent.ConcurrentHashMap<>();
       this.instancesView = Collections.unmodifiableMap(this.instances);
-      this.implementation.read("*", new ReadCallback() {
-         @Override
-         public void onSuccess(HashMap<String, JsonObject> var1x) {
-            Storage.this.createInstances(var1x);
-         }
+      try {
+         this.implementation.read("*", new ReadCallback() {
+            @Override
+            public void onSuccess(HashMap<String, JsonObject> var1x) {
+               try {
+                  Storage.this.createInstances(var1x);
+               } catch (RuntimeException invalidState) {
+                  throw new StorageStartupException("Invalid persisted state in storage " + var2, invalidState);
+               }
+            }
 
-         @Override
-         public void onFailure(Exception var1x) {
-            var1.log("Could not retrieve data from Storage '" + var3.getName() + "' :");
-            var1.log(var1x.getMessage());
-         }
-      });
+            @Override
+            public void onFailure(Exception var1x) {
+               throw new StorageStartupException("Cannot read configured storage " + var2, var1x);
+            }
+         });
+      } catch (StorageStartupException failure) {
+         throw failure;
+      } catch (RuntimeException failure) {
+         throw new StorageStartupException("Cannot load storage " + var2, failure);
+      }
    }
 
    protected void instancesChanged(StorageChangeType var1, String var2, @Nullable STORABLE var3) {
@@ -107,15 +115,15 @@ public abstract class Storage<STORABLE extends Storable> {
                                  .stream()
                                  .filter(var1xxx -> Storage.this.instancesView.containsKey(var1xxx.getKey()))
                                  .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-   
+
                               for (Entry<String, JsonObject> var5 : var3.entrySet()) {
                                  Storable var6 = Storage.this.instancesView.get(var5.getKey());
-                                 if (!var6.getState().toString().equalsIgnoreCase(((JsonObject)var5.getValue()).toString())) {
+                                 if (!var6.getState().equals(var5.getValue())) {
                                     var6.setState((JsonObject)var5.getValue(), Storage.this.plugin);
                                     var6.setLastSyncedState((JsonObject)var5.getValue());
                                  }
                               }
-   
+
                               Map<String, STORABLE> var8 = Storage.this.instancesView
                                  .entrySet()
                                  .stream()
@@ -134,7 +142,7 @@ public abstract class Storage<STORABLE extends Storable> {
                               STORABLE var7 = Storage.this.instances.remove(var1);
                               Storage.this.instancesChanged(StorageChangeType.REMOVED, var1, var7);
                            }
-   
+
                               Storage.this.onDataSynchronization();
                         });
                      }

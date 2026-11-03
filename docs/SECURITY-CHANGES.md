@@ -10,7 +10,7 @@
 
 ## Reliability and privileges
 
-4. **M-01 — unverified executable downloads.** Network-based editor installation and update JAR downloads are disabled. Install a verified JAR manually; active installer/update paths do not perform a network-driven loadPlugin.
+4. **M-01 — GitHub updater.** Verified GitHub release JARs may be downloaded and staged for the next manual restart. Size, SHA-256, allowed destination and plugin.yml are checked. Remote plugin-message update/restart and automatic editor installation remain disabled.
 5. **M-02 — pool/thread exhaustion.** Busy-wait loops and per-iteration thread creation were removed. Pool/SQL operations have timeouts; synchronization is limited to 64 jobs and repeated notifications are coalesced.
 6. **M-03 — stale GUI authorization.** The current role is checked before an action, and the inventory is bound to the session. Revoking superadmin stops actions. Chat input is moved to the server scheduler and checked again.
 7. **M-04 — Java item deserialization.** New data uses bounded JSON with the UPI1 prefix. The legacy format permits only approved containers/Bukkit aliases, with limits on size, depth, references and classes. Arbitrary classes and unapproved registered aliases are rejected.
@@ -18,12 +18,12 @@
 
 ## Additional pre-release changes
 
-Administrative `/upc` branches now share a superadmin requirement; exceptions are limited AddGroup access and permission-list viewing. Suffix-editing branches lacking that requirement were closed, and RegisterUser was restricted. Unknown users are denied access without an Optional exception. String argument labels, true/false parsing and console replies through CommandSender instead of a nullable Player were corrected. The distribution contains no personal purchaser ID or shared embedded update API token. The license check is retained.
+Administrative `/upc` branches now share a superadmin requirement; exceptions are limited AddGroup access and permission-list viewing. Suffix-editing branches lacking that requirement were closed, and RegisterUser was restricted. Unknown users are denied access without an Optional exception. String argument labels, true/false parsing and console replies through CommandSender instead of a nullable Player were corrected. The distribution contains no personal purchaser ID or shared embedded update API token. The old premium authorization/phone-home startup gate is not used in this open-source build.
 
 ## What CI verifies and what remains outside it
 
 CI runs negative checks against Bukkit/JDBC test doubles and structurally verifies the final JAR. Specific servers, database certificates/drivers, firewall/forwarding, all CraftMeta variants and the in-game runtime require a separate test installation. A standard legacy icon passes the migration check; unsupported legacy components fail explicitly instead of executing.
 
-The LOW finding about synchronous external-IP lookup over HTTP and informational environment findings were not part of these eight fixes. Bundled libraries are listed separately; the absence of an advisory for a version does not prove that it has no unknown flaws. This is security maintenance, without a promise that “all exploits are removed” or a claim that viruses were found/removed.
+External-IP discovery now uses HTTPS on a worker with timeouts. Bundled dependencies and remaining verification limits are documented separately; no absolute-safety claim is made.
 
-Since 5.6.9, a separate CI gate also starts Paper 26.2 on Java 25 and performs 12 runtime assertions. Its exact scope and remaining gaps are documented in [compatibility](COMPATIBILITY.md). The stable release requires both OS builds and this runtime gate to pass.
+The 5.6.15 gate includes 485 offline assertions, Windows/Linux reproducibility, two healthy Paper boots and a third boot proving a configured-store failure stops the server without changing local rights. See [compatibility](COMPATIBILITY.md) and [5.6.15 release notes](releases/5.6.15.md).
