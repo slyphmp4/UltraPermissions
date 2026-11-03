@@ -2,7 +2,8 @@ package me.TechsCode.UltraPermissions.base.gui;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.stream.IntStream;
+import java.util.Map;
+import java.util.Objects;
 import me.TechsCode.UltraPermissions.base.SpigotTechPlugin;
 import me.TechsCode.UltraPermissions.base.scheduler.RecurringTask;
 import org.bukkit.Bukkit;
@@ -66,11 +67,19 @@ public abstract class GUI implements Listener {
             }
 
             HashMap<Integer, Entry> var8 = var3x.getEntries();
-            IntStream.rangeClosed(1, this.inventory.getSize()).filter(var1xx -> !var8.containsKey(var1xx)).forEach(var1xx -> this.inventory.clear(var1xx - 1));
+            boolean inventoryChanged = false;
+            for (int slot = 0; slot < this.inventory.getSize(); slot++) {
+               ItemStack previous = this.inventory.getItem(slot);
+               if (!var8.containsKey(slot + 1) && previous != null && !previous.getType().isAir()) {
+                  this.inventory.clear(slot);
+                  inventoryChanged = true;
+               }
+            }
+
             this.actions = new HashMap<>();
-            var8.forEach((var1xx, var2xx) -> {
+            for (Map.Entry<Integer, Entry> entry : var8.entrySet()) {
                Button var3xx = new Button();
-               var2xx.button(var3xx);
+               entry.getValue().button(var3xx);
                ItemStack var4x = var3xx.item().get();
                ItemMeta var5x = var4x.getItemMeta();
                if (var5x != null) {
@@ -83,10 +92,16 @@ public abstract class GUI implements Listener {
                   }
                }
 
-               this.inventory.setItem(var1xx - 1, var4x);
-               this.actions.put(var1xx - 1, var3xx.getActions());
-            });
-            Bukkit.getScheduler().runTask((Plugin)var2.getBootstrap(), var1::updateInventory);
+               int slot = entry.getKey() - 1;
+               if (!Objects.equals(this.inventory.getItem(slot), var4x)) {
+                  this.inventory.setItem(slot, var4x);
+                  inventoryChanged = true;
+               }
+               this.actions.put(slot, var3xx.getActions());
+            }
+            if (inventoryChanged) {
+               Bukkit.getScheduler().runTask((Plugin)var2.getBootstrap(), var1::updateInventory);
+            }
          }
       }, 0L, var3);
       Bukkit.getPluginManager().registerEvents(this, (Plugin)var2.getBootstrap());
