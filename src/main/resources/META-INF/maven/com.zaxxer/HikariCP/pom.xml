@@ -30,7 +30,7 @@
       <autoReleaseStagedArtifacts>true</autoReleaseStagedArtifacts>
 
       <commons.csv.version>1.12.0</commons.csv.version>
-      <docker.maven.plugin.fabric8.version>0.45.0</docker.maven.plugin.fabric8.version>
+      <docker.maven.plugin.fabric8.version>0.48.1</docker.maven.plugin.fabric8.version>
       <felix.bundle.plugin.version>5.1.9</felix.bundle.plugin.version>
       <felix.version>7.0.5</felix.version>
       <h2.version>2.3.232</h2.version>
@@ -46,15 +46,15 @@
       <mockito.version>3.7.7</mockito.version>
       <pax.exam.version>4.14.0</pax.exam.version>
       <pax.url.version>2.5.4</pax.url.version>
-      <postgresql.version>42.7.7</postgresql.version>
+      <postgresql.version>42.7.11</postgresql.version>
       <simpleclient.version>0.16.0</simpleclient.version>
       <slf4j.version>2.0.17</slf4j.version>
-      <testcontainers.version>1.20.3</testcontainers.version>
+      <testcontainers.version>2.0.5</testcontainers.version>
    </properties>
 
    <groupId>com.zaxxer</groupId>
    <artifactId>HikariCP</artifactId>
-   <version>6.3.3</version>
+   <version>7.1.0</version>
    <packaging>bundle</packaging>
 
    <name>HikariCP</name>
@@ -71,7 +71,7 @@
       <connection>scm:git:https://github.com/brettwooldridge/HikariCP.git</connection>
       <developerConnection>scm:git:https://github.com/brettwooldridge/HikariCP.git</developerConnection>
       <url>https://github.com/brettwooldridge/HikariCP</url>
-      <tag>HikariCP-6.3.3</tag>
+      <tag>HikariCP-7.1.0</tag>
    </scm>
 
    <distributionManagement>
@@ -120,7 +120,7 @@
       </dependency>
       <dependency>
          <groupId>org.testcontainers</groupId>
-         <artifactId>postgresql</artifactId>
+         <artifactId>testcontainers-postgresql</artifactId>
          <version>${testcontainers.version}</version>
          <scope>test</scope>
       </dependency>

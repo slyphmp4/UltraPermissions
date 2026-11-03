@@ -22,7 +22,7 @@ public final class ComponentChecks {
             require(sha(Files.readAllBytes(file)).equals(values[0]), "Dependency checksum mismatch: " + values[1]);
         }
         int libraries = 0, resources = 0, application = 0, contracts = 0;
-        Path library = root.resolve("libs/repository/me/techscode/ultrapermissions/runtime-libraries/5.6.8/runtime-libraries-5.6.8.jar");
+        Path library = root.resolve("libs/repository/me/techscode/ultrapermissions/runtime-libraries/5.6.15/runtime-libraries-5.6.15.jar");
         try (ZipFile jar = new ZipFile(artifact.toFile()); ZipFile dependencies = new ZipFile(library.toFile())) {
             Set<String> vendor = new HashSet<>(), entries = new HashSet<>();
             for (ZipEntry entry : Collections.list(dependencies.entries())) {

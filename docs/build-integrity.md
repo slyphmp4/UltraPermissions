@@ -4,11 +4,11 @@ This project retains the original TechsCode behavior and GUI. Build hardening mu
 
 ## Toolchain
 
-- Wrapper: **Gradle 8.14.5**, a stable maintenance release; its wrapper JAR SHA-256 is `7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172`.
-- Distribution: `gradle-8.14.5-bin.zip`, SHA-256 `6f74b601422d6d6fc4e1f9a1ab6522f642c2fdcbc15ae33ebd30ba3d7198e854`.
+- Wrapper: **Gradle 8.14.6**, a stable maintenance release; its wrapper JAR SHA-256 is `ad16bca46cb71bb5887c546860d93992aeee35c1fdaf4a242b0a612375d937e0`.
+- Distribution: `gradle-8.14.6-bin.zip`, SHA-256 `7988ed071b2a07900e2ec715fca15c6ab72bce6db433af301fa7fa7e9407bd24`.
 - Both values are listed by [Gradle's official release checksums](https://gradle.org/release-checksums/), recorded in `gradle/wrapper/provenance.json`, and checked in CI before executing the wrapper.
 - CI pins **Eclipse Temurin 21.0.13+9** on both Linux and Windows to avoid compiler patch drift. Gradle uses Java 21 toolchains; compilation targets **Java 17** (`--release 17`). The Paper 26.2 compatibility probe runs Java 25 inside a pinned container.
-- Keeping the verified Gradle 8.14.5 wrapper avoids an untested major-version migration. Revisit Gradle 9 only with its upgrade guide, a regenerated/authenticated wrapper JAR, and the full CI matrix.
+- Keeping the verified Gradle 8.14.6 wrapper avoids an untested major-version migration. Revisit Gradle 9 only with its upgrade guide, a regenerated/authenticated wrapper JAR, and the full CI matrix.
 
 ## Offline dependency model
 
