@@ -43,17 +43,27 @@ public abstract class Storage<STORABLE extends Storable> {
       this.observers = new ArrayList<>();
       this.instances = new java.util.concurrent.ConcurrentHashMap<>();
       this.instancesView = Collections.unmodifiableMap(this.instances);
-      this.implementation.read("*", new ReadCallback() {
-         @Override
-         public void onSuccess(HashMap<String, JsonObject> var1x) {
-            Storage.this.createInstances(var1x);
-         }
-
-         @Override
-         public void onFailure(Exception var1x) {
-            throw new StorageStartupException("Cannot read configured storage " + var2, var1x);
-         }
-      });
+      try {
+         this.implementation.read("*", new ReadCallback() {
+            @Override
+            public void onSuccess(HashMap<String, JsonObject> var1x) {
+               try {
+                  Storage.this.createInstances(var1x);
+               } catch (RuntimeException invalidState) {
+                  throw new StorageStartupException("Invalid persisted state in storage " + var2, invalidState);
+               }
+            }
+   
+            @Override
+            public void onFailure(Exception var1x) {
+               throw new StorageStartupException("Cannot read configured storage " + var2, var1x);
+            }
+         });
+      } catch (StorageStartupException failure) {
+         throw failure;
+      } catch (RuntimeException failure) {
+         throw new StorageStartupException("Cannot load storage " + var2, failure);
+      }
    }
 
    protected void instancesChanged(StorageChangeType var1, String var2, @Nullable STORABLE var3) {

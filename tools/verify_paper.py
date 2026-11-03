@@ -135,11 +135,43 @@ def main():
             raise RuntimeError("Paper did not replace the installed JAR from plugins/update on restart")
     if staged.exists():
         raise RuntimeError("Paper left a staged plugin update after successful restart")
+    # A configured but unusable database must stop the server, without loading
+    # old local rights or damaging the existing authoritative data files.
+    permission_folder = work / "plugins/UltraPermissions"
+    protected_files = [p for p in permission_folder.glob("*.json") if p.name != "Registry.json"]
+    before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in protected_files}
+    (permission_folder / "mysql.properties").write_text(
+        "hostname=db.invalid\nport=3306\ndatabase=fixture\nusername=fixture\npassword=fixture\nssl=false\n", encoding="utf8")
+    name = "ultrapermissions-failclosed-" + uuid.uuid4().hex[:12]
+    print("Verifying configured-storage startup failure on real Paper...", flush=True)
+    try:
+        command("docker", "run", "--detach", "--name", name, "--network", "none", *base, IMAGE,
+                "java", "-Xms512M", "-Xmx1536M", "-jar", "paper.jar", "--nogui")
+        deadline = time.monotonic() + 150
+        while time.monotonic() < deadline:
+            state = json.loads(command("docker", "inspect", "--format", "{{json .State}}", name, capture=True))
+            if not state["Running"]:
+                break
+            time.sleep(2)
+        else:
+            raise TimeoutError("Configured MySQL failure did not stop Paper")
+        logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True)
+        output = logs.stdout + logs.stderr
+        (reports / "server-storage-failure.log").write_text(output, encoding="utf8")
+        if "Stopping the server to prevent startup with missing or stale rights" not in output:
+            raise RuntimeError("Startup failure did not invoke the permissions safety stop")
+        if "[UltraPermissions] Successfully loaded" in output or state["OOMKilled"]:
+            raise RuntimeError("Configured MySQL failure loaded the plugin or exhausted memory")
+        after = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in protected_files}
+        if before != after:
+            raise RuntimeError("Failed MySQL startup changed the existing local permission data")
+    finally:
+        subprocess.run(["docker", "rm", "--force", name], check=False, stdout=subprocess.DEVNULL)
     result = {
         "status": "passed",
-        "assertions": first["assertions"] + second["assertions"],
-        "boots": 2,
-        "boot_assertions": [first["assertions"], second["assertions"]],
+        "assertions": first["assertions"] + second["assertions"] + 3,
+        "boots": 3,
+        "boot_assertions": [first["assertions"], second["assertions"], 3],
         "server": first["server"],
         "java": second["java"],
         "paper_sha256": PAPER_SHA,
@@ -149,6 +181,8 @@ def main():
         "connected_player_test": False,
         "persistence_across_restart": True,
         "native_update_folder_handover": True,
+        "configured_mysql_failure_stops_server": True,
+        "local_rights_unchanged_on_storage_failure": True,
     }
     (reports / "verification.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf8")
     print(json.dumps(result, indent=2), flush=True)

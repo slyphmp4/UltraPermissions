@@ -48,12 +48,6 @@ public abstract class MySQLTableRefactor {
       return var3;
    }
 
-   private void tableDelete(Connection var1, String var2) throws SQLException {
-      Statement var3 = var1.createStatement();
-      var3.executeUpdate("DROP TABLE " + var2 + ";");
-      var3.close();
-   }
-
    private void tableRename(Connection var1, String var2, String var3) throws SQLException {
       Statement var4 = var1.createStatement();
       var4.executeUpdate("RENAME TABLE " + var2 + " TO " + var3 + ";");

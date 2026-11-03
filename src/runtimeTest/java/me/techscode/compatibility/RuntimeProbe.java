@@ -54,11 +54,15 @@ public final class RuntimeProbe extends JavaPlugin {
                 User user = permissions.registerUser(UUID.nameUUIDFromBytes("runtime-probe".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "StorageProbe", false);
                 Group group = permissions.getGroupStorage().newGroup("compatibility_probe").create();
                 user.addGroup(group);
+                user.setPrefix("Admin");
+                user.setPrefix("admin");
+                check("admin".equals(user.getPrefix().orElse(null)), "case-only prefix change applied");
                 group.newPermission("compatibility.allowed").create();
                 check(user.getActiveGroups().contains(group), "group membership");
                 check(!user.getAdditionalPermissions().isEmpty(), "inherited permission storage");
                 check(Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "upc ListGroups"), "console command dispatch");
                 playerPermissions();
+                rankPathIsolation();
                 verifyLanguages();
                 report("passed", 1);
                 Files.createDirectories(getDataFolder().toPath());
@@ -75,6 +79,7 @@ public final class RuntimeProbe extends JavaPlugin {
         Group group = permissions.getGroups().name("compatibility_probe").orElseThrow(
             () -> new AssertionError("Group was not restored after full server restart"));
         check(persisted.getActiveGroups().contains(group), "group membership persisted across full JVM restart");
+        check("admin".equals(persisted.getPrefix().orElse(null)), "case-only prefix change persisted across restart");
         check(group.getPermissions().stream().anyMatch(p -> "compatibility.allowed".equals(p.getName())),
             "group permission persisted across server restart");
         check(persisted.getAdditionalPermissions().stream().anyMatch(p -> "compatibility.allowed".equals(p.getName())),
@@ -86,6 +91,29 @@ public final class RuntimeProbe extends JavaPlugin {
             "direct permission persisted across restart");
         check(user.getPermissions().stream().anyMatch(p -> "compatibility.denied".equals(p.getName()) && !p.isPositive()),
             "explicit deny persisted across restart");
+    }
+
+    private void rankPathIsolation() {
+        Group low = permissions.getGroupStorage().newGroup("probe_low").create();
+        Group high = permissions.getGroupStorage().newGroup("probe_high").create();
+        Group other = permissions.getGroupStorage().newGroup("probe_other").create();
+        var first = new me.TechsCode.UltraPermissions.storage.objects.GroupPath("ProbePathA");
+        first.setGroupPath(new java.util.ArrayList<>(List.of(low, high)));
+        permissions.getGroupPathStorage().create(first);
+        var second = new me.TechsCode.UltraPermissions.storage.objects.GroupPath("ProbePathB");
+        second.setGroupPath(new java.util.ArrayList<>(List.of(other)));
+        permissions.getGroupPathStorage().create(second);
+        User alice = permissions.registerUser(UUID.nameUUIDFromBytes("rank-audit-alice".getBytes()), "RankAlice", false);
+        User bob = permissions.registerUser(UUID.nameUUIDFromBytes("rank-audit-bob".getBytes()), "RankBob", false);
+        alice.addGroup(low); bob.addGroup(low);
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "promote RankAlice ProbePathA");
+        check(alice.getActiveGroups().contains(high), "valid promote on real command path");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "promote RankBob ProbePathB");
+        check(bob.getActiveGroups().contains(low) && !bob.getActiveGroups().contains(other), "cross-user/path promote rejected");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "demote RankAlice ProbePathA");
+        check(alice.getActiveGroups().contains(low), "valid demote on real command path");
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "demote RankBob ProbePathB");
+        check(bob.getActiveGroups().contains(low) && !bob.getActiveGroups().contains(other), "cross-user/path demote rejected");
     }
 
     private void verifyLanguages() {

@@ -58,7 +58,9 @@ public class LocalFile extends StorageImplementation {
       synchronized (this.configuration) {
          HashMap<String, JsonObject> rows = new HashMap<>();
          try {
-            for (String key : this.configuration.getKeys(false)) {
+            java.util.Set<String> keys = "*".equals(var1) ? this.configuration.getKeys(false)
+               : this.configuration.get(var1) == null ? java.util.Set.of() : java.util.Set.of(var1);
+            for (String key : keys) {
                String value = this.configuration.getString(key);
                if (value == null) {
                   throw new IllegalStateException("Missing value for key " + key);

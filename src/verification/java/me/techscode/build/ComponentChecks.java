@@ -43,6 +43,15 @@ public final class ComponentChecks {
                     application++;
                 }
             }
+            require(!entries.contains("META-INF/49a015d074c141c8"), "Personal purchaser metadata leaked into release");
+            for (String name : entries) {
+                if (!name.startsWith("META-INF/services/") || name.endsWith("/")) continue;
+                for (String line : new String(read(jar, name), StandardCharsets.UTF_8).split("\\R")) {
+                    String provider = line.split("#", 2)[0].trim();
+                    if (!provider.isEmpty()) require(entries.contains(provider.replace('.', '/') + ".class"),
+                        "Unresolved bundled service provider: " + provider);
+                }
+            }
             Path mainResources = root.resolve("src/main/resources");
             try (var files = Files.walk(mainResources)) {
                 for (Path path : files.filter(Files::isRegularFile).toList()) {

@@ -49,7 +49,6 @@ public class GroupPath extends Storable {
       var1.addProperty("description", this.description);
       JsonArray var2 = new JsonArray();
       this.groupPath.forEach(var1x -> var2.add(var1x.getKey()));
-      TechPlugin.getInstance().log("GroupPath: " + var2);
       var1.add("groupPath", var2);
       var1.addProperty("icon", ItemSerializer.itemTo64(this.icon));
       var1.addProperty("enabled", this.enabled);
