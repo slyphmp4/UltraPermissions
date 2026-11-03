@@ -110,7 +110,7 @@ jobs:
             python3 tools/verify_reproducible_archives.py "build/compare/linux/libs/$name" "build/compare/windows/libs/$name"
           done
   compatibility:
-    name: Real Paper server E2E — 2 boots, persistence, commands, RU/UK
+    name: Real Paper E2E — persistence, ranks and fail-closed storage
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -122,7 +122,7 @@ jobs:
         with:
           name: UltraPermissions-Linux
           path: build/runtime-input
-      - name: Install UltraPermissions and verify two isolated Paper server boots
+      - name: Install UltraPermissions and verify isolated Paper server boots and storage failure
         shell: bash
         run: |
           version=$(sed -n "s/^version = '\([^']*\)'/\1/p" build.gradle)
@@ -132,7 +132,7 @@ jobs:
             --work-dir build/paper-runtime \
             --report-dir build/reports/runtime \
             --accept-eula
-      - name: Show two-boot end-to-end results
+      - name: Show end-to-end persistence and storage-failure results
         shell: bash
         run: cat build/reports/runtime/verification.json
       - name: Upload runtime verification
