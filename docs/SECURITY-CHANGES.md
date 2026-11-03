@@ -27,4 +27,3 @@ CI runs negative checks against Bukkit/JDBC test doubles and structurally verifi
 External-IP discovery now uses HTTPS on a worker with timeouts. Bundled dependencies and remaining verification limits are documented separately; no absolute-safety claim is made.
 
 The 5.6.15 gate includes 485 offline assertions, Windows/Linux reproducibility, two healthy Paper boots and a third boot proving a configured-store failure stops the server without changing local rights. See [compatibility](COMPATIBILITY.md) and [5.6.15 release notes](releases/5.6.15.md).
-

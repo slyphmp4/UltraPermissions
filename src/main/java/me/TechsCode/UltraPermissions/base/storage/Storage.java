@@ -53,7 +53,7 @@ public abstract class Storage<STORABLE extends Storable> {
                   throw new StorageStartupException("Invalid persisted state in storage " + var2, invalidState);
                }
             }
-   
+
             @Override
             public void onFailure(Exception var1x) {
                throw new StorageStartupException("Cannot read configured storage " + var2, var1x);
@@ -115,7 +115,7 @@ public abstract class Storage<STORABLE extends Storable> {
                                  .stream()
                                  .filter(var1xxx -> Storage.this.instancesView.containsKey(var1xxx.getKey()))
                                  .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-   
+
                               for (Entry<String, JsonObject> var5 : var3.entrySet()) {
                                  Storable var6 = Storage.this.instancesView.get(var5.getKey());
                                  if (!var6.getState().equals(var5.getValue())) {
@@ -123,7 +123,7 @@ public abstract class Storage<STORABLE extends Storable> {
                                     var6.setLastSyncedState((JsonObject)var5.getValue());
                                  }
                               }
-   
+
                               Map<String, STORABLE> var8 = Storage.this.instancesView
                                  .entrySet()
                                  .stream()
@@ -142,7 +142,7 @@ public abstract class Storage<STORABLE extends Storable> {
                               STORABLE var7 = Storage.this.instances.remove(var1);
                               Storage.this.instancesChanged(StorageChangeType.REMOVED, var1, var7);
                            }
-   
+
                               Storage.this.onDataSynchronization();
                         });
                      }
