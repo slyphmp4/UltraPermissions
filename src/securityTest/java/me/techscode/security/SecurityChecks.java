@@ -109,6 +109,7 @@ public final class SecurityChecks {
         threadingAndNetwork();
         persistenceFailureRecovery(fixtures.resolve("persistence-fixture"));
         uiRevocation();
+        stableHeadProfiles();
         serializedItems();
         removedCapabilities();
         updaterChecks();
@@ -122,6 +123,35 @@ public final class SecurityChecks {
         result.add("groups", new Gson().toJsonTree(groups));
         Files.writeString(report.resolve("verification.json"), new GsonBuilder().setPrettyPrinting().create().toJson(result));
         System.out.println("Security checks passed: " + assertions + " assertions in " + groups.size() + " groups.");
+    }
+
+    private static void stableHeadProfiles() throws Exception {
+        Class<?> items = Class.forName("me.TechsCode.UltraPermissions.base.item.CustomItem");
+        Method identity = items.getDeclaredMethod("headProfileUuid", String.class);
+        identity.setAccessible(true);
+        String firstSkin = "https://textures.minecraft.net/texture/first-test-skin";
+        String secondSkin = "https://textures.minecraft.net/texture/second-test-skin";
+        UUID first = (UUID) identity.invoke(null, firstSkin);
+        check(first.equals(identity.invoke(null, firstSkin)), "identical skin URLs retain a stable skull UUID");
+        check(!first.equals(identity.invoke(null, secondSkin)), "different skins do not share skull UUIDs");
+
+        Method cache = items.getDeclaredMethod("cachedHeadProfile", String.class, Callable.class);
+        cache.setAccessible(true);
+        AtomicInteger constructions = new AtomicInteger();
+        Callable<Object> create = () -> { constructions.incrementAndGet(); return new Object(); };
+        Object profile = cache.invoke(null, "regression:" + firstSkin, create);
+        check(profile == cache.invoke(null, "regression:" + firstSkin, create) && constructions.get() == 1,
+            "redrawing an unchanged head reuses the cached profile");
+        check(profile != cache.invoke(null, "regression:" + secondSkin, create),
+            "changing the skin URL invalidates the effective cache key");
+        for (int i = 0; i < 1030; i++) {
+            cache.invoke(null, "regression:eviction:" + i, create);
+        }
+        check(profile != cache.invoke(null, "regression:" + firstSkin, create),
+            "head profile cache evicts entries beyond its bounded capacity");
+        check(first.equals(identity.invoke(null, firstSkin)),
+            "cache eviction does not change the deterministic skin identity");
+        groups.add("GUI head profiles: stable IDs, cache reuse, skin change and bounded eviction");
     }
 
     private static void remoteCatalogue() throws Exception {

@@ -2,6 +2,7 @@ package me.techscode.compatibility;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.net.URL;
 import java.util.UUID;
 import java.util.Map;
 import java.util.List;
@@ -11,6 +12,7 @@ import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.fileconf.impl.SpigotFileConfiguration;
 import me.TechsCode.UltraPermissions.base.item.CustomItem;
 import me.TechsCode.UltraPermissions.base.item.XMaterial;
+import me.TechsCode.UltraPermissions.base.legacy.SkinTexture;
 import me.TechsCode.UltraPermissions.base.reflection.utility.ReflectionUtil;
 import me.TechsCode.UltraPermissions.base.security.SafeItems;
 import me.TechsCode.UltraPermissions.internal.ModifiedPermissible;
@@ -19,6 +21,7 @@ import me.TechsCode.UltraPermissions.storage.objects.User;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /** Test-server companion only. Never install on a production server. */
@@ -51,6 +54,7 @@ public final class RuntimeProbe extends JavaPlugin {
                 check(SafeItems.decode(SafeItems.encode(item.get())).isSimilar(item.get()), "real item metadata codec");
                 check(CustomItem.deserialize(item.serialize()).get().isSimilar(item.get()), "GUI item codec");
                 check(Bukkit.createInventory(null, 27, "Compatibility probe").getSize() == 27, "inventory creation");
+                verifyStablePlayerHeads();
                 User user = permissions.registerUser(UUID.nameUUIDFromBytes("runtime-probe".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "StorageProbe", false);
                 Group group = permissions.getGroupStorage().newGroup("compatibility_probe").create();
                 user.addGroup(group);
@@ -91,6 +95,25 @@ public final class RuntimeProbe extends JavaPlugin {
             "direct permission persisted across restart");
         check(user.getPermissions().stream().anyMatch(p -> "compatibility.denied".equals(p.getName()) && !p.isPositive()),
             "explicit deny persisted across restart");
+    }
+
+    private void verifyStablePlayerHeads() throws Exception {
+        String firstSkin = "https://textures.minecraft.net/texture/b3fbd454b599df593f57101bfca34e67d292a8861213d2202bb575da7fd091ac";
+        String secondSkin = "https://textures.minecraft.net/texture/b3fbd454b599df593f57101bfca34e67d292a8861213d2202bb575da7fd091ad";
+        SkinTexture firstTexture = new SkinTexture(firstSkin, System.currentTimeMillis());
+        SkullMeta first = (SkullMeta) new CustomItem(Material.PLAYER_HEAD).setSkullTexture(firstTexture).get().getItemMeta();
+        SkullMeta redrawn = (SkullMeta) new CustomItem(Material.PLAYER_HEAD).setSkullTexture(firstTexture).get().getItemMeta();
+        SkullMeta changed = (SkullMeta) new CustomItem(Material.PLAYER_HEAD)
+            .setSkullTexture(new SkinTexture(secondSkin, System.currentTimeMillis())).get().getItemMeta();
+        check(first.getOwnerProfile() != null && redrawn.getOwnerProfile() != null && changed.getOwnerProfile() != null,
+            "player-head profiles are applied through the runtime skull API");
+        check(first.getOwnerProfile().getUniqueId().equals(redrawn.getOwnerProfile().getUniqueId()),
+            "identical heads retain one profile identity across GUI redraws");
+        check(first.getOwnerProfile().getTextures().getSkin().equals(new URL(firstSkin)),
+            "runtime skull metadata preserves the intended skin URL");
+        check(!first.getOwnerProfile().getUniqueId().equals(changed.getOwnerProfile().getUniqueId())
+                && changed.getOwnerProfile().getTextures().getSkin().equals(new URL(secondSkin)),
+            "changed skin URL produces a distinct profile with the new texture");
     }
 
     private void rankPathIsolation() {

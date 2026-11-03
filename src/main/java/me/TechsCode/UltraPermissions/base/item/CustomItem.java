@@ -13,10 +13,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Map.Entry;
+import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.base.legacy.SkinTexture;
 import me.TechsCode.UltraPermissions.base.legacy.utils.MinecraftVersion;
@@ -38,6 +40,15 @@ import org.bukkit.profile.PlayerTextures;
 
 public class CustomItem implements Serializable {
    public static Gson gson = new Gson();
+   private static final int MAX_CACHED_HEAD_PROFILES = 1024;
+   // Heads can be rebuilt every two ticks. Keep their identity stable across redraws,
+   // and bound the cache so old skins cannot accumulate indefinitely.
+   private static final Map<String, Object> HEAD_PROFILES = new LinkedHashMap<>(128, 0.75F, true) {
+      @Override
+      protected boolean removeEldestEntry(Map.Entry<String, Object> eldest) {
+         return this.size() > MAX_CACHED_HEAD_PROFILES;
+      }
+   };
    private ItemStack is;
 
    public CustomItem(Material var1) {
@@ -99,46 +110,67 @@ public class CustomItem implements Serializable {
    }
 
    private void setTextures(SkullMeta var1, SkinTexture var2) {
-      String var3 = String.format("{'textures':{'SKIN':{'url':'%s'}}}", var2.getUrl());
-      String var4 = new String(Base64.encodeBase64(var3.getBytes()), StandardCharsets.UTF_8);
+      String url = var2.getUrl();
 
       try {
-         Method var16 = Bukkit.class.getDeclaredMethod("createPlayerProfile", UUID.class, String.class);
-         var16.setAccessible(true);
-         Class var18 = var16.getReturnType();
-         Method var7 = var1.getClass().getDeclaredMethod("setOwnerProfile", var18);
-         var7.setAccessible(true);
-         Method var8 = var18.getDeclaredMethod("getTextures");
-         var8.setAccessible(true);
-         Object var9 = var16.invoke(null, UUID.randomUUID(), "skull");
-         PlayerTextures var10 = (PlayerTextures)var8.invoke(var9);
-         var10.setSkin(new URL(var2.getUrl()));
-         var7.invoke(var1, var9);
-      } catch (Throwable var15) {
+         Method createProfile = Bukkit.class.getMethod("createPlayerProfile", UUID.class, String.class);
+         Class<?> profileType = createProfile.getReturnType();
+         Method setProfile = var1.getClass().getMethod("setOwnerProfile", profileType);
+         Method getTextures = profileType.getMethod("getTextures");
+         Method setTextures = profileType.getMethod("setTextures", PlayerTextures.class);
+         Object profile = cachedHeadProfile("bukkit:" + url, () -> {
+            Object created = createProfile.invoke(null, headProfileUuid(url), "skull");
+            PlayerTextures textures = (PlayerTextures)getTextures.invoke(created);
+            textures.setSkin(new URL(url));
+            setTextures.invoke(created, textures);
+            return created;
+         });
+         setProfile.invoke(var1, profile);
+      } catch (Throwable modernFailure) {
+         // Pre-profile API and third-party Bukkit implementations use the old
+         // authlib representation. Preserve that compatibility path.
          try {
-            GameProfile var5 = new GameProfile(new UUID(var4.substring(var4.length() - 20).hashCode(), var4.substring(var4.length() - 10).hashCode()), "legacy");
+            GameProfile legacy = (GameProfile)cachedHeadProfile("legacy:" + url, () -> {
+               String value = String.format("{'textures':{'SKIN':{'url':'%s'}}}", url);
+               String encoded = new String(Base64.encodeBase64(value.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
+               GameProfile created = new GameProfile(headProfileUuid(url), "legacy");
+               created.getProperties().put("textures", new Property("textures", encoded));
+               return created;
+            });
 
             try {
-               var5.getProperties().put("textures", new Property("textures", var4));
-            } catch (Throwable var12) {
+               Method method = var1.getClass().getDeclaredMethod("setProfile", GameProfile.class);
+               method.setAccessible(true);
+               method.invoke(var1, legacy);
                return;
-            }
-
-            try {
-               Method var17 = var1.getClass().getDeclaredMethod("setProfile", GameProfile.class);
-               var17.setAccessible(true);
-               var17.invoke(var1, var5);
-               return;
-            } catch (Throwable var13) {
+            } catch (Throwable missingMethod) {
                try {
-                  Field var6 = var1.getClass().getDeclaredField("profile");
-                  var6.setAccessible(true);
-                  var6.set(var1, var5);
-               } catch (Throwable var11) {
+                  Field field = var1.getClass().getDeclaredField("profile");
+                  field.setAccessible(true);
+                  field.set(var1, legacy);
+               } catch (Throwable unsupportedLegacyProfile) {
                }
             }
-         } catch (Throwable var14) {
+         } catch (Throwable unsupportedLegacyProfile) {
          }
+      }
+   }
+
+   private static UUID headProfileUuid(String url) {
+      return UUID.nameUUIDFromBytes(("UltraPermissions:head:" + url).getBytes(StandardCharsets.UTF_8));
+   }
+
+   private static Object cachedHeadProfile(String key, Callable<Object> create) throws Exception {
+      synchronized (HEAD_PROFILES) {
+         Object profile = HEAD_PROFILES.get(key);
+         if (profile == null) {
+            profile = create.call();
+            if (profile != null) {
+               HEAD_PROFILES.put(key, profile);
+            }
+         }
+
+         return profile;
       }
    }
 
