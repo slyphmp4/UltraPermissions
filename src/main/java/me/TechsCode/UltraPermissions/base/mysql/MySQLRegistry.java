@@ -43,7 +43,8 @@ public class MySQLRegistry extends RegistryStorable {
          this.ssl = Boolean.parseBoolean(properties.getProperty("ssl", "true"));
          if (!this.hasCredentials()) throw new java.io.IOException("Missing local MySQL credentials");
       } catch (java.io.IOException invalid) {
-         throw new IllegalStateException("Invalid local mysql.properties; MySQL startup refused", invalid);
+         throw new me.TechsCode.UltraPermissions.base.storage.StorageStartupException(
+             "Invalid local mysql.properties; MySQL startup refused", invalid);
       }
    }
 

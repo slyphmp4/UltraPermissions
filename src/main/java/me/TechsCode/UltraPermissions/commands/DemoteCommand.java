@@ -19,7 +19,6 @@ import org.bukkit.command.CommandSender;
 
 public class DemoteCommand extends Command {
    private final UltraPermissions plugin;
-   private Optional<Group> toBeDemotedGroup;
    private static final Phrase NOT_VALID = Phrase.create("DemoteCommand.notValid", "Invalid User", Colors.GRAY);
    private static final Phrase PROMOTED = Phrase.create(
       "DemoteCommand.demoted.success",
@@ -48,7 +47,6 @@ public class DemoteCommand extends Command {
    public DemoteCommand(UltraPermissions var1) {
       super(var1, "demote", "ultrapermissions.commands.demote");
       this.plugin = var1;
-      this.toBeDemotedGroup = Optional.empty();
    }
 
    @Override
@@ -63,24 +61,17 @@ public class DemoteCommand extends Command {
                   ArgumentValue var6 = var1x.getValue(var5);
                   ArgumentValue var7 = var2x.getValue(var5);
                   if (var6.isValid() && var7.isValid()) {
-                     ((User)var6.get()).getGroups().forEach(var2xxx -> {
-                        if (var2xxx.get().isPresent() && ((GroupPath)var7.get()).getGroupPath().contains(var2xxx.get().get())) {
-                           this.toBeDemotedGroup = var2xxx.get();
-                        }
-                     });
-                     ((GroupPath)var7.get()).getGroupPath().forEach(var2xxx -> ((User)var6.get()).getActiveGroups().forEach(var2xxxx -> {
-                        if (var2xxxx.getKey().equals(var2xxx.getKey())) {
-                           this.toBeDemotedGroup = Optional.of(var2xxx);
-                        }
-                     }));
-                     if (!this.toBeDemotedGroup.isPresent()) {
+                     Optional<Group> toBeDemotedGroup = ((GroupPath)var7.get()).getGroupPath().stream()
+                        .filter(((User)var6.get()).getActiveGroups()::contains)
+                        .reduce((previous, current) -> current);
+                     if (!toBeDemotedGroup.isPresent()) {
                         var3.sendMessage(
                            this.plugin.getPrefix()
                               + FAILED_NOT_IN_PATH.get()
                                  .replace("%user%", ((User)var6.get()).getName())
                                  .replace("%groupPathName%", ((GroupPath)var7.get()).getName())
                         );
-                     } else if (((GroupPath)var7.get()).getGroupPath().indexOf(this.toBeDemotedGroup.get()) - 1 < 0) {
+                     } else if (((GroupPath)var7.get()).getGroupPath().indexOf(toBeDemotedGroup.get()) - 1 < 0) {
                         var3.sendMessage(
                            this.plugin.getPrefix()
                               + FAILED_ALREADY_IN_HIGHEST.get()
@@ -89,16 +80,16 @@ public class DemoteCommand extends Command {
                         );
                      } else {
                         Optional var8 = Optional.ofNullable(
-                           ((GroupPath)var7.get()).getGroupPath().get(((GroupPath)var7.get()).getGroupPath().indexOf(this.toBeDemotedGroup.get()) - 1)
+                           ((GroupPath)var7.get()).getGroupPath().get(((GroupPath)var7.get()).getGroupPath().indexOf(toBeDemotedGroup.get()) - 1)
                         );
                         if (var8.isPresent()) {
-                           ((User)var6.get()).addGroup((Group)var8.get(), ((User)var6.get()).getGroupExpiry(this.toBeDemotedGroup.get().toStored()));
-                           ((User)var6.get()).removeGroup(this.toBeDemotedGroup.get());
+                           ((User)var6.get()).addGroup((Group)var8.get(), ((User)var6.get()).getGroupExpiry(toBeDemotedGroup.get().toStored()));
+                           ((User)var6.get()).removeGroup(toBeDemotedGroup.get());
                            var3.sendMessage(
                               this.plugin.getPrefix()
                                  + PROMOTED.get()
                                     .replace("%user%", ((User)var6.get()).getName())
-                                    .replace("%oldGroup%", this.toBeDemotedGroup.get().getName())
+                                    .replace("%oldGroup%", toBeDemotedGroup.get().getName())
                                     .replace("%newGroup%", ((Group)var8.get()).getName())
                                     .replace("%groupPathName%", ((GroupPath)var7.get()).getName())
                            );

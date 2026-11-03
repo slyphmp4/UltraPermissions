@@ -11,7 +11,16 @@ public class BungeeLoader extends Plugin {
    }
 
    public void onEnable() {
-      this.loader = new Loader(this, BungeeTechPlugin.class, this.getClass().getClassLoader());
+      try {
+         this.loader = new Loader(this, BungeeTechPlugin.class, this.getClass().getClassLoader());
+      } catch (RuntimeException failure) {
+         if (me.TechsCode.UltraPermissions.base.storage.StorageStartupException.isStorageFailure(failure)) {
+            this.getLogger().severe("UltraPermissions could not open its configured permissions store. "
+               + "Stopping the proxy; check mysql.properties, database access/TLS and restart.");
+            this.getProxy().stop("UltraPermissions permissions storage unavailable");
+         }
+         throw failure;
+      }
    }
 
    public void onDisable() {

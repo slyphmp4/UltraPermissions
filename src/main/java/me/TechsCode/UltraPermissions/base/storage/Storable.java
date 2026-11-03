@@ -18,7 +18,7 @@ public abstract class Storable {
    protected void sync() {
       if (this.storage != null) {
          JsonObject var1 = this.getState();
-         if (this.lastSyncedState == null || !this.lastSyncedState.toString().equalsIgnoreCase(var1.toString())) {
+         if (this.lastSyncedState == null || !this.lastSyncedState.equals(var1)) {
             this.storage.update(this, var1);
          }
       }

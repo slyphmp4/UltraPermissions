@@ -41,7 +41,7 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
       this.defaultPerms = var2.isDefaultPermissionsEnabled();
       this.attachments = new ArrayList<>();
       this.permissionProvider = new CachedPlayerPermissionProvider(var2);
-      Bukkit.getPluginManager().registerEvents(this, (Plugin)var2.getBootstrap());
+      // No event handlers: the Player owns this permissible until a successful join.
    }
 
    public void clearCache() {

@@ -19,7 +19,17 @@ public class SpigotLoader extends JavaPlugin {
    @Override
    public void onEnable() {
       // Open-source builds have no Spigot Premium authorization/phone-home gate.
-      this.loader = new Loader(this, SpigotTechPlugin.class, this.getClassLoader());
+      try {
+         this.loader = new Loader(this, SpigotTechPlugin.class, this.getClassLoader());
+      } catch (RuntimeException failure) {
+         if (me.TechsCode.UltraPermissions.base.storage.StorageStartupException.isStorageFailure(failure)) {
+            this.getLogger().severe("UltraPermissions could not open its configured permissions store. "
+               + "Stopping the server to prevent startup with missing or stale rights. "
+               + "Check mysql.properties, database access/TLS and storage files, then restart.");
+            this.getServer().shutdown();
+         }
+         throw failure;
+      }
    }
 
    @Override

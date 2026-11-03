@@ -52,12 +52,16 @@ public class PluginEvents implements Listener {
          this.plugin.registerUser(var1.getUniqueId(), var1.getName(), this.plugin.getDefaultGroupAssignOption() == DefaultGroupAssignOption.FIRST_JOIN);
       }
 
+      this.installPermissions(var1, true);
+   }
+
+   private void installPermissions(Player player, boolean joined) {
       try {
-         ModifiedPermissible var3 = new ModifiedPermissible(var1, this.plugin, this.permissionLogger);
-         this.permissibleHashMap.put(var1, var3);
-         PermissibleInjector.inject(var1, var3);
-      } catch (IllegalAccessException var4) {
-         var4.printStackTrace();
+         ModifiedPermissible permissible = new ModifiedPermissible(player, this.plugin, this.permissionLogger);
+         PermissibleInjector.inject(player, permissible);
+         if (joined) this.permissibleHashMap.put(player, permissible);
+      } catch (IllegalAccessException failure) {
+         throw new IllegalStateException("Cannot install player permissions", failure);
       }
    }
 
@@ -67,13 +71,16 @@ public class PluginEvents implements Listener {
 
    @EventHandler(priority = EventPriority.LOW)
    public void login(PlayerLoginEvent var1) {
-      if (var1.getResult() != Result.KICK_WHITELIST) {
-         this.login(var1.getPlayer());
+      if (var1.getResult() == Result.ALLOWED) {
+         // Existing users retain early permission checks without retaining an unjoined Player
+         // or writing a new account before the final login decision.
+         this.installPermissions(var1.getPlayer(), false);
       }
    }
 
-   @EventHandler
+   @EventHandler(priority = EventPriority.LOWEST)
    public void join(PlayerJoinEvent event) {
+      this.login(event.getPlayer());
       if (!this.plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) {
          return;
       }

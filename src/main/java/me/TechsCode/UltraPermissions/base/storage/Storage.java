@@ -35,8 +35,7 @@ public abstract class Storage<STORABLE extends Storable> {
       try {
          this.implementation = (StorageImplementation)var4.getConstructor(TechPlugin.class, String.class).newInstance(var1, var2);
       } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException var7) {
-         var7.printStackTrace();
-         return;
+         throw new StorageStartupException("Cannot initialize storage " + var2, var7);
       }
 
       this.syncingAgent = this.implementation.hasMultiServerSupport() && var5 ? var1.getSyncingAgent() : new SyncingAgent.EmptyAgent();
@@ -52,8 +51,7 @@ public abstract class Storage<STORABLE extends Storable> {
 
          @Override
          public void onFailure(Exception var1x) {
-            var1.log("Could not retrieve data from Storage '" + var3.getName() + "' :");
-            var1.log(var1x.getMessage());
+            throw new StorageStartupException("Cannot read configured storage " + var2, var1x);
          }
       });
    }
@@ -110,7 +108,7 @@ public abstract class Storage<STORABLE extends Storable> {
    
                               for (Entry<String, JsonObject> var5 : var3.entrySet()) {
                                  Storable var6 = Storage.this.instancesView.get(var5.getKey());
-                                 if (!var6.getState().toString().equalsIgnoreCase(((JsonObject)var5.getValue()).toString())) {
+                                 if (!var6.getState().equals(var5.getValue())) {
                                     var6.setState((JsonObject)var5.getValue(), Storage.this.plugin);
                                     var6.setLastSyncedState((JsonObject)var5.getValue());
                                  }
