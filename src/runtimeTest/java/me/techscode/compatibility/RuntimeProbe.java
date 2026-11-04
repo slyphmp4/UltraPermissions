@@ -159,8 +159,9 @@ public final class RuntimeProbe extends JavaPlugin {
         pluginField.set(view, permissions);
         Model model = new Model();
         view.construct(model);
-        check(view.getCurrentSlots() == 27 && model.getEntries().keySet().equals(java.util.Set.of(12, 14, 16, 23)),
-            "updates subview has three content items and the native back button");
+        check(view.getCurrentSlots() == 45 && model.getEntries().keySet().equals(java.util.Set.of(12, 14, 16, 41))
+                && Bukkit.createInventory(null, view.getCurrentSlots(), view.getCurrentTitle()).getSize() == 45,
+            "updates subview has five rows, unchanged content slots and Back at the bottom center");
         Button notices = new Button(), downloads = new Button();
         model.getEntries().get(12).button(notices);
         model.getEntries().get(14).button(downloads);

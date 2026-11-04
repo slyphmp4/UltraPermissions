@@ -89,6 +89,11 @@ public abstract class UpdateSettingsView extends GUI {
    public abstract void onBack();
 
    @Override
+   public int getCurrentSlots() {
+      return 45;
+   }
+
+   @Override
    public String getCurrentTitle() {
       return TITLE.get();
    }
@@ -98,7 +103,7 @@ public abstract class UpdateSettingsView extends GUI {
       model.button(12, this::UpdaterNoticesButton);
       model.button(14, this::UpdaterButton);
       model.button(16, this::StatusButton);
-      model.button(23, button -> Common.BackButton(button, action -> this.onBack()));
+      model.button(41, button -> Common.BackButton(button, action -> this.onBack()));
    }
 
    private void UpdaterNoticesButton(Button var1) {
