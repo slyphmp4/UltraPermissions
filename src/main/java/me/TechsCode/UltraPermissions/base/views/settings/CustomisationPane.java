@@ -8,7 +8,6 @@ import me.TechsCode.UltraPermissions.base.gui.Button;
 import me.TechsCode.UltraPermissions.base.gui.Model;
 import me.TechsCode.UltraPermissions.base.item.XMaterial;
 import me.TechsCode.UltraPermissions.base.translations.Phrase;
-import me.TechsCode.UltraPermissions.base.update.Updater;
 import me.TechsCode.UltraPermissions.base.translations.Words;
 import me.TechsCode.UltraPermissions.base.visual.Animation;
 import me.TechsCode.UltraPermissions.base.visual.Colors;
@@ -32,28 +31,12 @@ public class CustomisationPane extends SettingsPane {
       "customisationPane.prefix.enableAction", "Click to **enable** the prefix", Colors.GRAY, Colors.GREEN
    );
    private static final Phrase PREFIX_ATTRIBUTE = Phrase.create("customisationPane.prefix.attribute", "Prefix: **%prefix%**", Colors.GRAY, Colors.WHITE);
-   private static final Phrase UPDATER_TITLE = Phrase.create("customisationPane.updater.title", "Ingame Updater");
-   private static final Phrase UPDATER_ACTION = Phrase.create("customisationPane.updater.action", "**Click** to %action% ingame Updater", Colors.GRAY, Colors.AQUA);
-   private static final Phrase UPDATER_DESC1 = Phrase.create("customisationPane.updater.desc1", "Automatically downloads verified GitHub Release updates", Colors.GRAY);
-   private static final Phrase UPDATER_DESC2 = Phrase.create("customisationPane.updater.desc2", "Applies them on your next server restart", Colors.GRAY);
-   private static final Phrase UPDATER_STATE = Phrase.create(
-      "customisationPane.updater.state", "Automatic download: **%status%**", Colors.GRAY, Colors.YELLOW
+   private static final Phrase UPDATES_TITLE = Phrase.create("customisationPane.updates.title", "Update Settings");
+   private static final Phrase UPDATES_ACTION = Phrase.create(
+      "customisationPane.updates.action", "Click to open **update settings**", Colors.GRAY, Colors.YELLOW
    );
-   private static final Phrase UPDATER_NOTICES_TITLE = Phrase.create("customisationPane.updaterNotices.title", "Update Chat Notifications");
-   private static final Phrase UPDATER_NOTICES_ENABLE = Phrase.create(
-      "customisationPane.updaterNotices.enable", "Click to **enable** update chat notifications", Colors.GRAY, Colors.GREEN
-   );
-   private static final Phrase UPDATER_NOTICES_DISABLE = Phrase.create(
-      "customisationPane.updaterNotices.disable", "Click to **disable** update chat notifications", Colors.GRAY, Colors.RED
-   );
-   private static final Phrase UPDATER_NOTICES_STATE = Phrase.create(
-      "customisationPane.updaterNotices.state", "Chat notifications: **%status%**", Colors.GRAY, Colors.YELLOW
-   );
-   private static final Phrase UPDATER_NOTICES_DESC1 = Phrase.create(
-      "customisationPane.updaterNotices.desc1", "Shows update status to superadmins", Colors.GRAY
-   );
-   private static final Phrase UPDATER_NOTICES_DESC2 = Phrase.create(
-      "customisationPane.updaterNotices.desc2", "Works even when auto-download is disabled", Colors.GRAY
+   private static final Phrase UPDATES_DESC = Phrase.create(
+      "customisationPane.updates.desc", "Chat notifications, automatic downloads and update status", Colors.GRAY
    );
    private static final Phrase GUIINTERVANL_TITLE = Phrase.create("customisationPane.guiUpdateInterval.title", "GUI Update Interval");
    private static final Phrase GUIINTERVANL_RESET_ACTION = Phrase.create(
@@ -83,10 +66,9 @@ public class CustomisationPane extends SettingsPane {
 
    @Override
    public void construct(Model var1) {
-      // Original TechsCode four-item layout, as also used by MiscPane.
+      // Keep the prefix and interval in their existing slots; combine the two update controls.
       var1.button(20, this::PrefixButton);
-      var1.button(22, this::UpdaterNoticesButton);
-      var1.button(24, this::UpdaterButton);
+      var1.button(23, this::UpdateSettingsButton);
       var1.button(26, this::GuiUpdateIntervalButton);
    }
 
@@ -129,42 +111,15 @@ public class CustomisationPane extends SettingsPane {
       });
    }
 
-   private void UpdaterNoticesButton(Button var1) {
-      AppearanceRegistry registry = this.plugin.getAppearanceRegistry();
-      var1.material(XMaterial.PAPER)
-         .name(Animation.wave(UPDATER_NOTICES_TITLE.get(), Colors.Gold, Colors.YELLOW))
-         .lore(
-            (registry.isUpdaterNotificationsEnabled() ? UPDATER_NOTICES_DISABLE : UPDATER_NOTICES_ENABLE).get(),
-            "",
-            UPDATER_NOTICES_STATE.get().replace("%status%",
-               (registry.isUpdaterNotificationsEnabled() ? Words.ENABLED : Words.DISABLED).get()),
-            "",
-            UPDATER_NOTICES_DESC1.get(),
-            UPDATER_NOTICES_DESC2.get()
-         );
-      var1.action(action -> {
-         registry.toggleUpdaterNotifications();
-         Updater.clearNotifications();
-         Updater.checkForUpdates(this.plugin);
-      });
-   }
-
-   private void UpdaterButton(Button var1) {
-      AppearanceRegistry var2 = this.plugin.getAppearanceRegistry();
-      var1.material(XMaterial.WRITABLE_BOOK)
-         .name(Animation.wave(UPDATER_TITLE.get(), Colors.Gold, Colors.YELLOW))
-         .lore(
-            UPDATER_ACTION.get().replace("%action%", var2.isUpdaterEnabled() ? "§c" + Words.DISABLE.get() + "§7" : "§a" + Words.ENABLE.get() + "§7"),
-            "",
-            UPDATER_STATE.get().replace("%status%", (var2.isUpdaterEnabled() ? Words.ENABLED : Words.DISABLED).get()),
-            "",
-            UPDATER_DESC1.get(),
-            UPDATER_DESC2.get()
-         );
-      var1.action(var1x -> {
-         var2.toggleUpdater();
-         Updater.clearNotifications();
-         Updater.checkForUpdates(this.plugin);
+   private void UpdateSettingsButton(Button button) {
+      button.material(XMaterial.WRITABLE_BOOK)
+         .name(Animation.wave(UPDATES_TITLE.get(), Colors.Gold, Colors.YELLOW))
+         .lore(UPDATES_ACTION.get(), "", UPDATES_DESC.get());
+      button.action(action -> new UpdateSettingsView(this.p, this.plugin) {
+         @Override
+         public void onBack() {
+            CustomisationPane.this.reopen();
+         }
       });
    }
 

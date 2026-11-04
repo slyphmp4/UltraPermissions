@@ -1,6 +1,6 @@
 [English](CONFIGURATION.md) · [Українська](CONFIGURATION.uk.md) · [Русский](CONFIGURATION.ru.md)
 
-# Configure UltraPermissions 5.6.15
+# Configure UltraPermissions 5.6.17
 
 **Storage startup safety (5.6.15):** if configured MySQL or the initial permissions store cannot be opened, the server/proxy stops. Check the console, credentials, database access and TLS/driver, restore damaged data from backup, then restart. Local files are never selected automatically as a fallback. An unconfigured standalone server still uses local files.
 
@@ -69,7 +69,9 @@ Explicit ssl=false is allowed only for the exact hosts `localhost` and `127.0.0.
 
 ## Updates, GUI and legacy icons
 
-Under Settings → Customisation, the TechsCode-style GUI has independent controls for chat update notices and verified automatic GitHub Release downloads. Only superadmins receive update notices. Turning off automatic downloads still permits chat-only update checks; turning off chat notices does not stop automatic downloads. Both switches are persisted. Existing installations inherit their former `updaterEnabled` setting for both switches until they are configured separately.
+Under Settings → Customisation → Update Settings, the TechsCode-style GUI has independent controls for chat update notices and verified automatic GitHub Release downloads. Only superadmins receive update notices. Turning off automatic downloads still permits chat-only update checks; turning off chat notices does not stop automatic downloads. Both switches are persisted. Existing installations inherit their former `updaterEnabled` setting for both switches until they are configured separately.
+
+The new subview contains these two switches plus an informational status item and the standard Back button. Opening it requests an asynchronous check using the existing GitHub cache and rate limits. With both switches off, only this explicit menu entry checks metadata; it does not enable preferences, send chat notices or download a JAR. Status distinguishes a current version, an available update, checking/downloading, a prepared restart, missing releases and check/download errors. The installed and known latest release versions appear in the item lore.
 
 When enabled, the automatic updater verifies a published stable Release JAR and stages it for the next **manual** server restart. It does not hot-load plugins, force a restart or accept restart/update commands from proxy messages, even with a valid signature. Local administrative GUI actions require a current superadmin role in every handler.
 

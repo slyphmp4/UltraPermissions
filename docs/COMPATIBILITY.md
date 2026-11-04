@@ -2,7 +2,7 @@
 
 # Minecraft compatibility through 26.2
 
-This release targets Paper 26.2 / Java 25. Its runtime gate performs two healthy boots plus a configured-storage failure boot (42 assertions), including head-profile metadata checks, actual storage persistence and the native update folder.
+This release targets Paper 26.2 / Java 25. Its runtime gate performs two healthy boots plus a configured-storage failure boot, including head-profile and localized update-GUI metadata checks, actual storage persistence and the native update folder.
 
 Earlier Bukkit/Spigot/Paper versions remain compatibility targets, not an exhaustively tested matrix. api-version: 1.13 is an API baseline, not proof of runtime support on every intermediate release.
 
@@ -15,7 +15,7 @@ Earlier Bukkit/Spigot/Paper versions remain compatibility targets, not an exhaus
 
 The probe uses synthetic Player/CraftPlayer fixtures. It does not simulate a connected client, real MySQL TLS negotiation or every optional integration. Vault, PlaceholderAPI, MVdWPlaceholderAPI and NametagEdit remain conditional integrations.
 
-Current source version: 5.6.16. Build: Gradle 8.14.6 / JDK 21; application bytecode: Java 17. The separate load gate uses 512 synthetic profiles and at least 400,000 permission checks; it is not a connected-player benchmark.
+Current source version: 5.6.17. Build: Gradle 8.14.6 / JDK 21; application bytecode: Java 17. The separate load gate uses 512 synthetic profiles and at least 400,000 permission checks; it is not a connected-player benchmark.
 
 Configured MySQL failure stops the server/proxy instead of loading old local rights. The failure boot verifies that existing local permission files are unchanged.
 

@@ -20,7 +20,7 @@ import org.bukkit.entity.Player;
 
 public class Updater {
    private static final Map<UUID, String> notifiedVersions = new ConcurrentHashMap<>();
-   private static final AtomicReference<Object> checking = new AtomicReference<>();
+   private static final AtomicReference<Attempt> checking = new AtomicReference<>();
    private static final AtomicLong generation = new AtomicLong();
    private static volatile long lastStarted;
    private static volatile Status lastStatus;
@@ -50,7 +50,17 @@ public class Updater {
       "Updater.stagingConflict", "Another update is already **staged**. Check the server console.", Colors.GRAY, Colors.RED
    );
 
-   private enum State { UP_TO_DATE, AVAILABLE, CHECK_FAILED, DOWNLOAD_FAILED, STAGING_CONFLICT, STAGED, ALREADY_STAGED, CANCELLED }
+   public enum State {
+      NOT_CHECKED, CHECKING, DOWNLOADING, UP_TO_DATE, AVAILABLE, CHECK_FAILED,
+      DOWNLOAD_FAILED, STAGING_CONFLICT, STAGED, ALREADY_STAGED, CANCELLED, NO_RELEASE
+   }
+
+   /** Immutable, read-only GUI snapshot; obtaining it never performs I/O. */
+   public record UpdateStatus(State state, String version) {}
+
+   private static final class Attempt {
+      private volatile UpdateStatus status = new UpdateStatus(State.CHECKING, null);
+   }
 
    private static final class Status {
       private final State state;
@@ -88,11 +98,28 @@ public class Updater {
     * verification and all file operations run on the asynchronous scheduler.
     */
    public static void checkForUpdates(SpigotTechPlugin plugin) {
+      checkForUpdates(plugin, false);
+   }
+
+   /** Explicit GUI entry may inspect metadata with both automatic preferences off. */
+   public static void refreshStatus(SpigotTechPlugin plugin) {
+      checkForUpdates(plugin, true);
+   }
+
+   public static UpdateStatus getStatus() {
+      Attempt attempt = checking.get();
+      if (attempt != null) return attempt.status;
+      Status completed = lastStatus;
+      return completed == null ? new UpdateStatus(State.NOT_CHECKED, null)
+         : new UpdateStatus(completed.state, completed.version);
+   }
+
+   private static void checkForUpdates(SpigotTechPlugin plugin, boolean requestedFromGui) {
       final boolean autoDownload = plugin.getAppearanceRegistry().isUpdaterEnabled();
-      if (!autoDownload && !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) return;
+      if (!requestedFromGui && !autoDownload && !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) return;
       long now = System.currentTimeMillis();
       if (now >= lastStarted && now - lastStarted < CHECK_GAP_MS) return;
-      Object attempt = new Object();
+      Attempt attempt = new Attempt();
       if (!checking.compareAndSet(null, attempt)) return;
       lastStarted = now;
       long token = generation.get();
@@ -110,17 +137,20 @@ public class Updater {
             try {
                IsUpToDateResponse response = server.isUpToDate(pluginName, installedVersion);
                if (response.getStatusCode() == 404) {
-                  result = new Status(State.UP_TO_DATE, installedVersion, 200);
+                  result = new Status(State.NO_RELEASE, null, 404);
                } else if (!response.isSuccessFull()) {
                   result = new Status(State.CHECK_FAILED, null, response.getStatusCode(), response.getMessage());
                } else if (response.isUpToDate()) {
-                  result = new Status(State.UP_TO_DATE, installedVersion, 200);
+                  result = new Status(State.UP_TO_DATE, response.getLatestVersion(), 200);
                } else if (!autoDownload) {
-                  result = new Status(State.AVAILABLE, response.getLatestVersion(), 200);
+                  Status prepared = lastStatus;
+                  result = isPrepared(prepared) && response.getLatestVersion().equals(prepared.version)
+                     ? prepared : new Status(State.AVAILABLE, response.getLatestVersion(), 200);
                } else if (response.getReleaseAsset() == null) {
                   result = new Status(State.DOWNLOAD_FAILED, response.getLatestVersion(), 200,
                      "Published release has no unambiguous executable JAR with a GitHub SHA-256 digest");
                } else {
+                  attempt.status = new UpdateStatus(State.DOWNLOADING, response.getLatestVersion());
                   VerifiedReleaseInstaller.Outcome staged = VerifiedReleaseInstaller.downloadAndStageDetailed(
                      response.getReleaseAsset(), response.getLatestVersion(), installedVersion, currentJar,
                      updateFolder, dataFolder, permitted
@@ -139,35 +169,45 @@ public class Updater {
                   "Unexpected updater error (" + failed.getClass().getSimpleName() + ")");
             } finally {
                server.destroy();
-               checking.compareAndSet(attempt, null);
             }
-            if (!permitted.getAsBoolean()) return;
+            if (!permitted.getAsBoolean()) {
+               checking.compareAndSet(attempt, null);
+               return;
+            }
             Status completed = result;
             try {
                plugin.getScheduler().run(() -> {
-                  if (!permitted.getAsBoolean() || (!plugin.getAppearanceRegistry().isUpdaterEnabled()
-                     && !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled())) return;
-                  Status previous = lastStatus;
-                  lastStatus = completed;
-                  if (previous == null || !previous.noticeKey().equals(completed.noticeKey())) {
-                     switch (completed.state) {
-                        case STAGED -> plugin.log("Verified GitHub Release " + completed.version
-                           + " staged in the Bukkit update folder; restart manually to apply it.");
-                        case DOWNLOAD_FAILED -> plugin.log("Automatic update download/verification failed: " + completed.detail);
-                        case STAGING_CONFLICT -> plugin.log("Automatic update staging conflict: " + completed.detail);
-                        case CHECK_FAILED -> plugin.log("Could not check GitHub Releases (HTTP " + completed.httpStatus + "). " + completed.detail);
-                        default -> {}
+                  try {
+                     if (!permitted.getAsBoolean() || (!requestedFromGui && !plugin.getAppearanceRegistry().isUpdaterEnabled()
+                        && !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled())) return;
+                     Status previous = lastStatus;
+                     lastStatus = completed;
+                     if (previous == null || !previous.noticeKey().equals(completed.noticeKey())) {
+                        switch (completed.state) {
+                           case STAGED -> plugin.log("Verified GitHub Release " + completed.version
+                              + " staged in the Bukkit update folder; restart manually to apply it.");
+                           case DOWNLOAD_FAILED -> plugin.log("Automatic update download/verification failed: " + completed.detail);
+                           case STAGING_CONFLICT -> plugin.log("Automatic update staging conflict: " + completed.detail);
+                           case CHECK_FAILED -> plugin.log("Could not check GitHub Releases (HTTP " + completed.httpStatus + "). " + completed.detail);
+                           default -> {}
+                        }
                      }
-                  }
-                  for (Player online : Bukkit.getOnlinePlayers()) {
-                     if (isSuperadmin(plugin, online)) notifyStatus(plugin, online, completed, false);
+                     for (Player online : Bukkit.getOnlinePlayers()) {
+                        if (isSuperadmin(plugin, online)) notifyStatus(plugin, online, completed, false);
+                     }
+                  } finally {
+                     checking.compareAndSet(attempt, null);
                   }
                });
             } catch (RuntimeException disabled) {
                // Bukkit rejects scheduling tasks after plugin disable; do not notify stale sessions.
+               checking.compareAndSet(attempt, null);
             }
          });
       } catch (RuntimeException schedulingFailed) {
+         if (permitted.getAsBoolean()) {
+            lastStatus = new Status(State.CHECK_FAILED, null, 503, "Could not schedule the asynchronous update check");
+         }
          checking.compareAndSet(attempt, null);
       }
    }
@@ -181,7 +221,7 @@ public class Updater {
       if (status == null || !player.isOnline()
          || !plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) return;
       Phrase message = switch (status.state) {
-         case UP_TO_DATE -> NO_UPDATE;
+         case UP_TO_DATE, NO_RELEASE -> NO_UPDATE;
          case AVAILABLE -> AVAILABLE_NOTICE;
          case STAGED, ALREADY_STAGED -> STAGED_NOTICE;
          case CHECK_FAILED -> CHECK_FAILED;
@@ -216,6 +256,18 @@ public class Updater {
       lastStatus = null;
       lastStarted = 0L;
       checking.set(null);
+   }
+
+   private static boolean isPrepared(Status status) {
+      return status != null && (status.state == State.STAGED || status.state == State.ALREADY_STAGED);
+   }
+
+   /** Keep a verified, prepared release visible when its preference is switched off. */
+   public static void preferencesChanged(SpigotTechPlugin plugin) {
+      Status prepared = lastStatus;
+      clearNotifications();
+      if (isPrepared(prepared)) lastStatus = prepared;
+      checkForUpdates(plugin);
    }
 
    public static String getOSSystem() {
