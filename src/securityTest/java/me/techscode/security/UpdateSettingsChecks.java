@@ -143,8 +143,8 @@ final class UpdateSettingsChecks {
         set(view, "plugin", plugin);
         Model model = new Model();
         view.construct(model);
-        check(view.getCurrentSlots() == 27 && model.getEntries().keySet().equals(Set.of(12, 14, 16, 23)),
-            "subview has exactly three content items and the standard back button");
+        check(view.getCurrentSlots() == 45 && model.getEntries().keySet().equals(Set.of(12, 14, 16, 41)),
+            "five rows retain the three content slots and put Back at the bottom center");
         Button notices = button(model, 12), downloads = button(model, 14), info = button(model, 16);
         check(notices.item().get().getType() == Material.PAPER
                 && downloads.item().get().getType() == Material.WRITABLE_BOOK,
@@ -156,7 +156,7 @@ final class UpdateSettingsChecks {
         downloads.getActions().get(0).onClick(ActionType.LEFT);
         check(plugin.appearance.isUpdaterNotificationsEnabled() && plugin.appearance.isUpdaterEnabled(),
             "download button enables automatic checks immediately and independently");
-        button(model, 23).getActions().get(0).onClick(ActionType.LEFT);
+        button(model, 41).getActions().get(0).onClick(ActionType.LEFT);
         check(view.backs == 1, "standard back action returns to the parent");
     }
 

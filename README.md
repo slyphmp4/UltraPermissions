@@ -11,7 +11,7 @@
 
 # UltraPermissions
 
-Manage Minecraft permissions, groups and ranks through commands and the original TechsCode graphical editor. **5.6.17** groups the existing updater controls under Update Settings and adds an informational update-status item. See the [release notes](docs/releases/5.6.17.md).
+Manage Minecraft permissions, groups and ranks through commands and the original TechsCode graphical editor. **5.6.18** expands Update Settings to five rows and moves Back to the bottom center, keeping all three content items in place. See the [release notes](docs/releases/5.6.18.md).
 
 A configured but unavailable permissions store now stops server/proxy startup with recovery instructions instead of loading old local rights. Independent chat update notices and verified GitHub downloads remain available.
 
@@ -38,7 +38,7 @@ These are application-security and reliability fixes; no claim of absolute safet
 3. To start administration, run **from the console** `upc AddSuperAdmin YourName` after that player has joined and has a registered user record, then open `/uperms`.
 4. For a network or MySQL, follow the [configuration guide](docs/CONFIGURATION.md). Every node must use this security version.
 
-**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 is covered by isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. This source tree targets version 5.6.17; check GitHub Releases for the latest published stable version.
+**Minecraft Java Edition: compatibility through 26.2.** Paper 26.2 / Java 25 is covered by isolated runtime checks. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. This source tree targets version 5.6.18; check GitHub Releases for the latest published stable version.
 
 ## Commands and permissions
 
