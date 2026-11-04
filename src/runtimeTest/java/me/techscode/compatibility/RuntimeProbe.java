@@ -12,6 +12,11 @@ import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.fileconf.impl.SpigotFileConfiguration;
 import me.TechsCode.UltraPermissions.base.item.CustomItem;
 import me.TechsCode.UltraPermissions.base.item.XMaterial;
+import me.TechsCode.UltraPermissions.base.gui.Button;
+import me.TechsCode.UltraPermissions.base.gui.Model;
+import me.TechsCode.UltraPermissions.base.update.Updater;
+import me.TechsCode.UltraPermissions.base.views.settings.CustomisationPane;
+import me.TechsCode.UltraPermissions.base.views.settings.UpdateSettingsView;
 import me.TechsCode.UltraPermissions.base.legacy.SkinTexture;
 import me.TechsCode.UltraPermissions.base.reflection.utility.ReflectionUtil;
 import me.TechsCode.UltraPermissions.base.security.SafeItems;
@@ -55,6 +60,7 @@ public final class RuntimeProbe extends JavaPlugin {
                 check(CustomItem.deserialize(item.serialize()).get().isSimilar(item.get()), "GUI item codec");
                 check(Bukkit.createInventory(null, 27, "Compatibility probe").getSize() == 27, "inventory creation");
                 verifyStablePlayerHeads();
+                verifyUpdateSettings();
                 User user = permissions.registerUser(UUID.nameUUIDFromBytes("runtime-probe".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "StorageProbe", false);
                 Group group = permissions.getGroupStorage().newGroup("compatibility_probe").create();
                 user.addGroup(group);
@@ -139,6 +145,68 @@ public final class RuntimeProbe extends JavaPlugin {
         check(bob.getActiveGroups().contains(low) && !bob.getActiveGroups().contains(other), "cross-user/path demote rejected");
     }
 
+    private void verifyUpdateSettings() throws Exception {
+        Model parent = new Model();
+        new CustomisationPane(null, null, permissions).construct(parent);
+        check(parent.getEntries().keySet().equals(java.util.Set.of(20, 23, 26)),
+            "customisation keeps the unrelated settings and exposes one updates entry");
+        java.lang.reflect.Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+        unsafeField.setAccessible(true);
+        sun.misc.Unsafe unsafe = (sun.misc.Unsafe) unsafeField.get(null);
+        UpdateViewFixture view = (UpdateViewFixture) unsafe.allocateInstance(UpdateViewFixture.class);
+        java.lang.reflect.Field pluginField = UpdateSettingsView.class.getDeclaredField("plugin");
+        pluginField.setAccessible(true);
+        pluginField.set(view, permissions);
+        Model model = new Model();
+        view.construct(model);
+        check(view.getCurrentSlots() == 27 && model.getEntries().keySet().equals(java.util.Set.of(12, 14, 16, 23)),
+            "updates subview has three content items and the native back button");
+        Button notices = new Button(), downloads = new Button();
+        model.getEntries().get(12).button(notices);
+        model.getEntries().get(14).button(downloads);
+        check(notices.item().get().getType() == Material.PAPER
+                && downloads.item().get().getType() == Material.WRITABLE_BOOK,
+            "update controls retain their original materials on Paper");
+
+        TranslationManager translations = permissions.getTranslationManager();
+        String originalLanguage = translations.getSelectedLanguage();
+        Class<?> statusType = Class.forName(Updater.class.getName() + "$Status");
+        java.lang.reflect.Constructor<?> status = statusType.getDeclaredConstructor(Updater.State.class, String.class, int.class);
+        status.setAccessible(true);
+        java.lang.reflect.Field lastStatus = Updater.class.getDeclaredField("lastStatus");
+        lastStatus.setAccessible(true);
+        Object originalStatus = lastStatus.get(null);
+        Updater.clearNotifications();
+        try {
+            for (String language : List.of("English", "Russian", "Ukrainian")) {
+                translations.setSelectedLanguage(language);
+                for (Updater.State state : Updater.State.values()) {
+                    lastStatus.set(null, status.newInstance(state, "99.0.0", 200));
+                    Button info = new Button();
+                    model.getEntries().get(16).button(info);
+                    var metadata = info.item().get().getItemMeta();
+                    String text = org.bukkit.ChatColor.stripColor(metadata.getDisplayName() + " " + String.join(" ", metadata.getLore()));
+                    String expected = language.equals("Russian") ? "Статус обновления"
+                        : language.equals("Ukrainian") ? "Стан оновлення" : "Update Status";
+                    check(info.getActions().isEmpty() && text.contains(expected)
+                            && text.contains(permissions.getVersion()) && !text.contains("%version%")
+                            && !text.contains("**") && (!language.equals("English") ? !text.contains("Installed version") : true),
+                        "real status item metadata, localization and no-action behavior: " + language + "/" + state);
+                }
+            }
+        } finally {
+            translations.setSelectedLanguage(originalLanguage);
+            Updater.clearNotifications();
+            lastStatus.set(null, originalStatus);
+        }
+    }
+
+    public static final class UpdateViewFixture extends UpdateSettingsView {
+        public UpdateViewFixture() { super(null, null); }
+        @Override public void construct(Model model) { super.construct(model); }
+        @Override public void onBack() {}
+    }
+
     private void verifyLanguages() {
         TranslationManager translations = permissions.getTranslationManager();
         List<String> languages = translations.getAvailableLanguages();
@@ -150,6 +218,9 @@ public final class RuntimeProbe extends JavaPlugin {
             "both bundled localizations fully populated at runtime");
         check(russian.containsKey("Updater.noUpdate") && ukrainian.containsKey("Updater.noUpdate"),
             "automatic updater status is localized in both languages");
+        check(russian.containsKey("updateSettingsView.status.checkFailed")
+                && ukrainian.containsKey("updateSettingsView.status.checkFailed"),
+            "new update settings and failure status phrases are registered at runtime");
     }
 
     private void corruptYamlRecovery() throws Exception {

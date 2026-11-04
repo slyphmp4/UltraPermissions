@@ -117,6 +117,8 @@ public final class SecurityChecks {
         commandReference(report);
         assertions += AuditRegressionChecks.run();
         groups.add("5.6.15 audit regressions: ranks / case persistence / login lifecycle / MySQL fail-closed");
+        assertions += UpdateSettingsChecks.run();
+        groups.add("Update settings: independent controls / read-only status / async publication / cancellation / no-update errors");
         JsonObject result = new JsonObject();
         result.addProperty("status", "passed"); result.addProperty("assertions", assertions);
         result.addProperty("network_access", "blocked by test JVM"); result.addProperty("server_started", false);
