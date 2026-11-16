@@ -1,0 +1,28 @@
+name: Resolve compatibility fixtures
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Read official Paper build metadata
+        shell: python
+        run: |
+          import json, urllib.request
+          for version in ["1.13.2", "1.14.4", "1.15.2", "1.16.5", "1.17.1", "1.18.2", "1.19.4", "1.20.1", "1.20.6", "1.21.11", "26.1.2", "26.3"]:
+              url = f"https://fill.papermc.io/v3/projects/paper/versions/{version}/builds"
+              request = urllib.request.Request(url, headers={"User-Agent": "UltraPermissions-compatibility/5.6.19 (https://github.com/slyphmp4/UltraPermissions)"})
+              with urllib.request.urlopen(request, timeout=45) as response:
+                  builds = json.load(response)
+              build = next((b for b in builds if b["channel"] == "STABLE"), builds[0])
+              print(json.dumps({"version": version, "build": build["id"], "channel": build["channel"], "download": build["downloads"]["server:default"]}), flush=True)
+      - name: Resolve Java 17 and 21 container digests
+        shell: bash
+        run: |
+          for version in 17 21; do
+            image="eclipse-temurin:${version}-jre-jammy"
+            docker pull "$image" >/dev/null
+            docker image inspect --format '{{index .RepoDigests 0}}' "$image"
+          done
