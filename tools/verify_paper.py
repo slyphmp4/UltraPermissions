@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,9 +13,13 @@ import urllib.request
 import uuid
 import zipfile
 
-IMAGE = "eclipse-temurin@sha256:83f4a7fc27df94dcc7b8de04d14cbbba8da14406f921e966969c3b09000aa507"
-PAPER_SHA = "ef3dbc68b013deafdbbee3bebf1ba351671ebcda94a8f136809b7532d5ba2fe1"
-PAPER_URL = f"https://fill-data.papermc.io/v1/objects/{PAPER_SHA}/paper-26.2-135.jar"
+TARGETS = json.loads((Path(__file__).resolve().parent.parent / "config/paper-targets.json").read_text(encoding="utf8"))
+
+
+def matches_server(result, version, java):
+    match = re.match(r"^(\d+\.\d+(?:\.\d+)?)(?=[.-]|$)", result.get("server", ""))
+    return (match is not None and match.group(1) == version
+            and result.get("java", "").split(".")[0] == str(java))
 
 
 def command(*args, timeout=180, capture=False):
@@ -24,6 +29,7 @@ def command(*args, timeout=180, capture=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--paper-version", choices=sorted(TARGETS), default="26.3", help="Pinned Paper/Java compatibility target")
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument("--probe", type=Path, required=True)
     parser.add_argument("--work-dir", type=Path, required=True)
@@ -33,18 +39,20 @@ def main():
     args = parser.parse_args()
     if not args.accept_eula:
         parser.error("This runtime test requires explicit --accept-eula.")
+    target = TARGETS[args.paper_version]
+    image, paper_sha = target["container_image"], target["sha256"]
     plugin, probe = args.plugin.resolve(strict=True), args.probe.resolve(strict=True)
     work, reports = args.work_dir.resolve(), args.report_dir.resolve()
     work.mkdir(parents=True, exist_ok=False)
     reports.mkdir(parents=True, exist_ok=True)
-    print("Downloading pinned Paper 26.2 build 135...", flush=True)
-    request = urllib.request.Request(PAPER_URL, headers={"User-Agent": "UltraPermissions-tests/5.6.9 (https://github.com/slyphmp4/UltraPermissions)"})
+    print(f"Downloading pinned Paper {args.paper_version} build {target['build']} / Java {target['java']}...", flush=True)
+    request = urllib.request.Request(target["url"], headers={"User-Agent": "UltraPermissions-tests/5.6.19 (https://github.com/slyphmp4/UltraPermissions)"})
     with urllib.request.urlopen(request, timeout=60) as response:
         data = response.read()
-    if hashlib.sha256(data).hexdigest() != PAPER_SHA:
+    if hashlib.sha256(data).hexdigest() != paper_sha:
         raise RuntimeError("Paper SHA-256 mismatch")
     (work / "paper.jar").write_bytes(data)
-    command("docker", "pull", IMAGE)
+    command("docker", "pull", image)
     base = ["--hostname", "localhost", "--memory", "2300m", "--cpus", "2",
             "--pids-limit", "256", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--mount", f"type=bind,src={work},dst=/data", "--workdir", "/data"]
@@ -53,7 +61,7 @@ def main():
         base += ["--user", f"{os.getuid()}:{os.getgid()}"]
     # Only the verified Paper bootstrap can access the network. The plugin is installed afterwards.
     print("Preparing server dependencies (no plugin installed)...", flush=True)
-    command("docker", "run", "--rm", *base, IMAGE, "java", "-Dpaperclip.patchonly=true", "-jar", "paper.jar")
+    command("docker", "run", "--rm", *base, image, "java", "-Dpaperclip.patchonly=true", "-jar", "paper.jar")
     (work / "plugins").mkdir(exist_ok=True)
     shutil.copyfile(plugin, work / "plugins/UltraPermissions.jar")
     shutil.copyfile(probe, work / "plugins/RuntimeProbe.jar")
@@ -72,7 +80,7 @@ def main():
             if args.performance:
                 java_args.append("-Dultrapermissions.performanceProbe=true")
             java_args.extend(["-jar", "paper.jar", "--nogui"])
-            command("docker", "run", "--detach", "--name", name, "--network", "none", *base, IMAGE, *java_args)
+            command("docker", "run", "--detach", "--name", name, "--network", "none", *base, image, *java_args)
             deadline = time.monotonic() + (260 if args.performance else 150)
             while time.monotonic() < deadline:
                 state = json.loads(command("docker", "inspect", "--format", "{{json .State}}", name, capture=True))
@@ -91,13 +99,13 @@ def main():
                 if (result.get("status") != "passed" or result.get("synthetic_profiles") != 512
                         or result.get("measured_permission_checks", 0) < 400000
                         or result.get("connected_players") != 0
-                        or result.get("server") != "26.2.build.135-stable"):
+                        or not matches_server(result, args.paper_version, target["java"])):
                     raise RuntimeError(f"Paper performance test failed: {result}")
             else:
                 min_checks = 15 if boot == 1 else 10
                 if (result.get("status") != "passed" or result.get("boot") != boot
                         or result.get("assertions", 0) < min_checks
-                        or result.get("server") != "26.2.build.135-stable"):
+                        or not matches_server(result, args.paper_version, target["java"])):
                     raise RuntimeError(f"Boot {boot} failed or did not run expected checks: {result}")
             return result
         finally:
@@ -109,9 +117,12 @@ def main():
     if args.performance:
         summary = {
             **first,
-            "paper_sha256": PAPER_SHA,
+            "paper_version": args.paper_version,
+            "paper_build": target["build"],
+            "java_major": target["java"],
+            "paper_sha256": paper_sha,
             "plugin_sha256": hashlib.sha256(plugin.read_bytes()).hexdigest(),
-            "container_image": IMAGE,
+            "container_image": image,
             "network": "none",
             "container_cpu_limit": 2,
             "container_memory_limit_mib": 2300,
@@ -145,7 +156,7 @@ def main():
     name = "ultrapermissions-failclosed-" + uuid.uuid4().hex[:12]
     print("Verifying configured-storage startup failure on real Paper...", flush=True)
     try:
-        command("docker", "run", "--detach", "--name", name, "--network", "none", *base, IMAGE,
+        command("docker", "run", "--detach", "--name", name, "--network", "none", *base, image,
                 "java", "-Xms512M", "-Xmx1536M", "-jar", "paper.jar", "--nogui")
         deadline = time.monotonic() + 150
         while time.monotonic() < deadline:
@@ -174,9 +185,12 @@ def main():
         "boot_assertions": [first["assertions"], second["assertions"], 3],
         "server": first["server"],
         "java": second["java"],
-        "paper_sha256": PAPER_SHA,
+        "paper_version": args.paper_version,
+        "paper_build": target["build"],
+        "java_major": target["java"],
+        "paper_sha256": paper_sha,
         "plugin_sha256": hashlib.sha256(plugin.read_bytes()).hexdigest(),
-        "container_image": IMAGE,
+        "container_image": image,
         "network": "none",
         "connected_player_test": False,
         "persistence_across_restart": True,

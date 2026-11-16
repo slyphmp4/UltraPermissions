@@ -707,13 +707,14 @@ public final class SecurityChecks {
         for (Object[] fixture : new Object[][] {
             {"1.8.8-R0.1-SNAPSHOT", 8, 8}, {"1.20-R0.1-SNAPSHOT", 20, 0},
             {"1.21.11-R0.1-SNAPSHOT", 21, 11}, {"26.1.2.build.61-stable", 26, 2},
-            {"26.2.build.135-stable", 26, 0}, {"26.2", 26, 0}
+            {"26.2.build.135-stable", 26, 0}, {"26.2", 26, 0},
+            {"26.3.build.253-stable", 26, 0}, {"26.3", 26, 0}, {"26.3-R0.1-SNAPSHOT", 26, 0}
         }) {
             var release = me.TechsCode.UltraPermissions.base.reflection.utility.MinecraftRelease.parse((String)fixture[0]);
             check(release.feature() == (int)fixture[1], "Minecraft feature branch: " + fixture[0]);
             check(release.patch() == (int)fixture[2], "Minecraft patch excludes Paper build: " + fixture[0]);
         }
-        groups.add("Minecraft release formats / Paper 26.2 build suffix");
+        groups.add("Minecraft release formats / Paper 26.2 and 26.3 build suffixes");
     }
 
     private static void lifecycleAndTranslationReadiness() throws Exception {

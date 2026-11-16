@@ -19,6 +19,7 @@ import me.TechsCode.UltraPermissions.base.views.settings.CustomisationPane;
 import me.TechsCode.UltraPermissions.base.views.settings.UpdateSettingsView;
 import me.TechsCode.UltraPermissions.base.legacy.SkinTexture;
 import me.TechsCode.UltraPermissions.base.reflection.utility.ReflectionUtil;
+import me.TechsCode.UltraPermissions.base.reflection.utility.MinecraftRelease;
 import me.TechsCode.UltraPermissions.base.security.SafeItems;
 import me.TechsCode.UltraPermissions.internal.ModifiedPermissible;
 import me.TechsCode.UltraPermissions.storage.objects.Group;
@@ -53,8 +54,10 @@ public final class RuntimeProbe extends JavaPlugin {
                 report("passed", 2);
             } else {
                 corruptYamlRecovery();
-                check(XMaterial.getVersion() >= 21, "modern material mapping");
-                check(ReflectionUtil.MINOR_VERSION >= 21, "modern reflection version");
+                var release = MinecraftRelease.parse(Bukkit.getBukkitVersion());
+                check(XMaterial.getVersion() == release.feature(), "material mapping matches the actual server release");
+                check(ReflectionUtil.MINOR_VERSION == release.feature() && ReflectionUtil.PATCH_VERSION == release.patch(),
+                    "reflection mapping matches the release without interpreting a Paper build as a patch");
                 CustomItem item = new CustomItem(Material.DIAMOND).name("Compatibility probe").lore("metadata round trip");
                 check(SafeItems.decode(SafeItems.encode(item.get())).isSimilar(item.get()), "real item metadata codec");
                 check(CustomItem.deserialize(item.serialize()).get().isSimilar(item.get()), "GUI item codec");
