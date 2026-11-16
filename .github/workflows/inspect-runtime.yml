@@ -1,0 +1,24 @@
+name: Inspect compatibility failures
+on: pull_request
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: Paper-*-runtime
+          path: runtime-reports
+          run-id: 43963089324
+          github-token: ${{ github.token }}
+      - name: Show failing server traces
+        shell: python
+        run: |
+          from pathlib import Path
+          for version in ["1.20.6", "1.21.11", "26.1.2"]:
+              path = Path("runtime-reports") / f"Paper-{version}-runtime/server-boot-1.log"
+              print(f"SERVER {version}", flush=True)
+              print(path.read_text(encoding="utf8"), flush=True)
