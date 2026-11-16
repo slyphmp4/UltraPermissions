@@ -97,8 +97,8 @@ public class CustomItem implements Serializable {
       }
 
       if (var1.getUrl() != null && !var1.getUrl().equals("null")) {
-         if (this.is.hasItemMeta() && this.is.getItemMeta() instanceof SkullMeta) {
-            SkullMeta var2 = (SkullMeta)this.is.getItemMeta();
+         // A fresh head can expose SkullMeta while hasItemMeta() is false.
+         if (this.is.getItemMeta() instanceof SkullMeta var2) {
             this.setTextures(var2, var1);
             this.is.setItemMeta(var2);
          }
@@ -115,7 +115,8 @@ public class CustomItem implements Serializable {
       try {
          Method createProfile = Bukkit.class.getMethod("createPlayerProfile", UUID.class, String.class);
          Class<?> profileType = createProfile.getReturnType();
-         Method setProfile = var1.getClass().getMethod("setOwnerProfile", profileType);
+         // Invoke the public API: CraftMetaSkull itself is not public on some Paper releases.
+         Method setProfile = SkullMeta.class.getMethod("setOwnerProfile", profileType);
          Method getTextures = profileType.getMethod("getTextures");
          Method setTextures = profileType.getMethod("setTextures", PlayerTextures.class);
          Object profile = cachedHeadProfile("bukkit:" + url, () -> {

@@ -59,7 +59,9 @@ public final class RuntimeProbe extends JavaPlugin {
                 check(ReflectionUtil.MINOR_VERSION == release.feature() && ReflectionUtil.PATCH_VERSION == release.patch(),
                     "reflection mapping matches the release without interpreting a Paper build as a patch");
                 CustomItem item = new CustomItem(Material.DIAMOND).name("Compatibility probe").lore("metadata round trip");
-                check(SafeItems.decode(SafeItems.encode(item.get())).isSimilar(item.get()), "real item metadata codec");
+                var decoded = SafeItems.decode(SafeItems.encode(item.get()));
+                check(decoded.isSimilar(item.get()), "real item metadata codec; expected=" + item.get().serialize()
+                    + "; actual=" + decoded.serialize());
                 check(CustomItem.deserialize(item.serialize()).get().isSimilar(item.get()), "GUI item codec");
                 check(Bukkit.createInventory(null, 27, "Compatibility probe").getSize() == 27, "inventory creation");
                 verifyStablePlayerHeads();
@@ -114,6 +116,10 @@ public final class RuntimeProbe extends JavaPlugin {
         SkullMeta redrawn = (SkullMeta) new CustomItem(Material.PLAYER_HEAD).setSkullTexture(firstTexture).get().getItemMeta();
         SkullMeta changed = (SkullMeta) new CustomItem(Material.PLAYER_HEAD)
             .setSkullTexture(new SkinTexture(secondSkin, System.currentTimeMillis())).get().getItemMeta();
+        SkullMeta fresh = (SkullMeta) new CustomItem(new org.bukkit.inventory.ItemStack(Material.PLAYER_HEAD), false)
+            .setSkullTexture(firstTexture).get().getItemMeta();
+        check(fresh.getOwnerProfile() != null && fresh.getOwnerProfile().getTextures().getSkin().equals(new URL(firstSkin)),
+            "a fresh head receives its texture even without existing item metadata");
         check(first.getOwnerProfile() != null && redrawn.getOwnerProfile() != null && changed.getOwnerProfile() != null,
             "player-head profiles are applied through the runtime skull API");
         check(first.getOwnerProfile().getUniqueId().equals(redrawn.getOwnerProfile().getUniqueId()),
