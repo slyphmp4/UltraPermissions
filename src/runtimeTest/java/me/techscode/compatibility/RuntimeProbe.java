@@ -59,11 +59,28 @@ public final class RuntimeProbe extends JavaPlugin {
                 check(ReflectionUtil.MINOR_VERSION == release.feature() && ReflectionUtil.PATCH_VERSION == release.patch(),
                     "reflection mapping matches the release without interpreting a Paper build as a patch");
                 CustomItem item = new CustomItem(Material.DIAMOND).name("Compatibility probe").lore("metadata round trip");
+                var source = item.get().clone();
+                var sourceMeta = source.getItemMeta();
+                sourceMeta.setUnbreakable(true);
+                source.setItemMeta(sourceMeta);
+                // Test the real inventory representation. Paper 1.20.6 intentionally
+                // discards flags for absent components when a Bukkit item becomes native.
+                var inventory = Bukkit.createInventory(null, 27, "Compatibility probe");
+                inventory.setItem(0, source);
+                var runtimeItem = inventory.getItem(0).clone();
+                var runtimeMeta = runtimeItem.getItemMeta();
+                check(runtimeItem.getType() == Material.DIAMOND && runtimeItem.getAmount() == source.getAmount()
+                        && runtimeMeta.getDisplayName().equals(sourceMeta.getDisplayName())
+                        && runtimeMeta.getLore().equals(sourceMeta.getLore())
+                        && runtimeMeta.isUnbreakable()
+                        && runtimeMeta.hasItemFlag(org.bukkit.inventory.ItemFlag.HIDE_UNBREAKABLE),
+                    "actual inventory preserves the icon, text, lore and a flag for a present component");
+                item = new CustomItem(runtimeItem, false);
                 var decoded = SafeItems.decode(SafeItems.encode(item.get()));
                 check(decoded.isSimilar(item.get()), "real item metadata codec; expected=" + item.get().serialize()
                     + "; actual=" + decoded.serialize());
                 check(CustomItem.deserialize(item.serialize()).get().isSimilar(item.get()), "GUI item codec");
-                check(Bukkit.createInventory(null, 27, "Compatibility probe").getSize() == 27, "inventory creation");
+                check(inventory.getSize() == 27, "inventory creation");
                 verifyStablePlayerHeads();
                 verifyUpdateSettings();
                 User user = permissions.registerUser(UUID.nameUUIDFromBytes("runtime-probe".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "StorageProbe", false);

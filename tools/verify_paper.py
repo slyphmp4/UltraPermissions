@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import time
 import urllib.request
 import uuid
@@ -111,7 +112,7 @@ def main():
         finally:
             logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True)
             (reports / f"server-boot-{boot}.log").write_text(logs.stdout + logs.stderr, encoding="utf8")
-            if __import__("sys").exc_info()[0] is not None:
+            if sys.exc_info()[0] is not None:
                 print(logs.stdout + logs.stderr, flush=True)
             subprocess.run(["docker", "rm", "--force", name], check=False, stdout=subprocess.DEVNULL)
 

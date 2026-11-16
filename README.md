@@ -29,7 +29,7 @@ These are application-security and reliability fixes; no claim of absolute safet
 - Local JSON storage or MySQL, with signed synchronization between trusted nodes.
 - Vault, PlaceholderAPI, MVdWPlaceholderAPI and NametagEdit integrations.
 - Migration from LuckPerms/PermissionsEx, group copying, account transfers and File/MySQL storage transfers.
-- Bundled offline Russian and Ukrainian interfaces (835 translated strings and 159 entity names each), a permission-node reference database and a permission-check logger.
+- Bundled offline Russian and Ukrainian interfaces (852 translated strings and 159 entity names each), a permission-node reference database and a permission-check logger.
 
 ## Download and install
 
