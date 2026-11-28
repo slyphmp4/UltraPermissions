@@ -151,7 +151,8 @@ public final class RuntimeProbe extends JavaPlugin {
         }).thenCompose(teleport -> (CompletableFuture<?>) teleport).thenCompose(success -> {
             check(Boolean.TRUE.equals(success), "second client teleported to an independent region");
             return CompletableFuture.allOf(verifyFoliaViewer(first, second), verifyFoliaViewer(second, first), asynchronous);
-        }).thenCompose(ignored -> verifyFoliaDialog(first)).whenComplete((ignored, error) ->
+        }).thenCompose(ignored -> CompletableFuture.allOf(verifyFoliaMainMenus(first), verifyFoliaPermissionEditor(second)))
+            .thenCompose(ignored -> verifyFoliaDialog(first)).whenComplete((ignored, error) ->
             permissions.getScheduler().run(() -> run(() -> {
                 if (error != null) throw new AssertionError("Live Folia verification failed", error);
                 verifyFoliaPlayerPersistence();
@@ -187,9 +188,7 @@ public final class RuntimeProbe extends JavaPlugin {
             check(top.getSize() == 45 && top.getItem(20) != null && top.getItem(20).getType() == Material.PLAYER_HEAD,
                 "overview retains the original size and user icon slot");
             check(view.getTitle().equals("Ultra Permissions v" + permissions.getVersion()), "overview retains its title format");
-            var click = new InventoryClickEvent(view, SlotType.CONTAINER, 24, ClickType.LEFT, InventoryAction.PICKUP_ALL);
-            Bukkit.getPluginManager().callEvent(click);
-            check(click.isCancelled(), "group menu action protects the source inventory");
+            clickMenu(player, 24);
             return null;
         })).thenCompose(ignored -> this.<Void>onPlayer(player, 18L, () -> {
             var top = player.getOpenInventory().getTopInventory();
@@ -198,6 +197,57 @@ public final class RuntimeProbe extends JavaPlugin {
             player.closeInventory();
             return null;
         }));
+    }
+
+    private CompletableFuture<Void> verifyFoliaMainMenus(Player player) {
+        return openFromOverview(player, 20, false, "Overview > Users")
+            .thenCompose(ignored -> openFromOverview(player, 22, false, "Group Paths"))
+            .thenCompose(ignored -> openFromOverview(player, 29, true, "Overview > Permission Log"))
+            .thenCompose(ignored -> openFromOverview(player, 33, true, "Settings >"));
+    }
+
+    private CompletableFuture<Void> openFromOverview(Player player, int slot, boolean expanded, String title) {
+        return onPlayer(player, 1L, () -> {
+            player.closeInventory();
+            check(Bukkit.dispatchCommand(player, "uperms"), "opened overview for " + title);
+            return null;
+        }).thenCompose(ignored -> onPlayer(player, 6L, () -> {
+            if (expanded) clickMenu(player, 40);
+            return null;
+        })).thenCompose(ignored -> onPlayer(player, 6L, () -> {
+            int expected = expanded ? 54 : 45;
+            check(player.getOpenInventory().getTopInventory().getSize() == expected, "overview size before " + title);
+            clickMenu(player, slot);
+            return null;
+        })).thenCompose(ignored -> this.<Void>onPlayer(player, 6L, () -> {
+            check(player.getOpenInventory().getTitle().startsWith(title), "original menu title for " + title);
+            check(player.getOpenInventory().getTopInventory().getSize() == 54, "original menu size for " + title);
+            return null;
+        }));
+    }
+
+    private CompletableFuture<Void> verifyFoliaPermissionEditor(Player player) {
+        return onPlayer(player, 1L, () -> {
+            check(Bukkit.dispatchCommand(player, "uperms " + player.getName()), "opened the original user profile");
+            return null;
+        }).thenCompose(ignored -> onPlayer(player, 6L, () -> {
+            var item = player.getOpenInventory().getTopInventory().getItem(13);
+            check(item != null && item.getType() == Material.WRITABLE_BOOK, "user permission button retains its original slot");
+            clickMenu(player, 13);
+            return null;
+        })).thenCompose(ignored -> this.<Void>onPlayer(player, 6L, () -> {
+            var inventory = player.getOpenInventory().getTopInventory();
+            check(inventory.getSize() == 54 && inventory.getItem(49) != null, "permission editor and back button open correctly");
+            player.closeInventory();
+            return null;
+        }));
+    }
+
+    private void clickMenu(Player player, int slot) {
+        var view = player.getOpenInventory();
+        var click = new InventoryClickEvent(view, SlotType.CONTAINER, slot, ClickType.LEFT, InventoryAction.PICKUP_ALL);
+        Bukkit.getPluginManager().callEvent(click);
+        check(click.isCancelled(), "menu protects the inventory at slot " + slot);
     }
 
     private CompletableFuture<Void> verifyFoliaDialog(Player player) {

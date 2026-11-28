@@ -97,6 +97,15 @@ def main():
         b"level-type=minecraft:flat\ngenerator-settings={\"layers\":[{\"block\":\"minecraft:bedrock\",\"height\":1}],\"biome\":\"minecraft:plains\"}\n"
         b"pause-when-empty-seconds=-1\nenforce-secure-profile=false\nnetwork-compression-threshold=-1\n")
     if folia:
+        # Folia's whitelist also applies to offline-mode loopback connections.
+        names = ("FoliaOwnerA", "FoliaOwnerB")
+        whitelist = [
+            {"uuid": str(uuid.UUID(bytes=hashlib.md5(f"OfflinePlayer:{name}".encode("utf8")).digest(), version=3)), "name": name}
+            for name in names
+        ]
+        (work / "whitelist.json").write_text(json.dumps(whitelist) + "\n", encoding="utf8")
+        with (work / "server.properties").open("ab") as properties:
+            properties.write(b"white-list=true\nenforce-whitelist=true\n")
         configuration = work / "config"
         configuration.mkdir(exist_ok=True)
         (configuration / "paper-global.yml").write_text("threaded-regions:\n  threads: 2\n", encoding="utf8")
