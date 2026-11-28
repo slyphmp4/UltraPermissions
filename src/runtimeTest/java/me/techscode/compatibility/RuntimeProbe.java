@@ -438,10 +438,8 @@ public final class RuntimeProbe extends JavaPlugin {
             };
         });
         ModifiedPermissible permissible = new ModifiedPermissible(player, permissions, permissions.getPermissionLogger());
-        if (!permissions.isFolia()) {
-            check(permissible.hasPermission("compatibility.direct"), "permission grant with real storage");
-            check(!permissible.hasPermission("compatibility.denied"), "permission denial with real storage");
-        }
+        check(permissible.hasPermission("compatibility.direct"), "permission grant with real storage");
+        check(!permissible.hasPermission("compatibility.denied"), "permission denial with real storage");
         java.lang.reflect.Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
         unsafeField.setAccessible(true);
         sun.misc.Unsafe unsafe = (sun.misc.Unsafe) unsafeField.get(null);

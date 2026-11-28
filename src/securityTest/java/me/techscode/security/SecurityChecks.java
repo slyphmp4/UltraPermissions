@@ -182,6 +182,7 @@ public final class SecurityChecks {
         TestScheduler scheduler = new TestScheduler();
         TestPlugin plugin = allocate(TestPlugin.class);
         plugin.scheduler = scheduler;
+        set(plugin, "modelLock", new java.util.concurrent.locks.ReentrantReadWriteLock());
 
         PluginEvents events = allocate(PluginEvents.class);
         set(events, "plugin", plugin);

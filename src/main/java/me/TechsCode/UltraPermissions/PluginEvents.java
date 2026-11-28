@@ -22,7 +22,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerLoginEvent.Result;
@@ -61,10 +60,7 @@ public class PluginEvents implements Listener {
       try {
          ModifiedPermissible permissible = new ModifiedPermissible(player, this.plugin, this.permissionLogger);
          PermissibleInjector.inject(player, permissible);
-         if (joined) {
-            if (this.plugin.isFolia()) permissible.updateWorld(player.getWorld().getName());
-            this.permissibleHashMap.put(player, permissible);
-         }
+         if (joined) this.permissibleHashMap.put(player, permissible);
       } catch (IllegalAccessException failure) {
          throw new IllegalStateException("Cannot install player permissions", failure);
       }
@@ -98,14 +94,6 @@ public class PluginEvents implements Listener {
             .filter(User::isSuperadmin)
             .ifPresent(user -> Updater.suggestUpdateIfAvailable(this.plugin, player, ignored -> {}, false));
       }, 40L);
-   }
-
-   @EventHandler
-   public void changeWorld(PlayerChangedWorldEvent event) {
-      if (!this.plugin.isFolia()) return;
-      Player player = event.getPlayer();
-      ModifiedPermissible permissible = this.permissibleHashMap.get(player);
-      if (permissible != null) permissible.updateWorld(player.getWorld().getName());
    }
 
    @EventHandler

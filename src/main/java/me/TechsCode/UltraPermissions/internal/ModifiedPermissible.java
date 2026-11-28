@@ -31,7 +31,6 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
    private final boolean defaultPerms;
    private final List<PermissionAttachment> attachments;
    private final CachedPlayerPermissionProvider permissionProvider;
-   private volatile String lastWorld;
 
    public ModifiedPermissible(Player var1, UltraPermissions var2, PermissionLogger var3) {
       super(var1);
@@ -85,7 +84,7 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
                   @Override
                   public List<me.TechsCode.UltraPermissions.storage.objects.Permission> getDefinedPermissions() {
                      return ModifiedPermissible.this.permissionProvider
-                        .retrieve(ModifiedPermissible.this.p.getUniqueId(), ModifiedPermissible.this.worldName());
+                        .retrieve(ModifiedPermissible.this.p.getUniqueId(), ModifiedPermissible.this.p.getWorld().getName());
                   }
                }
             };
@@ -145,19 +144,9 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
       this.attachments.clear();
    }
 
-   public void updateWorld(String worldName) {
-      this.lastWorld = worldName;
-   }
-
-   private String worldName() {
-      if (!this.plugin.isFolia()) return this.p.getWorld().getName();
-      if (this.plugin.getSpigotScheduler().owns(this.p)) this.lastWorld = this.p.getWorld().getName();
-      return this.lastWorld;
-   }
-
    public Set<PermissionAttachmentInfo> getEffectivePermissions() {
       return this.plugin.readRegionalModel(() -> {
-         PermissionList permissions = this.permissionProvider.retrieve(this.p.getUniqueId(), this.worldName());
+         PermissionList permissions = this.permissionProvider.retrieve(this.p.getUniqueId(), this.p.getWorld().getName());
          return permissions.stream().map(permission -> new PermissionAttachmentInfo(this, permission.getName(), null, permission.isPositive()))
             .collect(Collectors.toSet());
       });
