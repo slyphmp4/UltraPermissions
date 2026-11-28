@@ -96,6 +96,10 @@ def main():
         b"view-distance=2\nsimulation-distance=2\ngenerate-structures=false\nmax-tick-time=60000\n"
         b"level-type=minecraft:flat\ngenerator-settings={\"layers\":[{\"block\":\"minecraft:bedrock\",\"height\":1}],\"biome\":\"minecraft:plains\"}\n"
         b"pause-when-empty-seconds=-1\nenforce-secure-profile=false\nnetwork-compression-threshold=-1\n")
+    if folia:
+        configuration = work / "config"
+        configuration.mkdir(exist_ok=True)
+        (configuration / "paper-global.yml").write_text("threaded-regions:\n  threads: 2\n", encoding="utf8")
 
     def run_boot(boot):
         name = "ultrapermissions-probe-" + uuid.uuid4().hex[:12]
@@ -122,6 +126,8 @@ def main():
                     if state["ExitCode"] != 0 or state["OOMKilled"]:
                         raise RuntimeError(f"Boot {boot}: {platform} exited unsuccessfully: {state}")
                     break
+                if client is not None and client.poll() not in (None, 0):
+                    raise RuntimeError(f"Folia loopback client exited with status {client.returncode}")
                 time.sleep(2)
             else:
                 raise TimeoutError(f"Boot {boot}: runtime probe exceeded its deadline")
@@ -158,6 +164,9 @@ def main():
                     client.wait()
             if client_log is not None:
                 client_log.close()
+                if sys.exc_info()[0] is not None:
+                    log = (reports / "folia-clients.log").read_text(encoding="utf8", errors="replace")
+                    print("Folia loopback client diagnostics:\n" + log, flush=True)
 
     first = run_boot(1)
     if args.performance:

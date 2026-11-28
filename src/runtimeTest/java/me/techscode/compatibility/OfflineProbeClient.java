@@ -24,7 +24,9 @@ public final class OfflineProbeClient {
     public static final String SECOND_PLAYER = "FoliaOwnerB";
 
     public static void main(String[] args) throws Exception {
+        System.out.println("Waiting for the loopback server at " + HOST + ":" + PORT);
         int protocol = waitForServer();
+        System.out.println("Loopback server protocol " + protocol);
         var workers = Executors.newFixedThreadPool(2);
         try {
             var first = workers.submit(() -> { play(protocol, FIRST_PLAYER); return null; });
@@ -86,9 +88,11 @@ public final class OfflineProbeClient {
                 body.writeLong(uuid.getLeastSignificantBits());
             });
 
+            System.out.println(name + " opened the login connection");
             int loginPacket = readVarInt(readFrame(in));
             if (loginPacket != 0x02) throw new IOException(name + " received unexpected login packet " + loginPacket);
             send(out, 0x03, body -> {});
+            System.out.println(name + " entered configuration");
             configure(in, out);
             System.out.println(name + " finished login and configuration");
             acknowledgePlay(in, out);
