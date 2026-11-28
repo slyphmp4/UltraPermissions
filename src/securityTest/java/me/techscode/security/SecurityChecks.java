@@ -182,7 +182,6 @@ public final class SecurityChecks {
         TestScheduler scheduler = new TestScheduler();
         TestPlugin plugin = allocate(TestPlugin.class);
         plugin.scheduler = scheduler;
-        set(plugin, "modelLock", new java.util.concurrent.locks.ReentrantReadWriteLock());
 
         PluginEvents events = allocate(PluginEvents.class);
         set(events, "plugin", plugin);
@@ -1491,7 +1490,17 @@ public final class SecurityChecks {
             if(returns==short.class)return (short)0;if(returns==byte.class)return (byte)0;if(returns==char.class)return '\0';return null;
         });
     }
-    @SuppressWarnings("unchecked") private static <T>T allocate(Class<T> type)throws InstantiationException{return (T)UNSAFE.allocateInstance(type);}
+    private static <T> T allocate(Class<T> type) throws InstantiationException {
+        T fixture = type.cast(UNSAFE.allocateInstance(type));
+        if (fixture instanceof TestPlugin) {
+            try {
+                set(fixture, "modelLock", new java.util.concurrent.locks.ReentrantReadWriteLock());
+            } catch (Exception failure) {
+                throw new AssertionError("Could not initialize fixture model lock", failure);
+            }
+        }
+        return fixture;
+    }
     private static Field field(Object object,String name)throws Exception{for(Class<?> type=object.getClass();type!=null;type=type.getSuperclass()){try{Field field=type.getDeclaredField(name);field.setAccessible(true);return field;}catch(NoSuchFieldException ignored){}}throw new NoSuchFieldException(name);}
     private static void set(Object object,String name,Object value)throws Exception{field(object,name).set(object,value);}
     private static Object get(Object object,String name)throws Exception{return field(object,name).get(object);}
