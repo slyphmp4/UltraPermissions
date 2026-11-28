@@ -22,14 +22,14 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.Plugin;
 
 public abstract class GUI implements Listener {
    protected Player p;
    private final SpigotTechPlugin plugin;
-   private boolean stopped;
+   private volatile boolean stopped;
    private RecurringTask recurringTask;
    private Inventory inventory;
+   private boolean listening;
    private HashMap<Integer, List<Action>> actions;
 
    public GUI(Player var1, SpigotTechPlugin var2) {
@@ -37,12 +37,12 @@ public abstract class GUI implements Listener {
       this.p = var1;
       this.plugin = var2;
       int var3 = var2.getAppearanceRegistry().getGuiUpdateInterval();
-      this.recurringTask = var2.getScheduler().runTaskTimer(() -> {
+      this.recurringTask = var2.getSpigotScheduler().runForTimer(var1, () -> {
          if (!me.TechsCode.UltraPermissions.base.security.UiAccess.allowed(this.plugin, this.p)) {
             this.revokeAccess();
          } else if (this.stopped) {
             this.recurringTask.stop();
-            HandlerList.unregisterAll(this);
+            this.stopListening();
          } else {
             Model var3x = new Model();
             var3x.setTitle(this.getCurrentTitle());
@@ -100,11 +100,11 @@ public abstract class GUI implements Listener {
                this.actions.put(slot, var3xx.getActions());
             }
             if (inventoryChanged) {
-               Bukkit.getScheduler().runTask((Plugin)var2.getBootstrap(), var1::updateInventory);
+               var2.getSpigotScheduler().runFor(var1, var1::updateInventory);
             }
          }
       }, 0L, var3);
-      Bukkit.getPluginManager().registerEvents(this, (Plugin)var2.getBootstrap());
+      this.listen();
    }
 
    public void preventOpening() {
@@ -114,10 +114,28 @@ public abstract class GUI implements Listener {
    protected abstract void construct(Model var1);
 
    public void reopen() {
+      if (this.plugin.getSpigotScheduler().isFolia() && !this.plugin.getSpigotScheduler().owns(this.p)) {
+         this.plugin.getSpigotScheduler().runFor(this.p, this::reopen);
+         return;
+      }
       if (!me.TechsCode.UltraPermissions.base.security.UiAccess.allowed(this.plugin, this.p)) { revokeAccess(); return; }
       if (this.inventory == null) {
          this.recurringTask.start();
-         Bukkit.getPluginManager().registerEvents(this, (Plugin)this.plugin.getBootstrap());
+         this.listen();
+      }
+   }
+
+   private void listen() {
+      if (!this.listening) {
+         Bukkit.getPluginManager().registerEvents(this, this.plugin.getBootstrap());
+         this.listening = true;
+      }
+   }
+
+   private void stopListening() {
+      if (this.listening) {
+         HandlerList.unregisterAll(this);
+         this.listening = false;
       }
    }
 
@@ -125,7 +143,7 @@ public abstract class GUI implements Listener {
       this.actions = null;
       this.inventory = null;
       this.recurringTask.stop();
-      HandlerList.unregisterAll(this);
+      this.stopListening();
       this.onClose();
    }
 
@@ -135,7 +153,7 @@ public abstract class GUI implements Listener {
       this.actions = null;
       this.stopped = true;
       if (this.recurringTask != null) this.recurringTask.stop();
-      HandlerList.unregisterAll(this);
+      this.stopListening();
       // No onClose callback: a revoked session must not open another editor.
       if (old != null && old.equals(me.TechsCode.UltraPermissions.base.security.ViewAccess.top(this.p.getOpenInventory()))) this.p.closeInventory();
    }
@@ -149,10 +167,15 @@ public abstract class GUI implements Listener {
       if (!this.inventory.equals(event.getClickedInventory()) || this.actions == null) return;
       List<Action> handlers = this.actions.get(event.getSlot());
       if (handlers == null) return;
-      for (Action handler : new java.util.ArrayList<>(handlers)) {
-         if (!me.TechsCode.UltraPermissions.base.security.UiAccess.allowed(this.plugin, this.p)) { revokeAccess(); return; }
-         handler.onClick(ActionType.fromClickType(event.getClick()));
-      }
+      this.plugin.writeRegionalModel(() -> {
+         for (Action handler : new java.util.ArrayList<>(handlers)) {
+            if (!me.TechsCode.UltraPermissions.base.security.UiAccess.allowed(this.plugin, this.p)) {
+               revokeAccess();
+               return;
+            }
+            handler.onClick(ActionType.fromClickType(event.getClick()));
+         }
+      });
    }
 
    @EventHandler
@@ -175,7 +198,7 @@ public abstract class GUI implements Listener {
 
    @EventHandler
    public void close(InventoryCloseEvent var1) {
-      if (this.inventory != null && this.inventory.equals(var1.getInventory())) {
+      if (var1.getPlayer().equals(this.p) && this.inventory != null && this.inventory.equals(var1.getInventory())) {
          this.close();
       }
    }

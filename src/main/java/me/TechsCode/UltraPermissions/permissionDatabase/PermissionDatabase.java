@@ -31,7 +31,7 @@ public class PermissionDatabase {
       this.map = java.util.Collections.unmodifiableMap(builtIn);
       plugin.log("- " + builtIn.size() + " Permissions extracted from .jars");
 
-      Bukkit.getScheduler().runTaskLaterAsynchronously((Plugin)plugin.getBootstrap(), () -> {
+      plugin.getScheduler().runTaskLaterAsync(() -> {
          File cache = new File(plugin.getPluginFolder(), "Main.updb");
          boolean downloaded = false;
          try {

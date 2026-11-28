@@ -4,8 +4,8 @@ import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 public abstract class Storable {
-   protected Storage<?> storage;
-   private JsonObject lastSyncedState;
+   protected volatile Storage<?> storage;
+   private volatile JsonObject lastSyncedState;
 
    public Storable() {
       super();
@@ -15,13 +15,28 @@ public abstract class Storable {
       this.storage = var1;
    }
 
-   protected void sync() {
-      if (this.storage != null) {
-         JsonObject var1 = this.getState();
-         if (this.lastSyncedState == null || !this.lastSyncedState.equals(var1)) {
-            this.storage.update(this, var1);
+   /** Serialize changes with persistence and database refreshes. */
+   protected final void mutate(Runnable action) {
+      Storage<?> linked = this.storage;
+      if (linked == null) {
+         synchronized (this) {
+            action.run();
          }
+      } else {
+         linked.plugin.writeModel(action);
       }
+   }
+
+   protected void sync() {
+      Storage<?> linked = this.storage;
+      if (linked == null) return;
+      linked.plugin.writeModel(() -> {
+         if (this.storage != linked) return;
+         JsonObject state = this.getState();
+         if (this.lastSyncedState == null || !this.lastSyncedState.equals(state)) {
+            linked.update(this, state);
+         }
+      });
    }
 
    public void setLastSyncedState(JsonObject var1) {
@@ -34,9 +49,10 @@ public abstract class Storable {
    }
 
    protected void destroy() {
-      if (this.storage != null) {
-         this.storage.destroy(this);
-      }
+      Storage<?> linked = this.storage;
+      if (linked != null) linked.plugin.writeModel(() -> {
+         if (this.storage == linked) linked.destroy(this);
+      });
    }
 
    public abstract String getKey();

@@ -4,6 +4,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import me.TechsCode.UltraPermissions.base.legacy.task.TaskManager;
 import me.TechsCode.UltraPermissions.base.loader.reloader.PluginReloader;
 import me.TechsCode.UltraPermissions.base.loader.reloader.SpigotPluginReloader;
@@ -17,6 +20,7 @@ import me.TechsCode.UltraPermissions.base.update.Updater;
 import me.TechsCode.UltraPermissions.base.update.networkUpdate.SpigotUpdateAgent;
 import me.TechsCode.UltraPermissions.dependencies.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -91,6 +95,48 @@ public abstract class SpigotTechPlugin extends TechPlugin<JavaPlugin> {
    @Override
    public Scheduler getScheduler() {
       return this.scheduler;
+   }
+
+   public SpigotScheduler getSpigotScheduler() {
+      return this.scheduler;
+   }
+
+   public boolean isFolia() {
+      return this.scheduler != null && this.scheduler.isFolia();
+   }
+
+   public final <T> T readRegionalModel(Supplier<T> action) {
+      return this.isFolia() ? this.readModel(action) : action.get();
+   }
+
+   public final void writeRegionalModel(Runnable action) {
+      if (this.isFolia()) this.writeModel(action);
+      else action.run();
+   }
+
+   /** Starts the data operation after the current players have been disconnected. */
+   public void afterDisconnectingPlayers(String reason, Runnable action) {
+      List<? extends Player> players = List.copyOf(Bukkit.getOnlinePlayers());
+      if (!this.scheduler.isFolia()) {
+         players.forEach(player -> player.kickPlayer(reason));
+         this.scheduler.runAsync(action);
+         return;
+      }
+
+      AtomicInteger pending = new AtomicInteger(players.size() + 1);
+      Runnable complete = () -> {
+         if (pending.decrementAndGet() == 0) this.scheduler.runAsync(action);
+      };
+      for (Player player : players) {
+         this.scheduler.runForLater(player, this.getBootstrap(), () -> {
+            try {
+               if (player.isOnline()) player.kickPlayer(reason);
+            } finally {
+               complete.run();
+            }
+         }, complete, 1L);
+      }
+      complete.run();
    }
 
    public SpigotMessagingService getMessagingService() {

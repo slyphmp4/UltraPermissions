@@ -9,7 +9,7 @@ import me.TechsCode.UltraPermissions.dependencies.gson.JsonNull;
 public class Stored<T extends Storable> {
    private String key;
    private Getter<Storage<T>> storageGetter;
-   private T cache;
+   private volatile T cache;
 
    public static <T extends Storable> Stored<T> empty() {
       return new Stored<>(JsonNull.INSTANCE, null);
@@ -28,12 +28,9 @@ public class Stored<T extends Storable> {
    }
 
    public Optional<T> get() {
-      if (this.cache != null) {
-         if (this.cache.isLinkedToStorage()) {
-            return Optional.of(this.cache);
-         }
-
-         this.cache = null;
+      T cached = this.cache;
+      if (cached != null && cached.isLinkedToStorage()) {
+         return Optional.of(cached);
       }
 
       if (this.key == null) {

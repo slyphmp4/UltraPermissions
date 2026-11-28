@@ -1,7 +1,8 @@
 package me.TechsCode.UltraPermissions;
 
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Optional;
 import me.TechsCode.UltraPermissions.base.legacy.task.UpdateEvent;
 import me.TechsCode.UltraPermissions.base.legacy.task.UpdateTime;
@@ -21,6 +22,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerLoginEvent.Result;
@@ -29,14 +31,14 @@ import org.bukkit.plugin.Plugin;
 public class PluginEvents implements Listener {
    private final UltraPermissions plugin;
    private final PermissionLogger permissionLogger;
-   private final HashMap<Player, ModifiedPermissible> permissibleHashMap;
+   private final Map<Player, ModifiedPermissible> permissibleHashMap;
 
    public PluginEvents(UltraPermissions var1, PermissionLogger var2) {
       super();
       this.plugin = var1;
       this.permissionLogger = var2;
-      this.permissibleHashMap = new HashMap<>();
-      Bukkit.getOnlinePlayers().forEach(this::login);
+      this.permissibleHashMap = new ConcurrentHashMap<>();
+      Bukkit.getOnlinePlayers().forEach(player -> var1.getSpigotScheduler().runForIfNeeded(player, () -> this.login(player)));
       Bukkit.getPluginManager().registerEvents(this, (Plugin)var1.getBootstrap());
       // Initial check also runs without any admin online; never block startup on HTTP.
       this.plugin.getScheduler().runTaskLater(() -> Updater.checkForUpdates(this.plugin), 40L);
@@ -59,7 +61,10 @@ public class PluginEvents implements Listener {
       try {
          ModifiedPermissible permissible = new ModifiedPermissible(player, this.plugin, this.permissionLogger);
          PermissibleInjector.inject(player, permissible);
-         if (joined) this.permissibleHashMap.put(player, permissible);
+         if (joined) {
+            if (this.plugin.isFolia()) permissible.updateWorld(player.getWorld().getName());
+            this.permissibleHashMap.put(player, permissible);
+         }
       } catch (IllegalAccessException failure) {
          throw new IllegalStateException("Cannot install player permissions", failure);
       }
@@ -80,12 +85,12 @@ public class PluginEvents implements Listener {
 
    @EventHandler(priority = EventPriority.LOWEST)
    public void join(PlayerJoinEvent event) {
-      this.login(event.getPlayer());
+      Player player = event.getPlayer();
+      this.login(player);
       if (!this.plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) {
          return;
       }
-      this.plugin.getScheduler().runTaskLater(() -> {
-         Player player = event.getPlayer();
+      this.plugin.getSpigotScheduler().runForLater(player, () -> {
          if (!player.isOnline() || !this.plugin.getAppearanceRegistry().isUpdaterNotificationsEnabled()) {
             return;
          }
@@ -93,6 +98,14 @@ public class PluginEvents implements Listener {
             .filter(User::isSuperadmin)
             .ifPresent(user -> Updater.suggestUpdateIfAvailable(this.plugin, player, ignored -> {}, false));
       }, 40L);
+   }
+
+   @EventHandler
+   public void changeWorld(PlayerChangedWorldEvent event) {
+      if (!this.plugin.isFolia()) return;
+      Player player = event.getPlayer();
+      ModifiedPermissible permissible = this.permissibleHashMap.get(player);
+      if (permissible != null) permissible.updateWorld(player.getWorld().getName());
    }
 
    @EventHandler
@@ -113,7 +126,7 @@ public class PluginEvents implements Listener {
             PermissionList var3 = this.plugin.getPermissions();
             GroupList var4 = var1x.defaults(true);
 
-            for (User var6 : var2) {
+            for (User var6 : var2) this.plugin.writeRegionalModel(() -> {
                DefaultGroupAssignOption var7 = this.plugin.getDefaultGroupAssignOption();
                boolean var8 = var6.getGroups().isEmpty() && var7 == DefaultGroupAssignOption.NO_GROUP;
                boolean var9 = var7 == DefaultGroupAssignOption.ALWAYS_ASSIGN;
@@ -122,16 +135,18 @@ public class PluginEvents implements Listener {
                }
 
                var6.getRankups().stream().filter(UserRankup::isExpired).forEach(UserRankup::remove);
-            }
+            });
 
-            var1x.forEach(var0 -> var0.getActiveInheritedGroups().forEach(var1xx -> {
+            var1x.forEach(var0 -> this.plugin.writeRegionalModel(() -> var0.getActiveInheritedGroups().forEach(var1xx -> {
                boolean var2x = !var0.getServer().equals(var1xx.getServer());
                boolean var3x = !var0.getWorld().equals(var1xx.getWorld());
                if (var2x || var3x) {
                   var0.removeInheritance(var1xx);
                }
+            })));
+            var3.expired().forEach(permission -> this.plugin.writeRegionalModel(() -> {
+               if (permission.isExpired()) permission.remove();
             }));
-            var3.expired().forEach(Permission::remove);
          });
       }
    }

@@ -12,10 +12,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerLoginEvent.Result;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitRunnable;
 
 public abstract class MigrationAssistant implements Listener {
-   private static boolean migrating;
+   private static volatile boolean migrating;
    private static final Phrase KICK_MESSAGE = Phrase.create(
       "migrationAssistant.kickMessage", "Please remove **%plugin%** after the server has stopped", Colors.GRAY, Colors.YELLOW
    );
@@ -35,18 +34,15 @@ public abstract class MigrationAssistant implements Listener {
 
    public void doMigration(UltraPermissions var1) {
       Bukkit.getPluginManager().registerEvents(this, (Plugin)var1.getBootstrap());
-      Bukkit.getOnlinePlayers().forEach(var1x -> var1x.kickPlayer(KICK_MESSAGE.get().replace("%plugin%", this.getPluginName())));
-      Bukkit.getScheduler().runTaskAsynchronously((Plugin)var1.getBootstrap(), () -> {
+      migrating = true;
+      var1.afterDisconnectingPlayers(KICK_MESSAGE.get().replace("%plugin%", this.getPluginName()), () -> {
          var1.getUsers().forEach(User::remove);
          var1.getPermissions().forEach(Permission::remove);
          var1.getGroups().forEach(Group::remove);
-         Runnable var2 = () -> (new BukkitRunnable() {
-            public void run() {
-               MigrationAssistant.migrating = false;
-               Bukkit.shutdown();
-            }
-         }).runTaskLater((Plugin)var1.getBootstrap(), 60L);
-         migrating = true;
+         Runnable var2 = () -> var1.getScheduler().runTaskLater(() -> {
+            MigrationAssistant.migrating = false;
+            Bukkit.shutdown();
+         }, 60L);
          this.migrate(var1, var2);
       });
    }

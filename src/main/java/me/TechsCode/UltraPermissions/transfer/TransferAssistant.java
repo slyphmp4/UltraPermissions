@@ -20,9 +20,8 @@ public class TransferAssistant implements Listener {
 
    public TransferAssistant(UltraPermissions var1, boolean var2) {
       super();
-      Bukkit.getOnlinePlayers().forEach(var0 -> var0.kickPlayer(KICK_MESSAGE.get()));
       Bukkit.getPluginManager().registerEvents(this, (Plugin)var1.getBootstrap());
-      Bukkit.getScheduler().runTaskAsynchronously((Plugin)var1.getBootstrap(), () -> {
+      var1.afterDisconnectingPlayers(KICK_MESSAGE.get(), () -> {
          var1.log("Transferring from " + (var2 ? "File to MySQL" : "MySQL to File"));
          TransferStorageGroup var2x = new TransferStorageGroup(var1, false);
          TransferStorageGroup var3 = new TransferStorageGroup(var1, true);

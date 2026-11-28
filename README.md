@@ -11,7 +11,7 @@
 
 # UltraPermissions
 
-Manage Minecraft permissions, groups and ranks through commands and the original TechsCode graphical editor. **5.6.19** adds Minecraft 26.3 compatibility verification while retaining earlier compatibility targets. One JAR is runtime checked on six Paper versions. See the [release notes](docs/releases/5.6.19.md).
+Manage Minecraft permissions, groups and ranks through commands and the original TechsCode graphical editor. **5.6.20** adds Folia 26.3 compatibility to the existing Paper targets. See the [release notes](docs/releases/5.6.20.md).
 
 A configured but unavailable permissions store now stops server/proxy startup with recovery instructions instead of loading old local rights. Independent chat update notices and verified GitHub downloads remain available.
 
@@ -38,7 +38,7 @@ These are application-security and reliability fixes; no claim of absolute safet
 3. To start administration, run **from the console** `upc AddSuperAdmin YourName` after that player has joined and has a registered user record, then open `/uperms`.
 4. For a network or MySQL, follow the [configuration guide](docs/CONFIGURATION.md). Every node must use this security version.
 
-**Minecraft Java Edition: compatibility through 26.3.** One plugin JAR is checked on Paper 1.20.1, 1.20.6, 1.21.11, 26.1.2, 26.2 and 26.3 with Java 17, 21 or 25 as appropriate. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. This source tree targets version 5.6.19; check GitHub Releases for the latest published stable version.
+**Minecraft Java Edition: compatibility through 26.3.** One plugin JAR is checked on Paper 1.20.1, 1.20.6, 1.21.11, 26.1.2, 26.2, 26.3, Folia 26.3 with Java 17, 21 or 25 as appropriate. Earlier server versions and proxy support are described in the [compatibility matrix](docs/COMPATIBILITY.md). Application classes target Java 17; builds use JDK 21. This source tree targets version 5.6.20; check GitHub Releases for the latest published stable version.
 
 ## Commands and permissions
 
@@ -69,7 +69,7 @@ On its first run, the Wrapper downloads Gradle 8.14.6 and verifies its SHA-256. 
 
 GitHub Actions performs clean builds on **Ubuntu and Windows / JDK 21**. `verifyComponents` checks dependency hashes, JAR contents, exclusion of server APIs and test classes from the plugin, resources, version metadata, the Java target and **7085 API contracts**. `verifySecurityFixes` checks forged/replayed messages, SQL parameter binding, pool failure, GUI sessions, item codecs, TLS policy and administrative command branches. Network connections and OS process execution are blocked in the test JVM.
 
-A separate gate starts the plugin on **the six pinned Paper versions** in Docker and runs **runtime assertions, including updater GUI metadata**. The CI sandbox blocks external network access; the deployed updater connects only to the configured GitHub Releases endpoint. See the [test scope and reproduction steps](docs/COMPATIBILITY.md). A published `v<version>` tag triggers release CI; verified binary assets are attached only after all checks pass. Assets include the plugin JAR, sources JAR, complete Gradle project and SHA-256 checksums.
+A separate gate tests the same JAR on six pinned Paper versions and **Folia 26.3** in Docker. Two loopback clients exercise menu navigation, chat input and permissions from distinct Folia regions. The runtime containers have no external network access. See the [compatibility matrix](docs/COMPATIBILITY.md). A `v<version>` tag triggers release CI, which attaches the verified JAR, sources, complete project and SHA-256 checksums after the checks pass.
 
 ## Credits and licenses
 

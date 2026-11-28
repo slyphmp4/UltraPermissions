@@ -1,14 +1,15 @@
 package me.TechsCode.UltraPermissions.storage.objects;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.StorageController;
+import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.legacy.SkinTexture;
 import me.TechsCode.UltraPermissions.base.storage.Storable;
@@ -23,20 +24,20 @@ import me.TechsCode.UltraPermissions.storage.collection.RankupList;
 
 public class User extends Storable implements PermissionHolder {
    private StorageController controller;
-   private UUID uuid;
-   private String playerName;
+   private volatile UUID uuid;
+   private volatile String playerName;
    private volatile boolean superadmin;
-   private Map<Stored<Group>, Long> rankups;
-   private String prefix;
-   private String suffix;
-   private SkinTexture skinTexture;
+   private volatile Map<Stored<Group>, Long> rankups;
+   private volatile String prefix;
+   private volatile String suffix;
+   private volatile SkinTexture skinTexture;
 
    public User(UUID var1, String var2, boolean var3, Map<Stored<Group>, Long> var4, String var5, String var6, SkinTexture var7) {
       super();
       this.uuid = var1;
       this.playerName = var2;
       this.superadmin = var3;
-      this.rankups = var4;
+      this.rankups = new ConcurrentHashMap<>(var4);
       this.prefix = var5;
       this.suffix = var6;
       this.skinTexture = var7;
@@ -61,8 +62,10 @@ public class User extends Storable implements PermissionHolder {
    }
 
    public void setPlayerName(String var1) {
-      this.playerName = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.playerName = var1;
+         this.sync();
+      });
    }
 
    public boolean isSuperadmin() {
@@ -70,22 +73,28 @@ public class User extends Storable implements PermissionHolder {
    }
 
    public void setSuperadmin(boolean var1) {
-      this.superadmin = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.superadmin = var1;
+         this.sync();
+      });
    }
 
    public void addGroup(Group var1) {
-      this.rankups.put(var1.toStored(), 0L);
-      this.sync();
+      this.mutate(() -> {
+         this.rankups.put(var1.toStored(), 0L);
+         this.sync();
+      });
    }
 
    public void addGroup(Group var1, long var2) {
-      this.rankups.put(var1.toStored(), var2);
-      this.sync();
+      this.mutate(() -> {
+         this.rankups.put(var1.toStored(), var2);
+         this.sync();
+      });
    }
 
    public long getGroupExpiry(Stored<Group> var1) {
-      return this.rankups.get(var1);
+      return this.rankups.getOrDefault(var1, 0L);
    }
 
    public Set<Stored<Group>> getGroups() {
@@ -93,6 +102,10 @@ public class User extends Storable implements PermissionHolder {
    }
 
    public GroupList getActiveGroups() {
+      return this.controller instanceof UltraPermissions plugin ? plugin.readRegionalModel(this::activeGroups) : this.activeGroups();
+   }
+
+   private GroupList activeGroups() {
       return this.rankups
          .keySet()
          .stream()
@@ -107,17 +120,21 @@ public class User extends Storable implements PermissionHolder {
    }
 
    public void setSkinTexture(SkinTexture var1) {
-      if (var1 != null && (this.skinTexture == null || !this.skinTexture.getUrl().equalsIgnoreCase(var1.getUrl()))) {
-         this.skinTexture = var1;
-         this.sync();
-      }
+      this.mutate(() -> {
+         if (var1 != null && (this.skinTexture == null || !this.skinTexture.getUrl().equalsIgnoreCase(var1.getUrl()))) {
+            this.skinTexture = var1;
+            this.sync();
+         }
+      });
    }
 
    public void removeGroup(Group var1) {
-      if (this.rankups.containsKey(var1.toStored())) {
-         this.rankups.remove(var1.toStored());
-         this.sync();
-      }
+      this.mutate(() -> {
+         if (this.rankups.containsKey(var1.toStored())) {
+            this.rankups.remove(var1.toStored());
+            this.sync();
+         }
+      });
    }
 
    public boolean hasPrefix() {
@@ -140,14 +157,18 @@ public class User extends Storable implements PermissionHolder {
 
    @Override
    public void setPrefix(String var1) {
-      this.prefix = var1 != null ? Text.color(var1) : null;
-      this.sync();
+      this.mutate(() -> {
+         this.prefix = var1 != null ? Text.color(var1) : null;
+         this.sync();
+      });
    }
 
    @Override
    public void setSuffix(String var1) {
-      this.suffix = var1 != null ? Text.color(var1) : null;
-      this.sync();
+      this.mutate(() -> {
+         this.suffix = var1 != null ? Text.color(var1) : null;
+         this.sync();
+      });
    }
 
    @Override
@@ -161,8 +182,10 @@ public class User extends Storable implements PermissionHolder {
    }
 
    public void remove() {
-      this.getPermissions().forEach(Permission::remove);
-      this.destroy();
+      this.mutate(() -> {
+         this.getPermissions().forEach(Permission::remove);
+         this.destroy();
+      });
    }
 
    @Override
@@ -215,14 +238,15 @@ public class User extends Storable implements PermissionHolder {
       StorageController var3 = (StorageController)var2;
       this.playerName = var1.get("name").getAsString();
       this.superadmin = var1.get("superadmin").getAsBoolean();
-      this.rankups = new HashMap<>();
+      Map<Stored<Group>, Long> groups = new ConcurrentHashMap<>();
       if (var1.has("groups")) {
          var1.get("groups")
             .getAsJsonObject()
             .entrySet()
-            .forEach(var2x -> this.rankups.put(new Stored<>(var2x.getKey(), var3::getGroupStorage), var2x.getValue().getAsLong()));
+            .forEach(var2x -> groups.put(new Stored<>(var2x.getKey(), var3::getGroupStorage), var2x.getValue().getAsLong()));
       }
 
+      this.rankups = groups;
       this.prefix = var1.has("prefix") ? Text.color(var1.get("prefix").getAsString()) : null;
       this.suffix = var1.has("suffix") ? Text.color(var1.get("suffix").getAsString()) : null;
       this.skinTexture = var1.has("skull") && !var1.get("skull").getAsString().contains("null:split:")
@@ -236,12 +260,14 @@ public class User extends Storable implements PermissionHolder {
    }
 
    public void clean() {
-      for (Stored var2 : new ArrayList<>(this.rankups.keySet())) {
-         if (var2 != null & !var2.isPresent()) {
-            this.rankups.remove(var2);
-            this.sync();
+      this.mutate(() -> {
+         for (Stored var2 : new ArrayList<>(this.rankups.keySet())) {
+            if (var2 != null && !var2.isPresent()) {
+               this.rankups.remove(var2);
+               this.sync();
+            }
          }
-      }
+      });
    }
 
    public Stored<User> toStored() {

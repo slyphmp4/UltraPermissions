@@ -4,15 +4,15 @@ import me.TechsCode.UltraPermissions.base.registry.RegistryStorable;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 public class MySQLRegistry extends RegistryStorable {
-   private String hostname;
-   private String serverName = "";
-   private String port;
-   private String database;
-   private String username;
-   private String password;
-   private boolean ssl;
-   private int minimumIdle;
-   private int maximumPoolSize;
+   private volatile String hostname;
+   private volatile String serverName = "";
+   private volatile String port;
+   private volatile String database;
+   private volatile String username;
+   private volatile String password;
+   private volatile boolean ssl;
+   private volatile int minimumIdle;
+   private volatile int maximumPoolSize;
 
    public MySQLRegistry() {
       super("mysql");
@@ -81,8 +81,10 @@ public class MySQLRegistry extends RegistryStorable {
    }
 
    public void updateState(JsonObject var1) {
-      this.setState(var1);
-      this.sync();
+      this.mutate(() -> {
+         this.setState(var1);
+         this.sync();
+      });
    }
 
    public boolean hasCredentials() {
@@ -90,25 +92,29 @@ public class MySQLRegistry extends RegistryStorable {
    }
 
    public void setCredentials(MySQLCredentials var1) {
-      if (var1 == null) {
-         this.clearCredentials();
-      } else {
-         this.hostname = var1.getHostname();
-         this.port = var1.getPort();
-         this.database = var1.getDatabase();
-         this.username = var1.getUsername();
-         this.password = var1.getPassword();
-         this.sync();
-      }
+      this.mutate(() -> {
+         if (var1 == null) {
+            this.clearCredentials();
+         } else {
+            this.hostname = var1.getHostname();
+            this.port = var1.getPort();
+            this.database = var1.getDatabase();
+            this.username = var1.getUsername();
+            this.password = var1.getPassword();
+            this.sync();
+         }
+      });
    }
 
    public void clearCredentials() {
-      this.hostname = "";
-      this.port = "";
-      this.database = "";
-      this.username = "";
-      this.password = "";
-      this.sync();
+      this.mutate(() -> {
+         this.hostname = "";
+         this.port = "";
+         this.database = "";
+         this.username = "";
+         this.password = "";
+         this.sync();
+      });
    }
 
    public MySQLCredentials getCredentials() {
@@ -120,8 +126,10 @@ public class MySQLRegistry extends RegistryStorable {
    }
 
    public void setSSL(boolean var1) {
-      this.ssl = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.ssl = var1;
+         this.sync();
+      });
    }
 
    public int getMinimumIdle() {
@@ -129,8 +137,10 @@ public class MySQLRegistry extends RegistryStorable {
    }
 
    public void setMinimumIdle(int var1) {
-      this.minimumIdle = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.minimumIdle = var1;
+         this.sync();
+      });
    }
 
    public int getMaximumPoolSize() {
@@ -138,8 +148,10 @@ public class MySQLRegistry extends RegistryStorable {
    }
 
    public void setMaximumPoolSize(int var1) {
-      this.maximumPoolSize = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.maximumPoolSize = var1;
+         this.sync();
+      });
    }
 
    public String getServerName() {
@@ -147,7 +159,9 @@ public class MySQLRegistry extends RegistryStorable {
    }
 
    public void setServerName(String var1) {
-      this.serverName = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.serverName = var1;
+         this.sync();
+      });
    }
 }

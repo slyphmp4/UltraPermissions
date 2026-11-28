@@ -409,7 +409,7 @@ public class MySQLPane extends SettingsPane {
             }
 
             ConnectionTestResult completed = result;
-            this.plugin.getScheduler().run(() -> {
+            this.plugin.getSpigotScheduler().runFor(this.p, () -> {
                this.loading = false;
                if (this.credentials != original || !sameCredentials(this.credentials, snapshot)
                   || !Objects.equals(this.serverName, serverName) || this.ssl != ssl

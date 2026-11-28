@@ -56,7 +56,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class UltraPermissions extends SpigotTechPlugin implements UltraPermissionsAPI, StorageController {
-   private static UltraPermissionsAPI api;
+   private static volatile UltraPermissionsAPI api;
    public static final UpermsPlaceholder[] placeholders = new UpermsPlaceholder[]{
       new PrefixColorPlaceholder(),
       new PrefixesPlaceholder(),
@@ -208,7 +208,7 @@ public class UltraPermissions extends SpigotTechPlugin implements UltraPermissio
 
    @Override
    public GroupList getGroups() {
-      return this.groupStorage.getGroups();
+      return this.readRegionalModel(this.groupStorage::getGroups);
    }
 
    @Override

@@ -7,13 +7,13 @@ import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 import me.TechsCode.UltraPermissions.internal.Node;
 
 public class Permission extends Storable {
-   private int id;
-   private Holder holder;
-   private String world;
-   private String server;
-   private String permission;
-   private boolean positive;
-   private long expiration;
+   private volatile int id;
+   private volatile Holder holder;
+   private volatile String world;
+   private volatile String server;
+   private volatile String permission;
+   private volatile boolean positive;
+   private volatile long expiration;
 
    public Permission(int var1, Holder var2, String var3, String var4, String var5, boolean var6, long var7) {
       super();
@@ -47,18 +47,24 @@ public class Permission extends Storable {
    }
 
    public void setName(String var1) {
-      this.permission = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.permission = var1;
+         this.sync();
+      });
    }
 
    public void setWorld(String var1) {
-      this.world = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.world = var1;
+         this.sync();
+      });
    }
 
    public void setServer(String var1) {
-      this.server = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.server = var1;
+         this.sync();
+      });
    }
 
    public String getDisplayName() {
@@ -74,8 +80,10 @@ public class Permission extends Storable {
    }
 
    public void setPositive(boolean var1) {
-      this.positive = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.positive = var1;
+         this.sync();
+      });
    }
 
    public long getExpiration() {
@@ -83,8 +91,10 @@ public class Permission extends Storable {
    }
 
    public void setExpiration(long var1) {
-      this.expiration = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.expiration = var1;
+         this.sync();
+      });
    }
 
    public void remove() {

@@ -5,7 +5,7 @@ import me.TechsCode.UltraPermissions.base.registry.RegistryStorable;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 public class PrivateRegistry extends RegistryStorable {
-   private UUID serverIdentifier = UUID.randomUUID();
+   private volatile UUID serverIdentifier = UUID.randomUUID();
 
    public PrivateRegistry() {
       super("private");
@@ -28,7 +28,9 @@ public class PrivateRegistry extends RegistryStorable {
    }
 
    public void setServerIdentifier(UUID var1) {
-      this.serverIdentifier = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.serverIdentifier = var1;
+         this.sync();
+      });
    }
 }

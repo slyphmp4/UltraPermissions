@@ -23,7 +23,8 @@ public class RestartView extends GUI {
    private static final Phrase RESTARTING = Phrase.create("restartView.restarting", "Restarting...");
    private static final Phrase RESTART_BUTTON_TITLE = Phrase.create("restartView.button.title", "Restart");
    private static final Phrase RESTART_BUTTON_ACTION = Phrase.create("restartView.button.action", "Click to restart the Server", Colors.GRAY);
-   private boolean restarting = false;
+   private final SpigotTechPlugin plugin;
+   private volatile boolean restarting;
    private final List<Integer> red = new ArrayList<>();
    private final List<Integer> orange = new ArrayList<>();
    private final List<Integer> yellow = new ArrayList<>();
@@ -31,6 +32,7 @@ public class RestartView extends GUI {
 
    public RestartView(Player var1, SpigotTechPlugin var2) {
       super(var1, var2);
+      this.plugin = var2;
    }
 
    @Override
@@ -71,10 +73,16 @@ public class RestartView extends GUI {
 
    @EventHandler
    public void update(UpdateEvent var1) {
-      if (var1.getUpdateTime() == UpdateTime.TICK) {
-         if (this.restarting) {
+      if (var1.getUpdateTime() == UpdateTime.TICK && this.restarting) {
+         this.plugin.getSpigotScheduler().runForIfNeeded(this.p, this::advanceRestart);
+      }
+   }
+
+   private void advanceRestart() {
+      if (this.restarting && this.p.isOnline()) {
             if (this.green.size() == this.getCurrentSlots()) {
-               Bukkit.shutdown();
+               this.restarting = false;
+               this.plugin.getScheduler().run(Bukkit::shutdown);
             } else {
                int var2 = 0;
 
@@ -95,7 +103,6 @@ public class RestartView extends GUI {
                   this.red.add(var2);
                }
             }
-         }
       }
    }
 }

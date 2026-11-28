@@ -34,10 +34,7 @@ public class VisualManager implements Listener {
       if (!MigrationAssistant.isMigrating()) {
          String var2 = this.registry.getFormat(VisualType.CHAT);
          Optional var3 = this.plugin.getUsers().uuid(var1.getPlayer().getUniqueId());
-         GroupList var4 = null;
-         if (var3.isPresent()) {
-            var4 = ((User)var3.get()).getActiveGroups().bestToWorst();
-         }
+         GroupList var4 = var3.isPresent() ? ((User)var3.get()).getActiveGroups().bestToWorst() : new GroupList();
 
          boolean var5 = false;
          boolean var6 = false;
@@ -70,22 +67,20 @@ public class VisualManager implements Listener {
       if (!MigrationAssistant.isMigrating()) {
          if (var1.getUpdateTime() == UpdateTime.SLOWER) {
             if (this.registry.getFormat(VisualType.TABLIST) != null || this.registry.getFormat(VisualType.DISPLAY_NAME) != null) {
-               Bukkit.getScheduler().runTaskAsynchronously((Plugin)this.plugin.getBootstrap(), () -> {
-                  for (Player var2 : Bukkit.getOnlinePlayers()) {
-                     String var3 = this.registry.getFormat(VisualType.TABLIST);
-                     String var4 = this.registry.getFormat(VisualType.DISPLAY_NAME);
-                     if (var3 != null) {
-                        var2.setPlayerListName(this.replacePlaceholders(var2, var3));
-                     }
-
-                     if (var4 != null) {
-                        var2.setDisplayName(this.replacePlaceholders(var2, var4));
-                     }
-                  }
-               });
+               for (Player player : Bukkit.getOnlinePlayers()) {
+                  this.plugin.getSpigotScheduler().runForIfNeeded(player, () -> this.updateNames(player));
+               }
             }
          }
       }
+   }
+
+   private void updateNames(Player player) {
+      if (!player.isOnline() || MigrationAssistant.isMigrating()) return;
+      String tabName = this.registry.getFormat(VisualType.TABLIST);
+      String displayName = this.registry.getFormat(VisualType.DISPLAY_NAME);
+      if (tabName != null) player.setPlayerListName(this.replacePlaceholders(player, tabName));
+      if (displayName != null) player.setDisplayName(this.replacePlaceholders(player, displayName));
    }
 
    private String replacePlaceholders(Player var1, String var2) {
