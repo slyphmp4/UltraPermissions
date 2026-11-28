@@ -6,12 +6,12 @@ import me.TechsCode.UltraPermissions.base.visual.Colors;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 public class AppearanceRegistry extends RegistryStorable {
-   private String prefix;
-   private boolean updaterEnabled;
-   private boolean updaterNotificationsEnabled;
+   private volatile String prefix;
+   private volatile boolean updaterEnabled;
+   private volatile boolean updaterNotificationsEnabled;
    private final String defaultPrefix;
    private final int defaultGuiUpdateInterval;
-   private int guiUpdateInterval;
+   private volatile int guiUpdateInterval;
 
    public AppearanceRegistry(TechPlugin<?> var1) {
       super("appearance");
@@ -58,8 +58,10 @@ public class AppearanceRegistry extends RegistryStorable {
    }
 
    public void setPrefix(String var1) {
-      this.prefix = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.prefix = var1;
+         this.sync();
+      });
    }
 
    public boolean isPrefixModified() {
@@ -71,13 +73,17 @@ public class AppearanceRegistry extends RegistryStorable {
    }
 
    public void resetPrefix() {
-      this.prefix = this.defaultPrefix;
-      this.sync();
+      this.mutate(() -> {
+         this.prefix = this.defaultPrefix;
+         this.sync();
+      });
    }
 
    public void disablePrefix() {
-      this.prefix = "";
-      this.sync();
+      this.mutate(() -> {
+         this.prefix = "";
+         this.sync();
+      });
    }
 
    public void enablePrefix() {
@@ -85,8 +91,10 @@ public class AppearanceRegistry extends RegistryStorable {
    }
 
    public void toggleUpdater() {
-      this.updaterEnabled = !this.updaterEnabled;
-      this.sync();
+      this.mutate(() -> {
+         this.updaterEnabled = !this.updaterEnabled;
+         this.sync();
+      });
    }
 
    /** The existing updaterEnabled setting now controls automatic GitHub downloads only. */
@@ -95,8 +103,10 @@ public class AppearanceRegistry extends RegistryStorable {
    }
 
    public void toggleUpdaterNotifications() {
-      this.updaterNotificationsEnabled = !this.updaterNotificationsEnabled;
-      this.sync();
+      this.mutate(() -> {
+         this.updaterNotificationsEnabled = !this.updaterNotificationsEnabled;
+         this.sync();
+      });
    }
 
    public boolean isUpdaterNotificationsEnabled() {
@@ -112,12 +122,16 @@ public class AppearanceRegistry extends RegistryStorable {
    }
 
    public void setGuiUpdateInterval(int var1) {
-      this.guiUpdateInterval = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.guiUpdateInterval = var1;
+         this.sync();
+      });
    }
 
    public void resetGuiUpdateInterval() {
-      this.guiUpdateInterval = this.defaultGuiUpdateInterval;
-      this.sync();
+      this.mutate(() -> {
+         this.guiUpdateInterval = this.defaultGuiUpdateInterval;
+         this.sync();
+      });
    }
 }

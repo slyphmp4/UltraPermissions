@@ -1,14 +1,14 @@
 package me.TechsCode.UltraPermissions.base.storage;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.IntFunction;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.reflection.ClassInstanceCreator;
 import me.TechsCode.UltraPermissions.base.storage.syncing.SyncingAgent;
@@ -21,6 +21,7 @@ public abstract class Storage<STORABLE extends Storable> {
    protected TechPlugin<?> plugin;
    private final me.TechsCode.UltraPermissions.base.security.SyncBudget syncBudget = new me.TechsCode.UltraPermissions.base.security.SyncBudget();
    private final Class<STORABLE> storable;
+   private long revision;
    private StorageImplementation implementation;
    private SyncingAgent syncingAgent;
    protected Map<String, STORABLE> instances;
@@ -39,8 +40,7 @@ public abstract class Storage<STORABLE extends Storable> {
       }
 
       this.syncingAgent = this.implementation.hasMultiServerSupport() && var5 ? var1.getSyncingAgent() : new SyncingAgent.EmptyAgent();
-      this.syncingAgent.register(this);
-      this.observers = new ArrayList<>();
+      this.observers = new CopyOnWriteArrayList<>();
       this.instances = new java.util.concurrent.ConcurrentHashMap<>();
       this.instancesView = Collections.unmodifiableMap(this.instances);
       try {
@@ -64,6 +64,7 @@ public abstract class Storage<STORABLE extends Storable> {
       } catch (RuntimeException failure) {
          throw new StorageStartupException("Cannot load storage " + var2, failure);
       }
+      this.syncingAgent.register(this);
    }
 
    protected void instancesChanged(StorageChangeType var1, String var2, @Nullable STORABLE var3) {
@@ -94,67 +95,61 @@ public abstract class Storage<STORABLE extends Storable> {
       }
    }
 
-   public void syncFromDatabase(String var1) {
-      if (!me.TechsCode.UltraPermissions.base.security.MessagePolicy.storageKey(var1)) return;
-      this.syncBudget.submit(this.plugin.getScheduler()::runAsync, var1,
-            () -> this.implementation
-               .read(
-                  var1,
-                  new ReadCallback() {
-                     @Override
-                     public void onSuccess(HashMap<String, JsonObject> var1x) {
-                        // Read on a worker; apply model changes and Bukkit observers on the server thread.
-                        Storage.this.plugin.getScheduler().run(() -> {
-                           if (var1.equalsIgnoreCase("*")) {
-                              Map<String, JsonObject> var2 = var1x.entrySet()
-                                 .stream()
-                                 .filter(var1xxx -> !Storage.this.instancesView.containsKey(var1xxx.getKey()))
-                                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-                              Storage.this.createInstances(var2);
-                              Map<String, JsonObject> var3 = var1x.entrySet()
-                                 .stream()
-                                 .filter(var1xxx -> Storage.this.instancesView.containsKey(var1xxx.getKey()))
-                                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+   public void syncFromDatabase(String key) {
+      if (!me.TechsCode.UltraPermissions.base.security.MessagePolicy.storageKey(key)) return;
+      this.syncBudget.submit(this.plugin.getScheduler()::runAsync, key, () -> {
+         long beforeRead = this.plugin.writeModelResult(() -> this.revision);
+         this.implementation.read(key, new ReadCallback() {
+            @Override
+            public void onSuccess(HashMap<String, JsonObject> rows) {
+               Storage.this.plugin.getScheduler().run(() -> Storage.this.applyRefresh(key, rows, beforeRead));
+            }
 
-                              for (Entry<String, JsonObject> var5 : var3.entrySet()) {
-                                 Storable var6 = Storage.this.instancesView.get(var5.getKey());
-                                 if (!var6.getState().equals(var5.getValue())) {
-                                    var6.setState((JsonObject)var5.getValue(), Storage.this.plugin);
-                                    var6.setLastSyncedState((JsonObject)var5.getValue());
-                                 }
-                              }
+            @Override
+            public void onFailure(Exception failure) {
+               Storage.this.plugin.log("Could not update Storage Instances of Storage '" + Storage.this.storable.getName() + "' :");
+               Storage.this.plugin.log(failure.getMessage());
+            }
+         });
+      });
+   }
 
-                              Map<String, STORABLE> var8 = Storage.this.instancesView
-                                 .entrySet()
-                                 .stream()
-                                 .filter(var1xxx -> !var1x.containsKey(var1xxx.getKey()))
-                                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-                              var8.forEach((var2x, var3x) -> {
-                                 Storage.this.instances.remove(var2x);
-                                 Storage.this.instancesChanged(StorageChangeType.REMOVED, var1, var3x);
-                              });
-                           } else if (!var1x.isEmpty() && !Storage.this.instancesView.containsKey(var1)) {
-                              Storage.this.createInstances(var1x);
-                           } else if (!var1x.isEmpty() && Storage.this.instancesView.containsKey(var1)) {
-                              Storage.this.instancesView.get(var1).setState((JsonObject)var1x.get(var1), Storage.this.plugin);
-                              Storage.this.instancesView.get(var1).setLastSyncedState((JsonObject)var1x.get(var1));
-                           } else if (var1x.isEmpty()) {
-                              STORABLE var7 = Storage.this.instances.remove(var1);
-                              Storage.this.instancesChanged(StorageChangeType.REMOVED, var1, var7);
-                           }
+   private void applyRefresh(String key, Map<String, JsonObject> rows, long beforeRead) {
+      this.plugin.writeModel(() -> {
+         if (this.revision != beforeRead) {
+            // A write or another refresh overlapped the read. Fetch the latest state before applying it.
+            this.syncFromDatabase(key);
+            return;
+         }
 
-                              Storage.this.onDataSynchronization();
-                        });
-                     }
+         for (Entry<String, JsonObject> row : rows.entrySet()) {
+            STORABLE instance = this.instances.get(row.getKey());
+            if (instance == null) {
+               this.createInstances(Map.of(row.getKey(), row.getValue()));
+            } else if (!instance.getState().equals(row.getValue())) {
+               instance.setState(row.getValue(), this.plugin);
+               instance.setLastSyncedState(row.getValue());
+            }
+         }
+         if ("*".equals(key)) {
+            for (String current : List.copyOf(this.instances.keySet())) {
+               if (!rows.containsKey(current)) this.removeRefreshedRow(current);
+            }
+         } else if (rows.isEmpty()) {
+            this.removeRefreshedRow(key);
+         }
 
-                     @Override
-                     public void onFailure(Exception var1x) {
-                        Storage.this.plugin.log("Could not update Storage Instances of Storage '" + Storage.this.storable.getName() + "' :");
-                        Storage.this.plugin.log(var1x.getMessage());
-                     }
-                  }
-               )
-         );
+         this.revision++;
+         this.onDataSynchronization();
+      });
+   }
+
+   private void removeRefreshedRow(String key) {
+      STORABLE removed = this.instances.remove(key);
+      if (removed != null) {
+         removed.setStorage(null);
+         this.instancesChanged(StorageChangeType.REMOVED, key, removed);
+      }
    }
 
    public Collection<STORABLE> get() {
@@ -162,6 +157,7 @@ public abstract class Storage<STORABLE extends Storable> {
    }
 
    void update(final Storable var1, JsonObject var2) {
+      this.revision++;
       JsonObject lastSynced = var1.getLastSyncedState();
       STORABLE previous = null;
       if (lastSynced != null) {
@@ -195,6 +191,7 @@ public abstract class Storage<STORABLE extends Storable> {
    }
 
    void destroy(final Storable var1) {
+      this.revision++;
       this.implementation.destroy(var1.getKey(), new WriteCallback() {
          @Override
          public void onSuccess() {
@@ -214,6 +211,15 @@ public abstract class Storage<STORABLE extends Storable> {
    }
 
    public STORABLE create(final STORABLE var1) {
+      return this.plugin.writeModelResult(() -> this.createLocked(var1));
+   }
+
+   public STORABLE createWithNumericId(IntFunction<STORABLE> factory) {
+      return this.plugin.writeModelResult(() -> this.createLocked(factory.apply(this.getNextNumericId())));
+   }
+
+   private STORABLE createLocked(final STORABLE var1) {
+      this.revision++;
       var1.onMount(this.plugin);
       var1.setStorage(this);
       this.onMount(var1);
@@ -223,7 +229,8 @@ public abstract class Storage<STORABLE extends Storable> {
          @Override
          public void onSuccess() {
             var1.setLastSyncedState(state);
-            Storage.this.instances.put(key, var1);
+            STORABLE previous = Storage.this.instances.put(key, var1);
+            if (previous != null && previous != var1) previous.setStorage(null);
             Storage.this.instancesChanged(StorageChangeType.ADDED, key, var1);
             Storage.this.onCreation(var1);
             Storage.this.syncingAgent.notifyNewDataChanges(Storage.this, key);

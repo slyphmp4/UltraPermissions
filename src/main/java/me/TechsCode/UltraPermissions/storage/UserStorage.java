@@ -46,12 +46,14 @@ public class UserStorage extends Storage<User> {
    }
 
    public User registerUser(UUID var1, String var2, boolean var3) {
-      UltraPermissionsAPI var4 = (UltraPermissionsAPI)this.plugin;
-      User var5 = this.create(new User(var1, var2, false, new HashMap<>(), null, null, null));
-      if (var3) {
-         var4.getGroups().defaults(true).forEach(var5::addGroup);
-      }
+      return this.plugin.writeModelResult(() -> {
+         User existing = this.instancesView.get(var1.toString());
+         if (existing != null) return existing;
 
-      return var5;
+         UltraPermissionsAPI api = (UltraPermissionsAPI)this.plugin;
+         User created = this.create(new User(var1, var2, false, new HashMap<>(), null, null, null));
+         if (var3) api.getGroups().defaults(true).forEach(created::addGroup);
+         return created;
+      });
    }
 }

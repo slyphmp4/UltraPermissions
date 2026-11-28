@@ -14,13 +14,13 @@ import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 import org.bukkit.inventory.ItemStack;
 
 public class GroupPath extends Storable {
-   private String uid = UUID.randomUUID().toString().substring(0, 6);
-   private int priority = UltraPermissions.getAPI().getGroupPaths().size() + 1;
-   private String name;
-   private String description;
-   private ArrayList<Group> groupPath;
-   private ItemStack icon;
-   private boolean enabled;
+   private volatile String uid = UUID.randomUUID().toString().substring(0, 6);
+   private volatile int priority = UltraPermissions.getAPI().getGroupPaths().size() + 1;
+   private volatile String name;
+   private volatile String description;
+   private volatile ArrayList<Group> groupPath;
+   private volatile ItemStack icon;
+   private volatile boolean enabled;
 
    public GroupPath(String var1) {
       super();
@@ -38,8 +38,10 @@ public class GroupPath extends Storable {
 
    @Override
    public void setKey(String var1) {
-      this.uid = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.uid = var1;
+         this.sync();
+      });
    }
 
    @Override
@@ -88,8 +90,10 @@ public class GroupPath extends Storable {
    }
 
    public void setName(String var1) {
-      this.name = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.name = var1;
+         this.sync();
+      });
    }
 
    public String getDescription() {
@@ -97,27 +101,51 @@ public class GroupPath extends Storable {
    }
 
    public void setDescription(String var1) {
-      this.description = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.description = var1;
+         this.sync();
+      });
    }
 
    public ArrayList<Group> getGroupPath() {
-      return this.groupPath;
+      return this.usesRegionThreads() ? new ArrayList<>(this.groupPath) : this.groupPath;
    }
 
    public void setGroupPath(ArrayList<Group> var1) {
-      this.groupPath = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.groupPath = this.usesRegionThreads() ? new ArrayList<>(var1) : var1;
+         this.sync();
+      });
    }
 
    public void addGroupToGroupPath(Group var1) {
-      this.groupPath.add(var1);
-      this.sync();
+      this.mutate(() -> {
+         if (this.usesRegionThreads()) {
+            ArrayList<Group> updated = new ArrayList<>(this.groupPath);
+            updated.add(var1);
+            this.groupPath = updated;
+         } else {
+            this.groupPath.add(var1);
+         }
+         this.sync();
+      });
    }
 
    public void removeGroupFromGroupPath(Group var1) {
-      this.groupPath.remove(var1);
-      this.sync();
+      this.mutate(() -> {
+         if (this.usesRegionThreads()) {
+            ArrayList<Group> updated = new ArrayList<>(this.groupPath);
+            updated.remove(var1);
+            this.groupPath = updated;
+         } else {
+            this.groupPath.remove(var1);
+         }
+         this.sync();
+      });
+   }
+
+   private boolean usesRegionThreads() {
+      return UltraPermissions.getAPI() instanceof UltraPermissions plugin && plugin.isFolia();
    }
 
    public ItemStack getIcon() {
@@ -125,8 +153,10 @@ public class GroupPath extends Storable {
    }
 
    public void setIcon(ItemStack var1) {
-      this.icon = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.icon = var1;
+         this.sync();
+      });
    }
 
    public boolean isEnabled() {
@@ -134,8 +164,10 @@ public class GroupPath extends Storable {
    }
 
    public void setEnabled(boolean var1) {
-      this.enabled = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.enabled = var1;
+         this.sync();
+      });
    }
 
    public int getPriority() {
@@ -143,8 +175,10 @@ public class GroupPath extends Storable {
    }
 
    public void setPriority(int var1) {
-      this.priority = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.priority = var1;
+         this.sync();
+      });
    }
 
    public void delete() {

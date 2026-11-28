@@ -22,21 +22,19 @@ public class HeadPreloader implements Listener {
    public void login(PlayerJoinEvent event) {
       UUID uuid = event.getPlayer().getUniqueId();
       String playerName = event.getPlayer().getName();
-      this.plugin.getScheduler().runTaskLater(() -> {
-         if (Bukkit.getOnlineMode()) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null && player.isOnline()) {
-               this.applySkinTexture(uuid, SkinTexture.fromPlayer(player));
+      if (Bukkit.getOnlineMode()) {
+         Player player = event.getPlayer();
+         this.plugin.getSpigotScheduler().runForLater(player, () -> {
+            if (player.isOnline()) this.applySkinTexture(uuid, SkinTexture.fromPlayer(player));
+         }, 90L);
+      } else {
+         this.plugin.getScheduler().runTaskLaterAsync(() -> {
+            SkinTexture texture = SkinTexture.fromMojangAPI(playerName);
+            if (texture != null && texture.getUrl() != null) {
+               this.plugin.getScheduler().run(() -> this.applySkinTexture(uuid, texture));
             }
-         } else {
-            this.plugin.getScheduler().runAsync(() -> {
-               SkinTexture texture = SkinTexture.fromMojangAPI(playerName);
-               if (texture != null && texture.getUrl() != null) {
-                  this.plugin.getScheduler().run(() -> this.applySkinTexture(uuid, texture));
-               }
-            });
-         }
-      }, 90L);
+         }, 90L);
+      }
    }
 
    private void applySkinTexture(UUID uuid, SkinTexture texture) {

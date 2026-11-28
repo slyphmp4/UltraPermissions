@@ -30,8 +30,8 @@ public abstract class Dialog implements Listener, Runnable {
       this.p = var1;
       this.plugin = var2;
       this.actionBar = new ActionBar(var2);
-      var2.getScheduler().run(var1::closeInventory);
-      this.visualTask = var2.getScheduler().runTaskTimer(this, 1L, 1L);
+      var2.runFor(var1, var1::closeInventory);
+      this.visualTask = var2.getSpigotScheduler().runForTimer(var1, this, 1L, 1L);
       Bukkit.getPluginManager().registerEvents(this, (Plugin)var2.getBootstrap());
    }
 
@@ -73,11 +73,16 @@ public abstract class Dialog implements Listener, Runnable {
          if (this.closed || this.inputPending) return;
          this.inputPending = true;
       }
-      this.plugin.getScheduler().run(() -> {
+      this.plugin.runFor(this.p, () -> {
          try {
-            if (this.closed) return;
-            if (!me.TechsCode.UltraPermissions.base.security.UiAccess.allowed(this.plugin, this.p)) { this.close(true); return; }
-            this.onInput(input);
+            this.plugin.writeRegionalModel(() -> {
+               if (this.closed) return;
+               if (!me.TechsCode.UltraPermissions.base.security.UiAccess.allowed(this.plugin, this.p)) {
+                  this.close(true);
+                  return;
+               }
+               this.onInput(input);
+            });
          } finally { synchronized (this) { this.inputPending = false; } }
       });
    }
@@ -97,6 +102,11 @@ public abstract class Dialog implements Listener, Runnable {
    }
 
    public void close(boolean var1) {
+      if (this.plugin.isFolia() && !this.plugin.getSpigotScheduler().owns(this.p)) {
+         boolean skipCallback = var1;
+         this.plugin.runFor(this.p, () -> this.close(skipCallback));
+         return;
+      }
       if (this.closed) return;
       this.closed = true;
       if (!me.TechsCode.UltraPermissions.base.security.UiAccess.allowed(this.plugin, this.p)) var1 = true;

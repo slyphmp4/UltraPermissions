@@ -152,6 +152,7 @@ final class AuditRegressionChecks {
     Server wrapper=(Server)Proxy.newProxyInstance(Server.class.getClassLoader(),new Class[]{Server.class},(o,m,a)->m.getName().equals("getPluginManager")?manager:m.invoke(prior,a));
     Field server=Bukkit.class.getDeclaredField("server");server.setAccessible(true);server.set(null,wrapper);
     FixturePlugin plugin=alloc(FixturePlugin.class);plugin.users=new UserList();plugin.paths=new GroupPathList();plugin.logs=new ArrayList<>();
+    set(plugin,"modelLock",new java.util.concurrent.locks.ReentrantReadWriteLock());
     Field instance=me.TechsCode.UltraPermissions.base.TechPlugin.class.getDeclaredField("instance");instance.setAccessible(true);Object previousInstance=instance.get(null);instance.set(null,plugin);
     try {
     plugin.appearance=new me.TechsCode.UltraPermissions.base.AppearanceRegistry(plugin);set(plugin.appearance,"updaterNotificationsEnabled",false);

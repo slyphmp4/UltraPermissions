@@ -2,7 +2,6 @@ package me.TechsCode.UltraPermissions.storage;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.UUID;
 import me.TechsCode.UltraPermissions.base.item.XMaterial;
 import me.TechsCode.UltraPermissions.storage.objects.Group;
 
@@ -66,9 +65,9 @@ public class GroupCreator {
 
    public Group create() {
       return this.storage
-         .create(
+         .createWithAvailableKey(key ->
             new Group(
-               UUID.randomUUID().toString().substring(0, 4),
+               key,
                this.name,
                this.world,
                this.server,

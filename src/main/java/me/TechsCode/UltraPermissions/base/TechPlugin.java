@@ -5,6 +5,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import lombok.Generated;
@@ -24,6 +27,7 @@ import me.TechsCode.UltraPermissions.base.visual.Text;
 
 public abstract class TechPlugin<BOOTSTRAP> {
    private final BOOTSTRAP bootstrap;
+   private final ReentrantReadWriteLock modelLock = new ReentrantReadWriteLock();
    private Registry registry;
    private MySQLManager mySQLManager;
    private AppearanceRegistry appearanceRegistry;
@@ -163,6 +167,33 @@ public abstract class TechPlugin<BOOTSTRAP> {
                instance = null;
             }
          }
+      }
+   }
+
+   public final void writeModel(Runnable action) {
+      this.writeModelResult(() -> {
+         action.run();
+         return null;
+      });
+   }
+
+   public final <T> T writeModelResult(Supplier<T> action) {
+      Lock lock = this.modelLock.writeLock();
+      lock.lock();
+      try {
+         return action.get();
+      } finally {
+         lock.unlock();
+      }
+   }
+
+   protected final <T> T readModel(Supplier<T> action) {
+      Lock lock = this.modelLock.readLock();
+      lock.lock();
+      try {
+         return action.get();
+      } finally {
+         lock.unlock();
       }
    }
 

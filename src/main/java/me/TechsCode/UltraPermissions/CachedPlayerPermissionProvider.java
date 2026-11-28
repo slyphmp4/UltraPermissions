@@ -30,7 +30,11 @@ public class CachedPlayerPermissionProvider {
       this.thisServer = plugin.getThisServer();
    }
 
-   public synchronized PermissionList retrieve(UUID uuid, String world) {
+   public PermissionList retrieve(UUID uuid, String world) {
+      return this.plugin.readRegionalModel(() -> this.retrieveLocked(uuid, world));
+   }
+
+   private synchronized PermissionList retrieveLocked(UUID uuid, String world) {
       if (!thisServer.isPresent()) {
          Optional<NServer> detected = this.plugin.getThisServer();
          if (detected.isPresent()) {

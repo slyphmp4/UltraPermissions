@@ -18,10 +18,10 @@ import org.bukkit.plugin.Plugin;
 public class PluginHookManager implements Listener {
    private final UltraPermissions plugin;
    private final HashMap<String, Runnable> hooks;
-   private PlaceholderAPIHook placeholderAPIHook;
-   private MvdwPlaceholderAPIHook mvdwPlaceholderAPIHook;
-   private VaultHook vaultHook;
-   private NametagEditHook nametagEditHook;
+   private volatile PlaceholderAPIHook placeholderAPIHook;
+   private volatile MvdwPlaceholderAPIHook mvdwPlaceholderAPIHook;
+   private volatile VaultHook vaultHook;
+   private volatile NametagEditHook nametagEditHook;
 
    public PluginHookManager(UltraPermissions var1) {
       super();
@@ -35,7 +35,7 @@ public class PluginHookManager implements Listener {
       Bukkit.getPluginManager().registerEvents(this, (Plugin)var1.getBootstrap());
    }
 
-   public void tryHook(boolean var1, String var2) {
+   public synchronized void tryHook(boolean var1, String var2) {
       Runnable hook = this.hooks.get(var2);
       if (hook == null || (!var1 && !Bukkit.getPluginManager().isPluginEnabled(var2))) return;
       try {

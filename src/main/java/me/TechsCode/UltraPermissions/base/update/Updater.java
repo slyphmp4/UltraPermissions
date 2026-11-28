@@ -193,7 +193,11 @@ public class Updater {
                         }
                      }
                      for (Player online : Bukkit.getOnlinePlayers()) {
-                        if (isSuperadmin(plugin, online)) notifyStatus(plugin, online, completed, false);
+                        plugin.runForIfNeeded(online, () -> {
+                           if (permitted.getAsBoolean() && isSuperadmin(plugin, online)) {
+                              notifyStatus(plugin, online, completed, false);
+                           }
+                        });
                      }
                   } finally {
                      checking.compareAndSet(attempt, null);

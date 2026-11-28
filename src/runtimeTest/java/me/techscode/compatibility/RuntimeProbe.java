@@ -6,10 +6,15 @@ import java.net.URL;
 import java.util.UUID;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import me.TechsCode.UltraPermissions.base.translations.TranslationManager;
 import me.TechsCode.UltraPermissions.UltraPermissions;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.fileconf.impl.SpigotFileConfiguration;
+import me.TechsCode.UltraPermissions.base.dialog.UserInput;
 import me.TechsCode.UltraPermissions.base.item.CustomItem;
 import me.TechsCode.UltraPermissions.base.item.XMaterial;
 import me.TechsCode.UltraPermissions.base.gui.Button;
@@ -25,7 +30,14 @@ import me.TechsCode.UltraPermissions.internal.ModifiedPermissible;
 import me.TechsCode.UltraPermissions.storage.objects.Group;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType.SlotType;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -33,21 +45,24 @@ import org.bukkit.plugin.java.JavaPlugin;
 /** Test-server companion only. Never install on a production server. */
 public final class RuntimeProbe extends JavaPlugin {
     private UltraPermissions permissions;
-    private int assertions;
+    private final AtomicInteger assertions = new AtomicInteger();
     private boolean failed;
+    private boolean distinctPlayerRegions;
 
     @Override public void onEnable() {
         if (Boolean.getBoolean("ultrapermissions.performanceProbe")) {
             new PerformanceLoad(this).start();
             return;
         }
+        permissions = (UltraPermissions) TechPlugin.getInstance();
+        if (permissions == null) throw new IllegalStateException("UltraPermissions did not initialize");
         boolean secondBoot = Files.exists(getDataFolder().toPath().resolve("phase-one.marker"));
-        Bukkit.getScheduler().runTaskLater(this, () -> run(() -> {
-            permissions = (UltraPermissions) TechPlugin.getInstance();
-            check(permissions != null && permissions.getPluginEvents() != null, "plugin initialized on real Paper server");
+        permissions.getScheduler().runTaskLater(() -> run(() -> {
+            check(permissions.getPluginEvents() != null, "plugin initialized on the real server");
             check(Bukkit.getPluginManager().isPluginEnabled("UltraPermissions"), "plugin enabled on real server");
             if (secondBoot) {
                 verifyPersistenceAfterRestart();
+                if (permissions.isFolia()) verifyFoliaPlayerPersistence();
                 verifyLanguages();
                 check(Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "upc ListGroups"),
                     "console command works after plugin reload on a fresh JVM");
@@ -96,12 +111,201 @@ public final class RuntimeProbe extends JavaPlugin {
                 playerPermissions();
                 rankPathIsolation();
                 verifyLanguages();
-                report("passed", 1);
-                Files.createDirectories(getDataFolder().toPath());
-                Files.writeString(getDataFolder().toPath().resolve("phase-one.marker"), "phase 1 passed\n");
+                if (permissions.isFolia()) {
+                    waitForFoliaPlayers(System.nanoTime() + TimeUnit.SECONDS.toNanos(90));
+                    return;
+                }
+                finishFirstBoot();
             }
             Bukkit.shutdown();
         }), 80L);
+    }
+
+    private void waitForFoliaPlayers(long deadline) throws Exception {
+        Player first = Bukkit.getPlayerExact(OfflineProbeClient.FIRST_PLAYER);
+        Player second = Bukkit.getPlayerExact(OfflineProbeClient.SECOND_PLAYER);
+        if (first == null || second == null || permissions.getUsers().uuid(first.getUniqueId()).isEmpty()
+                || permissions.getUsers().uuid(second.getUniqueId()).isEmpty()) {
+            if (System.nanoTime() >= deadline) throw new AssertionError("Both loopback clients did not join in time");
+            permissions.getScheduler().runTaskLater(() -> run(() -> waitForFoliaPlayers(deadline)), 10L);
+            return;
+        }
+        check(permissions.getUsers().uuid(first.getUniqueId()).isPresent()
+            && permissions.getUsers().uuid(second.getUniqueId()).isPresent(), "both clients joined through the player lifecycle");
+        permissions.getUsers().uuid(first.getUniqueId()).orElseThrow().setSuperadmin(true);
+        permissions.getUsers().uuid(second.getUniqueId()).orElseThrow().setSuperadmin(true);
+
+        CompletableFuture<Void> asynchronous = new CompletableFuture<>();
+        permissions.getScheduler().runAsync(() -> {
+            try {
+                check(!Bukkit.isPrimaryThread(), "background work runs on Folia's asynchronous scheduler");
+                asynchronous.complete(null);
+            } catch (Throwable failure) {
+                asynchronous.completeExceptionally(failure);
+            }
+        });
+
+        onPlayer(second, 1L, () -> {
+            var location = new Location(second.getWorld(), 2048.5, second.getLocation().getY(), 2048.5);
+            return Entity.class.getMethod("teleportAsync", Location.class).invoke(second, location);
+        }).thenCompose(teleport -> (CompletableFuture<?>) teleport).thenCompose(success -> {
+            check(Boolean.TRUE.equals(success), "second client teleported to an independent region");
+            return CompletableFuture.allOf(verifyFoliaViewer(first, second), verifyFoliaViewer(second, first), asynchronous);
+        }).thenCompose(ignored -> CompletableFuture.allOf(verifyFoliaMainMenus(first), verifyFoliaPermissionEditor(second)))
+            .thenCompose(ignored -> verifyFoliaDialog(first)).whenComplete((ignored, error) ->
+            permissions.getScheduler().run(() -> run(() -> {
+                if (error != null) throw new AssertionError("Live Folia verification failed", error);
+                verifyFoliaPlayerPersistence();
+                distinctPlayerRegions = true;
+                finishFirstBoot();
+                Bukkit.shutdown();
+            })));
+    }
+
+    private CompletableFuture<Void> verifyFoliaViewer(Player player, Player other) {
+        return onPlayer(player, 1L, () -> {
+            var scheduler = permissions.getSpigotScheduler();
+            check(scheduler.owns(player) && !scheduler.owns(other), player.getName() + " owns only its own region");
+            User user = permissions.getUsers().uuid(player.getUniqueId()).orElseThrow();
+            Group group = permissions.getGroups().name("compatibility_probe").orElseThrow();
+            user.addGroup(group);
+            for (int i = 0; i < 8; i++) user.newPermission("compatibility.folia.grant." + i).create();
+            user.newPermission("compatibility.folia.denied").setPositive(false).create();
+            user.newPermission("compatibility.folia.world").setWorld(player.getWorld().getName()).create();
+            user.newPermission("compatibility.folia.otherworld").setWorld("nonexistent_probe_world").create();
+            check(player.hasPermission("compatibility.folia.grant.0") && player.hasPermission("compatibility.allowed"),
+                "live player permissions include direct and inherited grants");
+            check(!player.hasPermission("compatibility.folia.denied"), "live player explicit denial");
+            check(player.hasPermission("compatibility.folia.world") && !player.hasPermission("compatibility.folia.otherworld"),
+                "live player permissions respect world scope");
+            player.addAttachment(this, "compatibility.folia.attachment", true, 16);
+            check(player.hasPermission("compatibility.folia.attachment"), "live player timed attachment applies");
+            check(Bukkit.dispatchCommand(player, "uperms"), "live player can open UltraPermissions via command");
+            return null;
+        }).thenCompose(ignored -> onPlayer(player, 8L, () -> {
+            var view = player.getOpenInventory();
+            var top = view.getTopInventory();
+            check(top.getSize() == 45 && top.getItem(20) != null && top.getItem(20).getType() == Material.PLAYER_HEAD,
+                "overview retains the original size and user icon slot");
+            check(view.getTitle().equals("Ultra Permissions v" + permissions.getVersion()), "overview retains its title format");
+            clickMenu(player, 24);
+            return null;
+        })).thenCompose(ignored -> this.<Void>onPlayer(player, 18L, () -> {
+            var top = player.getOpenInventory().getTopInventory();
+            check(top.getSize() == 54 && top.getItem(52) != null, "navigation opens the original Groups inventory");
+            check(!player.hasPermission("compatibility.folia.attachment"), "timed attachment expires on the owning region");
+            player.closeInventory();
+            return null;
+        }));
+    }
+
+    private CompletableFuture<Void> verifyFoliaMainMenus(Player player) {
+        return openFromOverview(player, 20, false, "Overview > Users")
+            .thenCompose(ignored -> openFromOverview(player, 22, false, "Group Paths"))
+            .thenCompose(ignored -> openFromOverview(player, 29, true, "Overview > Permission Log"))
+            .thenCompose(ignored -> openFromOverview(player, 33, true, "Settings >"));
+    }
+
+    private CompletableFuture<Void> openFromOverview(Player player, int slot, boolean expanded, String title) {
+        return onPlayer(player, 1L, () -> {
+            player.closeInventory();
+            check(Bukkit.dispatchCommand(player, "uperms"), "opened overview for " + title);
+            return null;
+        }).thenCompose(ignored -> onPlayer(player, 6L, () -> {
+            if (expanded) clickMenu(player, 40);
+            return null;
+        })).thenCompose(ignored -> onPlayer(player, 6L, () -> {
+            int expected = expanded ? 54 : 45;
+            check(player.getOpenInventory().getTopInventory().getSize() == expected, "overview size before " + title);
+            clickMenu(player, slot);
+            return null;
+        })).thenCompose(ignored -> this.<Void>onPlayer(player, 6L, () -> {
+            check(player.getOpenInventory().getTitle().startsWith(title), "original menu title for " + title);
+            check(player.getOpenInventory().getTopInventory().getSize() == 54, "original menu size for " + title);
+            return null;
+        }));
+    }
+
+    private CompletableFuture<Void> verifyFoliaPermissionEditor(Player player) {
+        return onPlayer(player, 1L, () -> {
+            check(Bukkit.dispatchCommand(player, "uperms " + player.getName()), "opened the original user profile");
+            return null;
+        }).thenCompose(ignored -> onPlayer(player, 6L, () -> {
+            var item = player.getOpenInventory().getTopInventory().getItem(13);
+            check(item != null && item.getType() == Material.WRITABLE_BOOK, "user permission button retains its original slot");
+            clickMenu(player, 13);
+            return null;
+        })).thenCompose(ignored -> this.<Void>onPlayer(player, 6L, () -> {
+            var inventory = player.getOpenInventory().getTopInventory();
+            check(inventory.getSize() == 54 && inventory.getItem(49) != null, "permission editor and back button open correctly");
+            player.closeInventory();
+            return null;
+        }));
+    }
+
+    private void clickMenu(Player player, int slot) {
+        var view = player.getOpenInventory();
+        var click = new InventoryClickEvent(view, SlotType.CONTAINER, slot, ClickType.LEFT, InventoryAction.PICKUP_ALL);
+        Bukkit.getPluginManager().callEvent(click);
+        check(click.isCancelled(), "menu protects the inventory at slot " + slot);
+    }
+
+    private CompletableFuture<Void> verifyFoliaDialog(Player player) {
+        CompletableFuture<Void> completed = new CompletableFuture<>();
+        return onPlayer(player, 1L, () -> {
+            new UserInput(player, permissions, "Compatibility", "Chat input") {
+                @Override public void onClose(Player ignored) {}
+
+                @Override public boolean onResult(String input) {
+                    try {
+                        check(permissions.getSpigotScheduler().owns(player), "dialog handling returns to the owning region");
+                        check("folia-probe-input".equals(input), "dialog preserves the entered text");
+                        completed.complete(null);
+                    } catch (Throwable failure) {
+                        completed.completeExceptionally(failure);
+                    }
+                    return true;
+                }
+            };
+            permissions.getScheduler().runAsync(() -> {
+                try {
+                    var event = new AsyncPlayerChatEvent(true, player, "folia-probe-input", Set.of());
+                    Bukkit.getPluginManager().callEvent(event);
+                    if (!event.isCancelled()) completed.completeExceptionally(new AssertionError("Dialog input was broadcast"));
+                } catch (Throwable failure) {
+                    completed.completeExceptionally(failure);
+                }
+            });
+            return null;
+        }).thenCompose(ignored -> completed);
+    }
+
+    private <T> CompletableFuture<T> onPlayer(Player player, long delay, CheckedSupplier<T> action) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        permissions.getSpigotScheduler().runForLater(player, this, () -> {
+            try {
+                future.complete(action.get());
+            } catch (Throwable failure) {
+                future.completeExceptionally(failure);
+            }
+        }, () -> future.completeExceptionally(new IllegalStateException("Test player disconnected")), delay);
+        return future;
+    }
+
+    private void verifyFoliaPlayerPersistence() {
+        var ids = new java.util.HashSet<Integer>();
+        for (String name : List.of(OfflineProbeClient.FIRST_PLAYER, OfflineProbeClient.SECOND_PLAYER)) {
+            User user = permissions.getUsers().name(name).orElseThrow();
+            var checks = user.getPermissions().stream().filter(permission -> permission.getName().startsWith("compatibility.folia.grant.")).toList();
+            check(checks.size() == 8, "all concurrent grants present for " + name);
+            for (var permission : checks) ids.add(permission.getId());
+        }
+        check(ids.size() == 16, "concurrent grants have distinct storage IDs");
+    }
+
+    private void finishFirstBoot() throws Exception {
+        report("passed", 1);
+        Files.writeString(getDataFolder().toPath().resolve("phase-one.marker"), "phase 1 passed\n");
     }
 
     private void verifyPersistenceAfterRestart() {
@@ -299,7 +503,7 @@ public final class RuntimeProbe extends JavaPlugin {
 
     private void check(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
-        assertions++;
+        assertions.incrementAndGet();
         getLogger().info("PASS: " + message);
     }
 
@@ -317,10 +521,14 @@ public final class RuntimeProbe extends JavaPlugin {
     private void report(String status, int boot) throws Exception {
         Files.createDirectories(getDataFolder().toPath());
         String json = "{\"status\":\"" + status + "\",\"boot\":" + boot + ",\"assertions\":" + assertions
+            + ",\"platform\":\"" + (permissions.isFolia() ? "Folia" : "Paper")
+            + "\",\"distinct_player_regions\":" + distinctPlayerRegions
             + ",\"server\":\"" + Bukkit.getBukkitVersion() + "\",\"java\":\"" + System.getProperty("java.version") + "\"}\n";
         Files.writeString(getDataFolder().toPath().resolve("verification.json"), json);
         getLogger().info("RUNTIME_PROBE " + status + " (" + assertions + " assertions)");
     }
+
+    private interface CheckedSupplier<T> { T get() throws Exception; }
 
     private interface Checked { void run() throws Exception; }
 }

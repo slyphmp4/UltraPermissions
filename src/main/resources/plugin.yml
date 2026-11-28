@@ -1,5 +1,5 @@
 name: UltraPermissions
-version: 5.6.19
+version: 5.6.20
 author: Tech
 website: UltraPermissions.com
 build: 0
@@ -9,3 +9,4 @@ softdepend: [Vault, PlaceholderAPI, MVdWPlaceholderAPI]
 loadbefore: []
 load: STARTUP
 libraries: []
+folia-supported: true

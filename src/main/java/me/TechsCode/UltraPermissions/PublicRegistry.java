@@ -4,9 +4,9 @@ import me.TechsCode.UltraPermissions.base.registry.RegistryStorable;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 public class PublicRegistry extends RegistryStorable {
-   private boolean defaultPermissions;
-   private DefaultGroupAssignOption defaultGroupAssignOption;
-   private boolean negativePermsOverride = false;
+   private volatile boolean defaultPermissions;
+   private volatile DefaultGroupAssignOption defaultGroupAssignOption;
+   private volatile boolean negativePermsOverride = false;
 
    public PublicRegistry() {
       super("public");
@@ -39,8 +39,10 @@ public class PublicRegistry extends RegistryStorable {
    }
 
    public void setDefaultPermissions(boolean var1) {
-      this.defaultPermissions = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.defaultPermissions = var1;
+         this.sync();
+      });
    }
 
    public DefaultGroupAssignOption getDefaultAssignOption() {
@@ -48,13 +50,17 @@ public class PublicRegistry extends RegistryStorable {
    }
 
    public void setDefaultGroupAssignOption(DefaultGroupAssignOption var1) {
-      this.defaultGroupAssignOption = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.defaultGroupAssignOption = var1;
+         this.sync();
+      });
    }
 
    public void setNegativePermsOverride(boolean var1) {
-      this.negativePermsOverride = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.negativePermsOverride = var1;
+         this.sync();
+      });
    }
 
    public boolean isNegativePermsOverride() {

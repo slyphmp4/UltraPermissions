@@ -1,8 +1,8 @@
 package me.TechsCode.UltraPermissions.internal;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import me.TechsCode.UltraPermissions.CachedPlayerPermissionProvider;
 import me.TechsCode.UltraPermissions.UltraPermissions;
@@ -16,7 +16,6 @@ import me.TechsCode.UltraPermissions.internal.lookup.checks.DefinedPermissionChe
 import me.TechsCode.UltraPermissions.internal.lookup.checks.OperatorLookupCheck;
 import me.TechsCode.UltraPermissions.permissionlogger.PermissionLogger;
 import me.TechsCode.UltraPermissions.storage.collection.PermissionList;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.permissions.PermissibleBase;
@@ -39,7 +38,7 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
       this.plugin = var2;
       this.permissionLogger = var3;
       this.defaultPerms = var2.isDefaultPermissionsEnabled();
-      this.attachments = new ArrayList<>();
+      this.attachments = new CopyOnWriteArrayList<>();
       this.permissionProvider = new CachedPlayerPermissionProvider(var2);
       // No event handlers: the Player owns this permissible until a successful join.
    }
@@ -91,12 +90,13 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
             };
          }
       };
-      LookupOutcome var3 = var2.perform();
+      LookupOutcome var3 = this.plugin.readRegionalModel(var2::perform);
       // Keep the existing plugin-filter decision, but record each check at most once.
       // This path runs for every hasPermission() invocation.
-      boolean shouldLog = this.plugin.getToggledPluginsRegistry().isEmpty();
+      var toggledPlugins = this.plugin.getToggledPluginsRegistry();
+      boolean shouldLog = toggledPlugins.isEmpty();
       if (!shouldLog) {
-         for (String excluded : this.plugin.getToggledPluginsRegistry()) {
+         for (String excluded : toggledPlugins) {
             if (!var1.contains(excluded)) {
                shouldLog = true;
                break;
@@ -123,7 +123,7 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
 
    public PermissionAttachment addAttachment(Plugin var1, int var2) {
       PermissionAttachment var3 = this.addAttachment(var1);
-      Bukkit.getScheduler().runTaskLater(var1, var3::remove, var2);
+      this.plugin.getSpigotScheduler().runForLater(this.p, var1, var3::remove, null, var2);
       return var3;
    }
 
@@ -145,7 +145,10 @@ public class ModifiedPermissible extends PermissibleBase implements Listener {
    }
 
    public Set<PermissionAttachmentInfo> getEffectivePermissions() {
-      PermissionList var1 = this.permissionProvider.retrieve(this.p.getUniqueId(), this.p.getWorld().getName());
-      return var1.stream().map(var1x -> new PermissionAttachmentInfo(this, var1x.getName(), null, var1x.isPositive())).collect(Collectors.toSet());
+      return this.plugin.readRegionalModel(() -> {
+         PermissionList permissions = this.permissionProvider.retrieve(this.p.getUniqueId(), this.p.getWorld().getName());
+         return permissions.stream().map(permission -> new PermissionAttachmentInfo(this, permission.getName(), null, permission.isPositive()))
+            .collect(Collectors.toSet());
+      });
    }
 }

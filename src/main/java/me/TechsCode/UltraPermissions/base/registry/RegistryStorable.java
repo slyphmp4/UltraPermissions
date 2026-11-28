@@ -4,7 +4,7 @@ import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 public abstract class RegistryStorable {
    private final String key;
-   private RegistryStorageEntry storageEntry;
+   private volatile RegistryStorageEntry storageEntry;
 
    public RegistryStorable(String var1) {
       super();
@@ -24,8 +24,17 @@ public abstract class RegistryStorable {
 
    public abstract JsonObject getState();
 
+   protected final void mutate(Runnable action) {
+      RegistryStorageEntry entry = this.storageEntry;
+      if (entry == null) action.run();
+      else entry.edit(action);
+   }
+
    public void sync() {
-      this.storageEntry.setState(this.getState(), null);
-      this.storageEntry.sync();
+      RegistryStorageEntry entry = this.storageEntry;
+      entry.edit(() -> {
+         entry.setState(this.getState(), null);
+         entry.sync();
+      });
    }
 }

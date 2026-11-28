@@ -8,9 +8,9 @@ import me.TechsCode.UltraPermissions.base.visual.Text;
 import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 public class VisualRegistry extends RegistryStorable implements Switchable {
-   private boolean switchedTo = false;
-   private Map<VisualType, String> formats = new HashMap<>();
-   private boolean editingNametags = true;
+   private volatile boolean switchedTo = false;
+   private volatile Map<VisualType, String> formats = new HashMap<>();
+   private volatile boolean editingNametags = true;
 
    public VisualRegistry() {
       super("visual");
@@ -23,9 +23,10 @@ public class VisualRegistry extends RegistryStorable implements Switchable {
    @Override
    public void setState(JsonObject var1) {
       this.switchedTo = var1.get("switchedTo").getAsBoolean();
-      this.formats = new HashMap<>();
+      Map<VisualType, String> nextFormats = new HashMap<>();
       JsonObject var2 = var1.getAsJsonObject("formats");
-      var2.entrySet().forEach(var1x -> this.formats.put(VisualType.valueOf(var1x.getKey()), Text.color(var1x.getValue().getAsString())));
+      var2.entrySet().forEach(var1x -> nextFormats.put(VisualType.valueOf(var1x.getKey()), Text.color(var1x.getValue().getAsString())));
+      this.formats = nextFormats;
       this.editingNametags = !var1.has("editingNametags") || var1.get("editingNametags").getAsBoolean();
    }
 
@@ -47,18 +48,24 @@ public class VisualRegistry extends RegistryStorable implements Switchable {
 
    @Override
    public void setSwitchedTo(boolean var1) {
-      this.switchedTo = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.switchedTo = var1;
+         this.sync();
+      });
    }
 
    public void setFormat(VisualType var1, String var2) {
-      this.formats.put(var1, Text.color(var2));
-      this.sync();
+      this.mutate(() -> {
+         Map<VisualType, String> nextFormats = new HashMap<>(this.formats);
+         nextFormats.put(var1, Text.color(var2));
+         this.formats = nextFormats;
+         this.sync();
+      });
    }
 
    public String getFormat(VisualType var1) {
       String var2 = this.formats.get(var1);
-      return var2.equalsIgnoreCase("none") ? null : var2;
+      return var2 == null || var2.equalsIgnoreCase("none") ? null : var2;
    }
 
    public void resetFormat(VisualType var1) {
@@ -70,7 +77,9 @@ public class VisualRegistry extends RegistryStorable implements Switchable {
    }
 
    public void setEditingNametags(boolean var1) {
-      this.editingNametags = var1;
-      this.sync();
+      this.mutate(() -> {
+         this.editingNametags = var1;
+         this.sync();
+      });
    }
 }

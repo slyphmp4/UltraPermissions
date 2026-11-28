@@ -30,7 +30,7 @@ import org.bukkit.plugin.Plugin;
 public abstract class CraftingTable implements Listener {
    protected Player p;
    private final SpigotTechPlugin plugin;
-   private boolean stopped;
+   private volatile boolean stopped;
    private RecurringTask recurringTask;
    private Inventory inventory;
    private HashMap<Integer, List<Action>> actions;
@@ -39,7 +39,7 @@ public abstract class CraftingTable implements Listener {
       super();
       this.p = var1;
       this.plugin = var2;
-      this.recurringTask = var2.getScheduler().runTaskTimer(() -> {
+      this.recurringTask = var2.getSpigotScheduler().runForTimer(var1, () -> {
          if (this.stopped) {
             this.recurringTask.stop();
             HandlerList.unregisterAll(this);
@@ -86,6 +86,10 @@ public abstract class CraftingTable implements Listener {
    protected abstract void construct(CraftingTableModel var1);
 
    public void reopen() {
+      if (this.plugin.isFolia() && !this.plugin.getSpigotScheduler().owns(this.p)) {
+         this.plugin.runFor(this.p, this::reopen);
+         return;
+      }
       if (this.inventory == null) {
          this.recurringTask.start();
          Bukkit.getPluginManager().registerEvents(this, (Plugin)this.plugin.getBootstrap());
@@ -136,7 +140,7 @@ public abstract class CraftingTable implements Listener {
 
    @EventHandler
    public void close(InventoryCloseEvent var1) {
-      if (this.inventory != null && this.inventory.equals(var1.getInventory())) {
+      if (var1.getPlayer().equals(this.p) && this.inventory != null && this.inventory.equals(var1.getInventory())) {
          this.close();
       }
    }

@@ -1,11 +1,11 @@
 package me.TechsCode.UltraPermissions.base.storage.syncing;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import me.TechsCode.UltraPermissions.base.storage.Storage;
 
 public abstract class SyncingAgent {
-   private List<Storage> storages = new ArrayList<>();
+   private final List<Storage> storages = new CopyOnWriteArrayList<>();
 
    public SyncingAgent() {
       super();

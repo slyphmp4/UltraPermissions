@@ -1,5 +1,7 @@
 package me.TechsCode.UltraPermissions.storage;
 
+import java.util.UUID;
+import java.util.function.Function;
 import me.TechsCode.UltraPermissions.StorageController;
 import me.TechsCode.UltraPermissions.base.TechPlugin;
 import me.TechsCode.UltraPermissions.base.storage.Storage;
@@ -41,6 +43,17 @@ public class GroupStorage extends Storage<Group> {
       var1.addAll(this.get());
       var1.bestToWorst();
       return var1;
+   }
+
+   Group createWithAvailableKey(Function<String, Group> factory) {
+      return this.plugin.writeModelResult(() -> {
+         // Existing files use short keys. Retain the format when a short key is free.
+         for (int attempt = 0; attempt < 16; attempt++) {
+            String key = UUID.randomUUID().toString().substring(0, 4);
+            if (!this.instancesView.containsKey(key)) return this.create(factory.apply(key));
+         }
+         return this.create(factory.apply(UUID.randomUUID().toString()));
+      });
    }
 
    public GroupCreator newGroup(String var1) {

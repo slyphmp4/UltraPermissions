@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the pinned Paper compatibility probe in a disposable Docker container."""
+"""Run the pinned Paper or Folia compatibility probe in a disposable Docker container."""
 import argparse
 import hashlib
 import json
@@ -14,12 +14,17 @@ import urllib.request
 import uuid
 import zipfile
 
-TARGETS = json.loads((Path(__file__).resolve().parent.parent / "config/paper-targets.json").read_text(encoding="utf8"))
+CONFIG = Path(__file__).resolve().parent.parent / "config"
 
 
-def matches_server(result, version, java):
+def targets_for(platform):
+    return json.loads((CONFIG / f"{platform.lower()}-targets.json").read_text(encoding="utf8"))
+
+
+def matches_server(result, platform, version, java):
     match = re.match(r"^(\d+\.\d+(?:\.\d+)?)(?=[.-]|$)", result.get("server", ""))
     return (match is not None and match.group(1) == version
+            and result.get("platform", "Paper") == platform
             and result.get("java", "").split(".")[0] == str(java))
 
 
@@ -30,7 +35,9 @@ def command(*args, timeout=180, capture=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--paper-version", choices=sorted(TARGETS), default="26.3", help="Pinned Paper/Java compatibility target")
+    parser.add_argument("--platform", choices=("Paper", "Folia"), default="Paper")
+    parser.add_argument("--server-version", "--paper-version", dest="version", default="26.3",
+                        help="Pinned server version for this platform")
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument("--probe", type=Path, required=True)
     parser.add_argument("--work-dir", type=Path, required=True)
@@ -40,19 +47,36 @@ def main():
     args = parser.parse_args()
     if not args.accept_eula:
         parser.error("This runtime test requires explicit --accept-eula.")
-    target = TARGETS[args.paper_version]
-    image, paper_sha = target["container_image"], target["sha256"]
+    platform = args.platform
+    folia = platform == "Folia"
+    targets = targets_for(platform)
+    if args.version not in targets:
+        parser.error(f"{platform} {args.version} is not pinned.")
+    if folia and args.performance:
+        parser.error("The synthetic performance workload is defined for Paper.")
+    target = targets[args.version]
+    image, server_sha = target["container_image"], target["sha256"]
+    target_name = platform.lower()
+    server_jar = target_name + ".jar"
+    pinned = {
+        "server_platform": platform,
+        f"{target_name}_version": args.version,
+        f"{target_name}_build": target["build"],
+        f"{target_name}_sha256": server_sha,
+        "java_major": target["java"],
+        "container_image": image,
+    }
     plugin, probe = args.plugin.resolve(strict=True), args.probe.resolve(strict=True)
     work, reports = args.work_dir.resolve(), args.report_dir.resolve()
     work.mkdir(parents=True, exist_ok=False)
     reports.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading pinned Paper {args.paper_version} build {target['build']} / Java {target['java']}...", flush=True)
-    request = urllib.request.Request(target["url"], headers={"User-Agent": "UltraPermissions-tests/5.6.19 (https://github.com/slyphmp4/UltraPermissions)"})
+    print(f"Downloading pinned {platform} {args.version} build {target['build']} / Java {target['java']}...", flush=True)
+    request = urllib.request.Request(target["url"], headers={"User-Agent": "UltraPermissions-tests/5.6.20 (https://github.com/slyphmp4/UltraPermissions)"})
     with urllib.request.urlopen(request, timeout=60) as response:
         data = response.read()
-    if hashlib.sha256(data).hexdigest() != paper_sha:
-        raise RuntimeError("Paper SHA-256 mismatch")
-    (work / "paper.jar").write_bytes(data)
+    if hashlib.sha256(data).hexdigest() != server_sha:
+        raise RuntimeError(f"{platform} SHA-256 mismatch")
+    (work / server_jar).write_bytes(data)
     command("docker", "pull", image)
     base = ["--hostname", "localhost", "--memory", "2300m", "--cpus", "2",
             "--pids-limit", "256", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
@@ -60,9 +84,9 @@ def main():
     if os.name != "nt":
         # Match the bind-mount owner; a root container with dropped capabilities cannot write runner-owned directories.
         base += ["--user", f"{os.getuid()}:{os.getgid()}"]
-    # Only the verified Paper bootstrap can access the network. The plugin is installed afterwards.
+    # Only the verified server bootstrap can access the network. The plugin is installed afterwards.
     print("Preparing server dependencies (no plugin installed)...", flush=True)
-    command("docker", "run", "--rm", *base, image, "java", "-Dpaperclip.patchonly=true", "-jar", "paper.jar")
+    command("docker", "run", "--rm", *base, image, "java", "-Dpaperclip.patchonly=true", "-jar", server_jar)
     (work / "plugins").mkdir(exist_ok=True)
     shutil.copyfile(plugin, work / "plugins/UltraPermissions.jar")
     shutil.copyfile(probe, work / "plugins/RuntimeProbe.jar")
@@ -71,24 +95,48 @@ def main():
         b"online-mode=false\nserver-ip=127.0.0.1\nserver-port=25565\nenable-rcon=false\nenable-query=false\n"
         b"view-distance=2\nsimulation-distance=2\ngenerate-structures=false\nmax-tick-time=60000\n"
         b"level-type=minecraft:flat\ngenerator-settings={\"layers\":[{\"block\":\"minecraft:bedrock\",\"height\":1}],\"biome\":\"minecraft:plains\"}\n"
-        b"pause-when-empty-seconds=-1\n")
+        b"pause-when-empty-seconds=-1\nenforce-secure-profile=false\nnetwork-compression-threshold=-1\n")
+    if folia:
+        # Folia's whitelist also applies to offline-mode loopback connections.
+        names = ("FoliaOwnerA", "FoliaOwnerB")
+        whitelist = [
+            {"uuid": str(uuid.UUID(bytes=hashlib.md5(f"OfflinePlayer:{name}".encode("utf8")).digest(), version=3)), "name": name}
+            for name in names
+        ]
+        (work / "whitelist.json").write_text(json.dumps(whitelist) + "\n", encoding="utf8")
+        with (work / "server.properties").open("ab") as properties:
+            properties.write(b"white-list=true\nenforce-whitelist=true\n")
+        configuration = work / "config"
+        configuration.mkdir(exist_ok=True)
+        (configuration / "paper-global.yml").write_text("threaded-regions:\n  threads: 2\n", encoding="utf8")
+
     def run_boot(boot):
         name = "ultrapermissions-probe-" + uuid.uuid4().hex[:12]
         mode = "synthetic performance" if args.performance else f"compatibility boot {boot}/2"
-        print(f"Starting {mode} on real Paper with UltraPermissions; no host ports or network...", flush=True)
+        print(f"Starting {mode} on real {platform} with UltraPermissions; no host ports or network...", flush=True)
+        client = None
+        client_log = None
         try:
             java_args = ["java", "-Xms512M", "-Xmx1536M"]
             if args.performance:
                 java_args.append("-Dultrapermissions.performanceProbe=true")
-            java_args.extend(["-jar", "paper.jar", "--nogui"])
+            java_args.extend(["-jar", server_jar, "--nogui"])
             command("docker", "run", "--detach", "--name", name, "--network", "none", *base, image, *java_args)
-            deadline = time.monotonic() + (260 if args.performance else 150)
+            if folia and boot == 1:
+                client_log = (reports / "folia-clients.log").open("w", encoding="utf8")
+                client = subprocess.Popen(
+                    ["docker", "exec", name, "java", "-Xms16M", "-Xmx96M", "-cp", "plugins/RuntimeProbe.jar",
+                     "me.techscode.compatibility.OfflineProbeClient"],
+                    stdout=client_log, stderr=subprocess.STDOUT)
+            deadline = time.monotonic() + (260 if args.performance else 180 if folia else 150)
             while time.monotonic() < deadline:
                 state = json.loads(command("docker", "inspect", "--format", "{{json .State}}", name, capture=True))
                 if not state["Running"]:
                     if state["ExitCode"] != 0 or state["OOMKilled"]:
-                        raise RuntimeError(f"Boot {boot}: Paper exited unsuccessfully: {state}")
+                        raise RuntimeError(f"Boot {boot}: {platform} exited unsuccessfully: {state}")
                     break
+                if client is not None and client.poll() not in (None, 0):
+                    raise RuntimeError(f"Folia loopback client exited with status {client.returncode}")
                 time.sleep(2)
             else:
                 raise TimeoutError(f"Boot {boot}: runtime probe exceeded its deadline")
@@ -100,14 +148,16 @@ def main():
                 if (result.get("status") != "passed" or result.get("synthetic_profiles") != 512
                         or result.get("measured_permission_checks", 0) < 400000
                         or result.get("connected_players") != 0
-                        or not matches_server(result, args.paper_version, target["java"])):
+                        or not matches_server(result, platform, args.version, target["java"])):
                     raise RuntimeError(f"Paper performance test failed: {result}")
             else:
                 min_checks = 15 if boot == 1 else 10
                 if (result.get("status") != "passed" or result.get("boot") != boot
                         or result.get("assertions", 0) < min_checks
-                        or not matches_server(result, args.paper_version, target["java"])):
+                        or not matches_server(result, platform, args.version, target["java"])):
                     raise RuntimeError(f"Boot {boot} failed or did not run expected checks: {result}")
+            if folia and boot == 1 and result.get("distinct_player_regions") is not True:
+                raise RuntimeError("Folia probe did not complete live checks in distinct player regions")
             return result
         finally:
             logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True)
@@ -115,17 +165,24 @@ def main():
             if sys.exc_info()[0] is not None:
                 print(logs.stdout + logs.stderr, flush=True)
             subprocess.run(["docker", "rm", "--force", name], check=False, stdout=subprocess.DEVNULL)
+            if client is not None:
+                try:
+                    client.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    client.kill()
+                    client.wait()
+            if client_log is not None:
+                client_log.close()
+                if sys.exc_info()[0] is not None:
+                    log = (reports / "folia-clients.log").read_text(encoding="utf8", errors="replace")
+                    print("Folia loopback client diagnostics:\n" + log, flush=True)
 
     first = run_boot(1)
     if args.performance:
         summary = {
             **first,
-            "paper_version": args.paper_version,
-            "paper_build": target["build"],
-            "java_major": target["java"],
-            "paper_sha256": paper_sha,
+            **pinned,
             "plugin_sha256": hashlib.sha256(plugin.read_bytes()).hexdigest(),
-            "container_image": image,
             "network": "none",
             "container_cpu_limit": 2,
             "container_memory_limit_mib": 2300,
@@ -135,7 +192,7 @@ def main():
         return
     if not (work / "plugins/RuntimeProbe/phase-one.marker").exists():
         raise RuntimeError("Boot 1 did not leave an authenticated completion marker")
-    # Verify Paper actually applies an update staged under the *installed* JAR
+    # Verify the server actually applies an update staged under the *installed* JAR
     # name. This is a controlled binary fixture, not a GitHub network test.
     staged = work / "plugins/update/UltraPermissions.jar"
     staged.parent.mkdir(exist_ok=True)
@@ -146,9 +203,9 @@ def main():
     installed = work / "plugins/UltraPermissions.jar"
     with zipfile.ZipFile(installed) as archive:
         if archive.read("updater-handover-test.marker") != b"staged-between-boots\n":
-            raise RuntimeError("Paper did not replace the installed JAR from plugins/update on restart")
+            raise RuntimeError(f"{platform} did not replace the installed JAR from plugins/update on restart")
     if staged.exists():
-        raise RuntimeError("Paper left a staged plugin update after successful restart")
+        raise RuntimeError(f"{platform} left a staged plugin update after successful restart")
     # A configured but unusable database must stop the server, without loading
     # old local rights or damaging the existing authoritative data files.
     permission_folder = work / "plugins/UltraPermissions"
@@ -157,10 +214,10 @@ def main():
     (permission_folder / "mysql.properties").write_text(
         "hostname=db.invalid\nport=3306\ndatabase=fixture\nusername=fixture\npassword=fixture\nssl=false\n", encoding="utf8")
     name = "ultrapermissions-failclosed-" + uuid.uuid4().hex[:12]
-    print("Verifying configured-storage startup failure on real Paper...", flush=True)
+    print(f"Verifying configured-storage startup failure on real {platform}...", flush=True)
     try:
         command("docker", "run", "--detach", "--name", name, "--network", "none", *base, image,
-                "java", "-Xms512M", "-Xmx1536M", "-jar", "paper.jar", "--nogui")
+                "java", "-Xms512M", "-Xmx1536M", "-jar", server_jar, "--nogui")
         deadline = time.monotonic() + 150
         while time.monotonic() < deadline:
             state = json.loads(command("docker", "inspect", "--format", "{{json .State}}", name, capture=True))
@@ -168,7 +225,7 @@ def main():
                 break
             time.sleep(2)
         else:
-            raise TimeoutError("Configured MySQL failure did not stop Paper")
+            raise TimeoutError(f"Configured MySQL failure did not stop {platform}")
         logs = subprocess.run(["docker", "logs", name], capture_output=True, text=True)
         output = logs.stdout + logs.stderr
         (reports / "server-storage-failure.log").write_text(output, encoding="utf8")
@@ -188,14 +245,11 @@ def main():
         "boot_assertions": [first["assertions"], second["assertions"], 3],
         "server": first["server"],
         "java": second["java"],
-        "paper_version": args.paper_version,
-        "paper_build": target["build"],
-        "java_major": target["java"],
-        "paper_sha256": paper_sha,
+        **pinned,
         "plugin_sha256": hashlib.sha256(plugin.read_bytes()).hexdigest(),
-        "container_image": image,
         "network": "none",
-        "connected_player_test": False,
+        "connected_player_test": folia,
+        "distinct_player_regions": first.get("distinct_player_regions", False),
         "persistence_across_restart": True,
         "native_update_folder_handover": True,
         "configured_mysql_failure_stops_server": True,

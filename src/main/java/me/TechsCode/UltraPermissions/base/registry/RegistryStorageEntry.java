@@ -6,8 +6,8 @@ import me.TechsCode.UltraPermissions.dependencies.gson.JsonObject;
 
 public class RegistryStorageEntry extends Storable {
    private String key;
-   private JsonObject value;
-   private RegistryStorable storable;
+   private volatile JsonObject value;
+   private volatile RegistryStorable storable;
 
    public RegistryStorageEntry(String var1, JsonObject var2) {
       super();
@@ -44,6 +44,10 @@ public class RegistryStorageEntry extends Storable {
 
    @Override
    public void onMount(TechPlugin var1) {
+   }
+
+   void edit(Runnable action) {
+      this.mutate(action);
    }
 
    @Override

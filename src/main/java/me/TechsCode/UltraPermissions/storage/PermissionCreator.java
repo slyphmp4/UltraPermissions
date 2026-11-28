@@ -46,7 +46,7 @@ public class PermissionCreator {
    }
 
    public Permission create() {
-      return this.storage
-         .create(new Permission(this.storage.getNextNumericId(), this.holder, this.world, this.server, this.name, this.positive, this.expiration));
+      return this.storage.createWithNumericId(id ->
+         new Permission(id, this.holder, this.world, this.server, this.name, this.positive, this.expiration));
    }
 }

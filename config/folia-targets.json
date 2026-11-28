@@ -1,0 +1,9 @@
+{
+  "26.3": {
+    "build": 28,
+    "sha256": "956054a5af3f4ee54f16fa1e0d01cd9d725d92609ba0387c390a78551d63f32f",
+    "java": 25,
+    "container_image": "eclipse-temurin@sha256:83f4a7fc27df94dcc7b8de04d14cbbba8da14406f921e966969c3b09000aa507",
+    "url": "https://fill-data.papermc.io/v1/objects/956054a5af3f4ee54f16fa1e0d01cd9d725d92609ba0387c390a78551d63f32f/folia-26.3-28.jar"
+  }
+}

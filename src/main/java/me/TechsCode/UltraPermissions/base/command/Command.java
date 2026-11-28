@@ -24,6 +24,7 @@ import org.bukkit.plugin.Plugin;
 public abstract class Command extends BukkitCommand implements Listener {
    private static final Phrase USAGE_TITLE = Phrase.create("command.usage.title", "Usage:", Colors.BLUE);
    private final ActionBar actionBar;
+   private final SpigotTechPlugin plugin;
    private final String command;
    private final ArrayList<String> alias;
    private final String perm;
@@ -39,6 +40,7 @@ public abstract class Command extends BukkitCommand implements Listener {
 
    public Command(SpigotTechPlugin var1, String var2, String var3, String var4, String var5, String... var6) {
       super(var2, var3, var4, Arrays.asList(var6));
+      this.plugin = var1;
       this.command = var2;
       this.perm = var5;
       this.actionBar = new ActionBar(var1);
@@ -72,6 +74,11 @@ public abstract class Command extends BukkitCommand implements Listener {
    public abstract void define(CommandSender var1, CommandNode<String, SpecificArgument> var2);
 
    public boolean execute(CommandSender var1, String var2, String[] var3) {
+      this.plugin.writeRegionalModel(() -> this.executeCommand(var1, var3));
+      return false;
+   }
+
+   private void executeCommand(CommandSender var1, String[] var3) {
       Arguments var4 = new Arguments();
       var4.add(this.getName());
       var4.addAll(Arrays.asList(var3));
@@ -103,7 +110,6 @@ public abstract class Command extends BukkitCommand implements Listener {
             }
          }
       );
-      return false;
    }
 
    public List<String> tabComplete(CommandSender var1, String var2, String[] var3) {
@@ -123,7 +129,8 @@ public abstract class Command extends BukkitCommand implements Listener {
          if (var8.size() == 1) {
             CommandNode var9 = var6.getCurrentNode(var1, var5, var4);
             CommandNode var10 = (CommandNode)var8.get(0);
-            this.actionBar.sendActionBar(var5, this.getTabCompletionActionBar(var9, var10, var4));
+            String hint = this.getTabCompletionActionBar(var9, var10, var4);
+            this.plugin.runForIfNeeded(var5, () -> this.actionBar.sendActionBar(var5, hint));
          }
       }
 
