@@ -68,7 +68,7 @@ public class VisualManager implements Listener {
          if (var1.getUpdateTime() == UpdateTime.SLOWER) {
             if (this.registry.getFormat(VisualType.TABLIST) != null || this.registry.getFormat(VisualType.DISPLAY_NAME) != null) {
                for (Player player : Bukkit.getOnlinePlayers()) {
-                  this.plugin.getSpigotScheduler().runForIfNeeded(player, () -> this.updateNames(player));
+                  this.plugin.runForIfNeeded(player, () -> this.updateNames(player));
                }
             }
          }

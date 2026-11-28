@@ -193,7 +193,7 @@ public class Updater {
                         }
                      }
                      for (Player online : Bukkit.getOnlinePlayers()) {
-                        plugin.getSpigotScheduler().runForIfNeeded(online, () -> {
+                        plugin.runForIfNeeded(online, () -> {
                            if (permitted.getAsBoolean() && isSuperadmin(plugin, online)) {
                               notifyStatus(plugin, online, completed, false);
                            }

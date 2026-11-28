@@ -100,7 +100,7 @@ public abstract class GUI implements Listener {
                this.actions.put(slot, var3xx.getActions());
             }
             if (inventoryChanged) {
-               var2.getSpigotScheduler().runFor(var1, var1::updateInventory);
+               var2.runFor(var1, var1::updateInventory);
             }
          }
       }, 0L, var3);
@@ -114,8 +114,8 @@ public abstract class GUI implements Listener {
    protected abstract void construct(Model var1);
 
    public void reopen() {
-      if (this.plugin.getSpigotScheduler().isFolia() && !this.plugin.getSpigotScheduler().owns(this.p)) {
-         this.plugin.getSpigotScheduler().runFor(this.p, this::reopen);
+      if (this.plugin.isFolia() && !this.plugin.getSpigotScheduler().owns(this.p)) {
+         this.plugin.runFor(this.p, this::reopen);
          return;
       }
       if (!me.TechsCode.UltraPermissions.base.security.UiAccess.allowed(this.plugin, this.p)) { revokeAccess(); return; }

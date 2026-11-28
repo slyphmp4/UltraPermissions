@@ -130,7 +130,7 @@ public abstract class Command extends BukkitCommand implements Listener {
             CommandNode var9 = var6.getCurrentNode(var1, var5, var4);
             CommandNode var10 = (CommandNode)var8.get(0);
             String hint = this.getTabCompletionActionBar(var9, var10, var4);
-            this.plugin.getSpigotScheduler().runForIfNeeded(var5, () -> this.actionBar.sendActionBar(var5, hint));
+            this.plugin.runForIfNeeded(var5, () -> this.actionBar.sendActionBar(var5, hint));
          }
       }
 

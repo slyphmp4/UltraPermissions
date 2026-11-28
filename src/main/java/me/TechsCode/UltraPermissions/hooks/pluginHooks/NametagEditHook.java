@@ -15,6 +15,7 @@ import me.TechsCode.UltraPermissions.hooks.placeholders.SuffixPlaceholder;
 import me.TechsCode.UltraPermissions.storage.objects.User;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -23,7 +24,7 @@ import org.bukkit.plugin.Plugin;
 public class NametagEditHook implements Listener {
    private final UltraPermissions plugin;
    private final NServer thisServer;
-   private boolean hookAvailable = true;
+   private volatile boolean hookAvailable = true;
 
    public NametagEditHook(UltraPermissions var1) {
       super();
@@ -34,7 +35,7 @@ public class NametagEditHook implements Listener {
          if (this.isEnabled()) {
             String var2 = this.color(new PrefixPlaceholder().get(var1xx, this.thisServer));
             String var3 = this.color(new SuffixPlaceholder().get(var1xx, this.thisServer));
-            this.callSafely(() -> NametagEdit.getApi().setNametag(var1xx.getName(), var2.equals("") ? "" : var2 + " ", var3.equals("") ? "" : " " + var3));
+            this.callFor(var1xx, () -> NametagEdit.getApi().setNametag(var1xx.getName(), var2.equals("") ? "" : var2 + " ", var3.equals("") ? "" : " " + var3));
          }
       }), 5L);
    }
@@ -54,7 +55,7 @@ public class NametagEditHook implements Listener {
                if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
-               this.callSafely(() -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
+               this.callFor((User)var2.get(), () -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
             }, 5L);
          }
       }
@@ -66,7 +67,7 @@ public class NametagEditHook implements Listener {
          Optional var2 = Optional.ofNullable(Bukkit.getPlayer(var1.getUser().getUuid()));
          String var3 = this.color(new PrefixPlaceholder().get(var1.getUser(), this.thisServer));
          if (var2.isPresent()) {
-            this.callSafely(() -> NametagEdit.getApi().setPrefix(var1.getUser().getName(), var3.equals("") ? "" : var3 + " "));
+            this.callFor(var1.getUser(), () -> NametagEdit.getApi().setPrefix(var1.getUser().getName(), var3.equals("") ? "" : var3 + " "));
          }
       }
    }
@@ -77,7 +78,7 @@ public class NametagEditHook implements Listener {
          Optional var2 = Optional.ofNullable(Bukkit.getPlayer(var1.getUser().getUuid()));
          String var3 = this.color(new SuffixPlaceholder().get(var1.getUser(), this.thisServer));
          if (var2.isPresent()) {
-            this.callSafely(() -> NametagEdit.getApi().setSuffix(var1.getUser().getName(), var3.equals("") ? "" : " " + var3));
+            this.callFor(var1.getUser(), () -> NametagEdit.getApi().setSuffix(var1.getUser().getName(), var3.equals("") ? "" : " " + var3));
          }
       }
    }
@@ -87,7 +88,7 @@ public class NametagEditHook implements Listener {
       if (this.isEnabled()) {
          var1.getGroup().getUsers().forEach(var1x -> Optional.ofNullable(Bukkit.getPlayer(var1x.getUuid())).ifPresent(var2 -> {
             String var3 = this.color(new PrefixPlaceholder().get(var1x, this.thisServer));
-            this.callSafely(() -> NametagEdit.getApi().setPrefix(var2, var3.equals("") ? "" : var3 + " "));
+            this.callFor(var1x, () -> NametagEdit.getApi().setPrefix(var2, var3.equals("") ? "" : var3 + " "));
          }));
       }
    }
@@ -97,7 +98,7 @@ public class NametagEditHook implements Listener {
       if (this.isEnabled()) {
          var1.getGroup().getUsers().forEach(var1x -> Optional.ofNullable(Bukkit.getPlayer(var1x.getUuid())).ifPresent(var2 -> {
             String var3 = this.color(new SuffixPlaceholder().get(var1x, this.thisServer));
-            this.callSafely(() -> NametagEdit.getApi().setSuffix(var2, var3.equals("") ? "" : " " + var3));
+            this.callFor(var1x, () -> NametagEdit.getApi().setSuffix(var2, var3.equals("") ? "" : " " + var3));
          }));
       }
    }
@@ -111,7 +112,7 @@ public class NametagEditHook implements Listener {
                if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
-               this.callSafely(() -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
+               this.callFor((User)var2.get(), () -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
             }, 5L);
          }
       }
@@ -126,10 +127,21 @@ public class NametagEditHook implements Listener {
                if (!this.isEnabled()) return;
                String var2x = this.color(new PrefixPlaceholder().get((User)var2.get(), this.thisServer));
                String var3 = this.color(new SuffixPlaceholder().get((User)var2.get(), this.thisServer));
-               this.callSafely(() -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
+               this.callFor((User)var2.get(), () -> NametagEdit.getApi().setNametag(((User)var2.get()).getName(), var2x.equals("") ? "" : var2x + " ", var3.equals("") ? "" : " " + var3));
             }, 5L);
          }
       }
+   }
+
+   private void callFor(User user, Runnable action) {
+      if (!this.plugin.isFolia()) {
+         this.callSafely(action);
+         return;
+      }
+      Player player = Bukkit.getPlayer(user.getUuid());
+      if (player != null) this.plugin.runForIfNeeded(player, () -> {
+         if (player.isOnline()) this.callSafely(action);
+      });
    }
 
    private void callSafely(Runnable action) {

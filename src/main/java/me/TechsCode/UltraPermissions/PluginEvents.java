@@ -37,7 +37,7 @@ public class PluginEvents implements Listener {
       this.plugin = var1;
       this.permissionLogger = var2;
       this.permissibleHashMap = new ConcurrentHashMap<>();
-      Bukkit.getOnlinePlayers().forEach(player -> var1.getSpigotScheduler().runForIfNeeded(player, () -> this.login(player)));
+      Bukkit.getOnlinePlayers().forEach(player -> var1.runForIfNeeded(player, () -> this.login(player)));
       Bukkit.getPluginManager().registerEvents(this, (Plugin)var1.getBootstrap());
       // Initial check also runs without any admin online; never block startup on HTTP.
       this.plugin.getScheduler().runTaskLater(() -> Updater.checkForUpdates(this.plugin), 40L);

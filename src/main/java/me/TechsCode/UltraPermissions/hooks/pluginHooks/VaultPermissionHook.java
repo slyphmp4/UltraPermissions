@@ -63,13 +63,13 @@ public class VaultPermissionHook extends Permission {
       }
 
       final String var4 = var1;
+      OfflinePlayer profile = Bukkit.getOfflinePlayer(var2);
       PermissionLookup var5 = new PermissionLookup(var3) {
          @Override
          public LookupCheck[] getChecks() {
-            OfflinePlayer var1x = Bukkit.getOfflinePlayer(var2);
             return new LookupCheck[]{
-               var1x != null ? new OperatorLookupCheck(VaultPermissionHook.this.plugin, var1x) : new BlankCheck(),
-               VaultPermissionHook.this.plugin.isDefaultPermissionsEnabled() && var1x != null ? new DefaultPermissionCheck(var1x) : new BlankCheck(),
+               profile != null ? new OperatorLookupCheck(VaultPermissionHook.this.plugin, profile) : new BlankCheck(),
+               VaultPermissionHook.this.plugin.isDefaultPermissionsEnabled() && profile != null ? new DefaultPermissionCheck(profile) : new BlankCheck(),
                new DefinedPermissionCheck() {
                   @Override
                   public List<me.TechsCode.UltraPermissions.storage.objects.Permission> getDefinedPermissions() {
@@ -112,7 +112,7 @@ public class VaultPermissionHook extends Permission {
             };
          }
       };
-      return var5.perform().getResult();
+      return this.plugin.readRegionalModel(() -> var5.perform().getResult());
    }
 
    public boolean playerHas(String var1, OfflinePlayer var2, String var3) {
@@ -174,7 +174,7 @@ public class VaultPermissionHook extends Permission {
             }};
          }
       };
-      return lookup.perform().getResult();
+      return this.plugin.readRegionalModel(() -> lookup.perform().getResult());
    }
 
    public boolean groupHas(World world, String groupName, String permission) {

@@ -74,7 +74,7 @@ public class RestartView extends GUI {
    @EventHandler
    public void update(UpdateEvent var1) {
       if (var1.getUpdateTime() == UpdateTime.TICK && this.restarting) {
-         this.plugin.getSpigotScheduler().runForIfNeeded(this.p, this::advanceRestart);
+         this.plugin.runForIfNeeded(this.p, this::advanceRestart);
       }
    }
 

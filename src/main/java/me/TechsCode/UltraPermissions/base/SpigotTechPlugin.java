@@ -20,6 +20,7 @@ import me.TechsCode.UltraPermissions.base.update.Updater;
 import me.TechsCode.UltraPermissions.base.update.networkUpdate.SpigotUpdateAgent;
 import me.TechsCode.UltraPermissions.dependencies.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -103,6 +104,16 @@ public abstract class SpigotTechPlugin extends TechPlugin<JavaPlugin> {
 
    public boolean isFolia() {
       return this.scheduler != null && this.scheduler.isFolia();
+   }
+
+   public final void runFor(Entity entity, Runnable action) {
+      if (this.isFolia()) this.scheduler.runFor(entity, action);
+      else this.getScheduler().run(action);
+   }
+
+   public final void runForIfNeeded(Entity entity, Runnable action) {
+      if (this.isFolia()) this.scheduler.runForIfNeeded(entity, action);
+      else action.run();
    }
 
    public final <T> T readRegionalModel(Supplier<T> action) {

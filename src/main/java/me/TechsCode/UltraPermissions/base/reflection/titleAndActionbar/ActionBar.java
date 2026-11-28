@@ -8,8 +8,6 @@ import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitRunnable;
 
 public class ActionBar {
    private static SpigotTechPlugin plugin;
@@ -33,6 +31,10 @@ public class ActionBar {
    }
 
    public void sendActionBarNoColorReplacement(Player var1, String var2) {
+      if (plugin.isFolia() && !plugin.getSpigotScheduler().owns(var1)) {
+         plugin.getSpigotScheduler().runFor(var1, () -> this.sendActionBarNoColorReplacement(var1, var2));
+         return;
+      }
       try {
          var1.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(var2));
       } catch (NoSuchMethodError var21) {
@@ -92,20 +94,12 @@ public class ActionBar {
    public void sendActionBar(final Player var1, final String var2, int var3) {
       this.sendActionBar(var1, var2);
       if (var3 >= 0) {
-         (new BukkitRunnable() {
-            public void run() {
-               ActionBar.this.sendActionBar(var1, "");
-            }
-         }).runTaskLater((Plugin)plugin.getBootstrap(), var3 + 1);
+         plugin.getSpigotScheduler().runForLater(var1, () -> this.sendActionBar(var1, ""), var3 + 1L);
       }
 
       while (var3 > 40) {
          var3 -= 40;
-         (new BukkitRunnable() {
-            public void run() {
-               ActionBar.this.sendActionBar(var1, var2);
-            }
-         }).runTaskLater((Plugin)plugin.getBootstrap(), var3);
+         plugin.getSpigotScheduler().runForLater(var1, () -> this.sendActionBar(var1, var2), var3);
       }
    }
 
